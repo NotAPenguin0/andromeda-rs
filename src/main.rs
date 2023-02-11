@@ -3,16 +3,14 @@
 
 mod driver;
 mod gfx;
+mod gui;
 mod repaint;
 mod event;
 mod safe_error;
 
 use tokio;
-use tokio::sync::mpsc;
 
 use anyhow::Result;
-use futures::executor::block_on;
-use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 use crate::driver::{Driver, process_event};
 use safe_error::SafeUnwrap;
@@ -25,8 +23,8 @@ extern crate derivative;
 
 fn main() -> Result<!> {
     std::env::set_var("RUST_LOG", "debug");
-
     pretty_env_logger::init_timed();
+
     // Initialize tokio runtime
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -36,10 +34,10 @@ fn main() -> Result<!> {
     // Create window
     let (event_loop, window) = Driver::create_window()?;
     // Create application driver
-    let mut driver = Driver::init(window)?;
+    let mut driver = Driver::init(&event_loop, window)?;
 
     // Run the app driver on the event loop
-    event_loop.run(move |event, target, control_flow| {
+    event_loop.run(move |event, _, control_flow| {
         if let ControlFlow::ExitWithCode(_) = *control_flow { return; }
         let result = process_event(&mut driver, event);
         match result {

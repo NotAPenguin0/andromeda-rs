@@ -1,16 +1,16 @@
+use std::ops::Deref;
 use tiny_tokio_actor::*;
 use anyhow::Result;
 
 use futures::executor::block_on;
 
 use phobos as ph;
-use phobos::{IncompleteCmdBuffer, vk, WindowSize};
-use winit::event::WindowEvent;
+use phobos::{IncompleteCmdBuffer, vk};
+use winit::event::{VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
-use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
 
-use crate::{event, gfx, repaint};
+use crate::{event, gfx, gui, repaint};
 use crate::repaint::RepaintListener;
 
 /// Main application driver. Hosts the event loop.
@@ -23,6 +23,8 @@ pub struct Driver<'f> {
     debug_messenger: Option<ph::DebugMessenger>,
     frame: ph::FrameManager<'f>,
     surface: ph::Surface,
+    renderer: gfx::WorldRenderer,
+    ui: gui::UIIntegration,
     pub gfx: gfx::SharedContext,
     instance: ph::VkInstance,
     repaint: ActorRef<event::Event, RepaintListener>,
@@ -39,7 +41,7 @@ impl<'f> Driver<'f> {
     }
 
     // TODO: Cleanup, this maybe should not take ownership of the window
-    pub fn init(window: Window) -> Result<Driver<'f>> {
+    pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver<'f>> {
         let settings = ph::AppBuilder::new()
             .version((0, 0, 1))
             .name("Andromeda".to_owned())
@@ -87,21 +89,32 @@ impl<'f> Driver<'f> {
         let system = ActorSystem::new("Main task system", bus);
         let repaint = block_on(system.create_actor("repaint_listener", RepaintListener::default()))?;
 
+        let gfx = gfx::SharedContext {
+            device,
+            allocator: gfx::ThreadSafeAllocator::new(alloc),
+            exec,
+            pipelines,
+            descriptors,
+        };
+
+        let ui = {
+            let queue = gfx.exec.get_queue::<ph::domain::Graphics>().unwrap();
+            gui::UIIntegration::new(
+                event_loop, &window, gfx.device.clone(), gfx.allocator.clone(), queue.deref(), unsafe { frame.get_swapchain() }
+            )?
+        };
+
         Ok(Driver {
             system,
             window,
             instance,
             surface,
             debug_messenger,
-            gfx: gfx::SharedContext {
-                device,
-                allocator: alloc.clone(),
-                exec,
-                pipelines,
-                descriptors,
-            },
+            gfx: gfx.clone(),
+            ui,
             frame,
             repaint,
+            renderer: gfx::WorldRenderer::new(gfx)?
         })
     }
 
@@ -117,6 +130,17 @@ impl<'f> Driver<'f> {
     pub async fn process_frame(&mut self) -> Result<()> {
         let status = self.update_repaint_status().await?;
         self.frame.new_frame(self.gfx.exec.clone(), &self.window, &self.surface,  |mut ifc|  {
+            // UI integration start of frame
+            self.ui.new_frame(&self.window);
+
+            egui::Window::new("Editor")
+                .resizable(true)
+                .movable(true)
+                .interactable(true)
+                .show(&self.ui.context(), |ui| {
+
+                });
+
             // If we have a repaint, ask the graphics system for a redraw
             // In the future, we could even make this fully asynchronous and keep refreshing the UI while
             // we redraw, though this is only necessary if our frame time budget gets seriously
@@ -126,14 +150,27 @@ impl<'f> Driver<'f> {
                 repaint::RepaintStatus::UIOnly => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
                 repaint::RepaintStatus::All => {
                     info!("Repainting world.");
-                    gfx::redraw_world()?
+                    self.renderer.redraw_world()?
                 }
             };
 
-            // Add a present pass to the graph.
+
             let swapchain = ph::VirtualResource::image("swapchain".to_owned());
-            let present_pass = ph::PassBuilder::present("present".to_owned(), swapchain);
+
+            // Record UI commands
+            let graph = graph.add_pass(ph::PassBuilder::render("ui".to_owned())
+                .color_attachment(swapchain.clone(), vk::AttachmentLoadOp::CLEAR, Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}))?
+                .execute(|cmd, ifc, _| {
+                    self.ui.render(&self.window, unsafe { cmd.handle() }, ifc.swapchain_image_index.unwrap());
+                    Ok(cmd)
+                })
+                .build()
+            )?;
+
+            // Add a present pass to the graph.
+            let present_pass = ph::PassBuilder::present("present".to_owned(), swapchain.upgrade());
             let mut graph = graph.add_pass(present_pass)?.build()?;
+
             // Bind the swapchain resource.
             bindings.bind_image("swapchain".to_owned(), ifc.swapchain_image.clone().unwrap());
             // Record this frame.
@@ -149,7 +186,7 @@ impl<'f> Driver<'f> {
     }
 }
 
-pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<(ControlFlow)> {
+pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<ControlFlow> {
     use winit::event::Event;
     match event {
         Event::WindowEvent { event, window_id} => {
@@ -168,7 +205,15 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::HoveredFileCancelled => {}
                 WindowEvent::ReceivedCharacter(_) => {}
                 WindowEvent::Focused(_) => {}
-                WindowEvent::KeyboardInput { .. } => {}
+                WindowEvent::KeyboardInput { input, .. } => {
+                    // Register a key callback for repainting the scene.
+                    // Note that we will abstract away input processing later
+                    if let Some(keycode) = input.virtual_keycode {
+                        if keycode == VirtualKeyCode::Return {
+                            driver.repaint.tell(repaint::RepaintAll)?;
+                        }
+                    }
+                }
                 WindowEvent::ModifiersChanged(_) => {}
                 WindowEvent::Ime(_) => {}
                 WindowEvent::CursorMoved { .. } => {}

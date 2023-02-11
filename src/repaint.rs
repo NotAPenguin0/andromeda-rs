@@ -1,5 +1,5 @@
 use tiny_tokio_actor::*;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 
 use atomic_enum::atomic_enum;
 

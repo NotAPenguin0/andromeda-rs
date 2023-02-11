@@ -9,6 +9,8 @@ edition = "2021"
 anyhow = "1.0.69"
 atomic_enum = "0.2.0"
 derivative = "2.2.0"
+egui = "0.21.0"
+egui-winit-ash-integration = { git = "https://github.com/NotAPenguin0/egui-winit-ash-integration" }
 futures = "0.3.26"
 log = { version = "0.4.17", features = ["std"] }
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs" }

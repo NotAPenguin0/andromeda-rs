@@ -7,7 +7,7 @@ use anyhow::Result;
 use phobos as ph;
 use phobos::vk;
 
-use paired_image_view::PairedImageView;
+pub use paired_image_view::PairedImageView;
 pub use alloc_wrapper::ThreadSafeAllocator;
 
 /// All shared graphics objects, these are safely refcounted using Arc and Arc<Mutex> where necessary, so cloning this struct is acceptable.

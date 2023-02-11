@@ -5,7 +5,7 @@ use anyhow::Result;
 use futures::executor::block_on;
 
 use phobos as ph;
-use phobos::{IncompleteCmdBuffer, vk};
+use phobos::{GraphicsCmdBuffer, IncompleteCmdBuffer, vk};
 use winit::event::{VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
@@ -23,6 +23,7 @@ pub struct Driver<'f> {
     debug_messenger: Option<ph::DebugMessenger>,
     frame: ph::FrameManager<'f>,
     surface: ph::Surface,
+    blit_sampler: ph::Sampler,
     renderer: gfx::WorldRenderer,
     ui: gui::UIIntegration,
     pub gfx: gfx::SharedContext,
@@ -100,7 +101,7 @@ impl<'f> Driver<'f> {
         let ui = {
             let queue = gfx.exec.get_queue::<ph::domain::Graphics>().unwrap();
             gui::UIIntegration::new(
-                event_loop, &window, gfx.device.clone(), gfx.allocator.clone(), queue.deref(), unsafe { frame.get_swapchain() }
+                event_loop, &window, gfx.clone(),queue.deref(), unsafe { frame.get_swapchain() }
             )?
         };
 
@@ -114,7 +115,8 @@ impl<'f> Driver<'f> {
             ui,
             frame,
             repaint,
-            renderer: gfx::WorldRenderer::new(gfx)?
+            renderer: gfx::WorldRenderer::new(gfx.clone())?,
+            blit_sampler: ph::Sampler::default(gfx.device.clone())?
         })
     }
 
@@ -164,7 +166,7 @@ impl<'f> Driver<'f> {
 
             let swapchain = ph::VirtualResource::image("swapchain".to_owned());
             // Record UI commands
-            let graph = self.ui.render(&self.window, swapchain.clone(), graph)?;
+            let graph = self.ui.render(&self.window, self.gfx.clone(), swapchain.clone(), graph)?;
             // Add a present pass to the graph.
             let present_pass = ph::PassBuilder::present("present".to_owned(), swapchain.upgrade());
             let mut graph = graph.add_pass(present_pass)?.build()?;

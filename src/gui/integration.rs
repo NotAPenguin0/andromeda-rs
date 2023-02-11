@@ -1,5 +1,10 @@
 use std::ffi::c_void;
+use std::fs;
+use std::fs::File;
+use std::io::Read;
 use std::mem::ManuallyDrop;
+use std::ops::Deref;
+use std::path::Path;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -12,7 +17,7 @@ use winit::event_loop::EventLoop;
 use winit::window::Window;
 
 use phobos as ph;
-use phobos::WindowSize;
+use phobos::{GraphicsCmdBuffer, WindowSize};
 use phobos::vk;
 use phobos::vk::MemoryRequirements;
 
@@ -80,17 +85,17 @@ pub struct UIIntegration {
     integration: ManuallyDrop<Integration<gfx::ThreadSafeAllocator>>,
 }
 
-
 impl UIIntegration {
     pub fn new(event_loop: &EventLoop<()>,
                window: &Window,
-               device: Arc<ph::Device>,
-               allocator: gfx::ThreadSafeAllocator,
+               ctx: gfx::SharedContext,
                gfx_queue: &ph::Queue,
                swapchain: &ph::Swapchain) -> Result<Self> {
         let mut style = egui::Style::default();
         style.visuals.window_shadow = egui::epaint::Shadow::NONE;
         style.visuals.popup_shadow = egui::epaint::Shadow::NONE;
+
+
         Ok(Self {
             integration: ManuallyDrop::new(Integration::new(
                 event_loop,
@@ -99,8 +104,8 @@ impl UIIntegration {
                 window.scale_factor(),
                 egui::FontDefinitions::default(),
                 style,
-                unsafe { device.ash_device() },
-                allocator.clone(),
+                unsafe { ctx.device.ash_device() },
+                ctx.allocator.clone(),
                 gfx_queue.info.family_index,
                 gfx_queue.handle(),
                 unsafe { swapchain.loader() },
@@ -114,9 +119,16 @@ impl UIIntegration {
         self.integration.begin_frame(window);
     }
 
-    pub fn render<'w: 's, 's: 'e + 'q, 'e, 'q>(&'s mut self, window: &'w Window, swapchain: ph::VirtualResource, graph: ph::PassGraph<'e, 'q, ph::domain::All>) -> Result<ph::PassGraph<'e, 'q, ph::domain::All>> {
+    pub fn render<'w: 's, 's: 'e + 'q, 'e, 'q>(
+        &'s mut self,
+        window: &'w Window,
+        ctx: gfx::SharedContext,
+        swapchain: ph::VirtualResource,
+        graph: ph::PassGraph<'e, 'q, ph::domain::All>)
+        -> Result<ph::PassGraph<'e, 'q, ph::domain::All>> {
+
         graph.add_pass(ph::PassBuilder::render("ui".to_owned())
-            .color_attachment(swapchain, vk::AttachmentLoadOp::CLEAR, Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}))?
+            .color_attachment(swapchain.clone(), vk::AttachmentLoadOp::CLEAR, Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}))?
             .execute(|cmd, ifc, _| {
                 let output = self.integration.end_frame(window);
                 let clipped_meshes = self.integration.context().tessellate(output.shapes);

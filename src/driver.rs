@@ -1,7 +1,6 @@
 use tiny_tokio_actor::*;
 use anyhow::Result;
 
-use derivative::Derivative;
 use futures::executor::block_on;
 
 use phobos as ph;
@@ -151,18 +150,47 @@ impl<'f> Driver<'f> {
 }
 
 pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<(ControlFlow)> {
+    use winit::event::Event;
     match event {
-        winit::event::Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            window_id
-        } if window_id == driver.window.id() => {
-            driver.gfx.device.wait_idle().unwrap();
-            return Ok(ControlFlow::Exit);
+        Event::WindowEvent { event, window_id} => {
+            match event {
+                WindowEvent::Resized(_) => {}
+                WindowEvent::Moved(_) => {}
+                WindowEvent::CloseRequested => {
+                    if window_id == driver.window.id() {
+                        driver.gfx.device.wait_idle()?;
+                        return Ok(ControlFlow::Exit);
+                    }
+                }
+                WindowEvent::Destroyed => {}
+                WindowEvent::DroppedFile(_) => {}
+                WindowEvent::HoveredFile(_) => {}
+                WindowEvent::HoveredFileCancelled => {}
+                WindowEvent::ReceivedCharacter(_) => {}
+                WindowEvent::Focused(_) => {}
+                WindowEvent::KeyboardInput { .. } => {}
+                WindowEvent::ModifiersChanged(_) => {}
+                WindowEvent::Ime(_) => {}
+                WindowEvent::CursorMoved { .. } => {}
+                WindowEvent::CursorEntered { .. } => {}
+                WindowEvent::CursorLeft { .. } => {}
+                WindowEvent::MouseWheel { .. } => {}
+                WindowEvent::MouseInput { .. } => {}
+                WindowEvent::TouchpadMagnify { .. } => {}
+                WindowEvent::SmartMagnify { .. } => {}
+                WindowEvent::TouchpadRotate { .. } => {}
+                WindowEvent::TouchpadPressure { .. } => {}
+                WindowEvent::AxisMotion { .. } => {}
+                WindowEvent::Touch(_) => {}
+                WindowEvent::ScaleFactorChanged { .. } => {}
+                WindowEvent::ThemeChanged(_) => {}
+                WindowEvent::Occluded(_) => {}
+            }
         },
-        winit::event::Event::MainEventsCleared => {
+        Event::MainEventsCleared => {
             driver.window.request_redraw();
         }
-        winit::event::Event::RedrawRequested(_) => { // TODO: Multi-window
+        Event::RedrawRequested(_) => { // TODO: Multi-window
             block_on(driver.process_frame())?
         }
         _ => (),

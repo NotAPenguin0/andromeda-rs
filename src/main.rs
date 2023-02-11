@@ -20,6 +20,8 @@ use safe_error::SafeUnwrap;
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
 
+#[macro_use]
+extern crate derivative;
 
 fn main() -> Result<!> {
     std::env::set_var("RUST_LOG", "debug");

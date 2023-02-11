@@ -34,7 +34,7 @@ impl<'f> Driver<'f> {
     pub fn create_window() -> Result<(EventLoop<()>, Window)> {
         let event_loop = EventLoopBuilder::new().build();
         let window = WindowBuilder::new()
-            .with_title("Phobos test app")
+            .with_title("Andromeda")
             .with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0))
             .build(&event_loop)?;
         Ok((event_loop, window))
@@ -133,13 +133,21 @@ impl<'f> Driver<'f> {
             // UI integration start of frame
             self.ui.new_frame(&self.window);
 
-            egui::Window::new("Editor")
-                .resizable(true)
-                .movable(true)
-                .interactable(true)
-                .show(&self.ui.context(), |ui| {
+            egui::CentralPanel::default().show(&self.ui.context(), |ui| {
+                ui.heading("Editor");
 
-                });
+                egui::Window::new("Widget")
+                    .interactable(true)
+                    .movable(true)
+                    .resizable(true)
+                    .default_size((100.0, 100.0))
+                    .show(&self.ui.context(), |ui| {
+                        if ui.button("Do not press me").clicked() {
+                            warn!("Told you");
+                        }
+                        ui.allocate_space(ui.available_size());
+                    });
+            });
 
             // If we have a repaint, ask the graphics system for a redraw
             // In the future, we could even make this fully asynchronous and keep refreshing the UI while
@@ -154,19 +162,9 @@ impl<'f> Driver<'f> {
                 }
             };
 
-
             let swapchain = ph::VirtualResource::image("swapchain".to_owned());
-
             // Record UI commands
-            let graph = graph.add_pass(ph::PassBuilder::render("ui".to_owned())
-                .color_attachment(swapchain.clone(), vk::AttachmentLoadOp::CLEAR, Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}))?
-                .execute(|cmd, ifc, _| {
-                    self.ui.render(&self.window, unsafe { cmd.handle() }, ifc.swapchain_image_index.unwrap());
-                    Ok(cmd)
-                })
-                .build()
-            )?;
-
+            let graph = self.ui.render(&self.window, swapchain.clone(), graph)?;
             // Add a present pass to the graph.
             let present_pass = ph::PassBuilder::present("present".to_owned(), swapchain.upgrade());
             let mut graph = graph.add_pass(present_pass)?.build()?;
@@ -190,6 +188,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
     use winit::event::Event;
     match event {
         Event::WindowEvent { event, window_id} => {
+            driver.ui.process_event(&event);
             match event {
                 WindowEvent::Resized(_) => {}
                 WindowEvent::Moved(_) => {}

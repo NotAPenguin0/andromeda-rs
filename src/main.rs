@@ -13,7 +13,7 @@ use anyhow::Result;
 use futures::executor::block_on;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
-use crate::driver::Driver;
+use crate::driver::{Driver, process_event};
 
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
@@ -21,37 +21,20 @@ extern crate pretty_env_logger;
 
 fn main() -> Result<!> {
     pretty_env_logger::init_timed();
-
+    // Initialize tokio runtime
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let _guard = runtime.enter();
 
+    // Create window
     let (event_loop, window) = Driver::create_window()?;
+    // Create application driver
     let mut driver = Driver::init(window)?;
 
-    // TODO: move this somewhere
+    // Run the app driver on the event loop
     event_loop.run(move |event, target, control_flow| {
         if let ControlFlow::ExitWithCode(_) = *control_flow { return; }
-        control_flow.set_wait();
-
-        match event {
-            winit::event::Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id
-            } if window_id == driver.window.id() => {
-                // Control flow is already set in main event handler
-                control_flow.set_exit();
-                driver.gfx.device.wait_idle().unwrap();
-            },
-            winit::event::Event::MainEventsCleared => {
-                driver.window.request_redraw();
-            }
-            winit::event::Event::RedrawRequested(_) => { // TODO: Multi-window
-                // TODO: Handle error gracefully instead of unwrapping
-                block_on(driver.process_frame()).unwrap()
-            }
-            _ => (),
-        };
+        *control_flow = process_event(&mut driver, event).unwrap();
     });
 }

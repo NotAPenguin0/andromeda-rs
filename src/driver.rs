@@ -149,3 +149,24 @@ impl<'f> Driver<'f> {
         Ok(())
     }
 }
+
+pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<(ControlFlow)> {
+    match event {
+        winit::event::Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            window_id
+        } if window_id == driver.window.id() => {
+            driver.gfx.device.wait_idle().unwrap();
+            return Ok(ControlFlow::Exit);
+        },
+        winit::event::Event::MainEventsCleared => {
+            driver.window.request_redraw();
+        }
+        winit::event::Event::RedrawRequested(_) => { // TODO: Multi-window
+            block_on(driver.process_frame())?
+        }
+        _ => (),
+    };
+
+    Ok(ControlFlow::Wait)
+}

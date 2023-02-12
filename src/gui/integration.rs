@@ -127,7 +127,7 @@ impl UIIntegration {
         graph: ph::PassGraph<'e, 'q, ph::domain::All>)
         -> Result<ph::PassGraph<'e, 'q, ph::domain::All>> {
 
-        graph.add_pass(ph::PassBuilder::render("ui".to_owned())
+        graph.add_pass(ph::PassBuilder::render("ui")
             .color_attachment(swapchain.clone(), vk::AttachmentLoadOp::CLEAR, Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}))?
             .execute(|cmd, ifc, _| {
                 let output = self.integration.end_frame(window);

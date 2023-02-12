@@ -164,15 +164,15 @@ impl<'f> Driver<'f> {
                 }
             };
 
-            let swapchain = ph::VirtualResource::image("swapchain".to_owned());
+            let swapchain = ph::VirtualResource::image("swapchain");
             // Record UI commands
             let graph = self.ui.render(&self.window, self.gfx.clone(), swapchain.clone(), graph)?;
             // Add a present pass to the graph.
-            let present_pass = ph::PassBuilder::present("present".to_owned(), swapchain.upgrade());
+            let present_pass = ph::PassBuilder::present("present", swapchain.upgrade());
             let mut graph = graph.add_pass(present_pass)?.build()?;
 
             // Bind the swapchain resource.
-            bindings.bind_image("swapchain".to_owned(), ifc.swapchain_image.clone().unwrap());
+            bindings.bind_image("swapchain", ifc.swapchain_image.clone().unwrap());
             // Record this frame.
             let cmd = self.gfx.exec.on_domain::<ph::domain::All>()?;
             let cmd = ph::record_graph(&mut graph, &bindings, &mut ifc, cmd, self.debug_messenger.as_ref())?;

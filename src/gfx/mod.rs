@@ -49,16 +49,16 @@ impl WorldRenderer {
     pub fn redraw_world<'e, 'q>(&mut self) -> Result<(ph::PassGraph<'e, 'q, ph::domain::All>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
 
-        let final_output = ph::VirtualResource::image("output".to_owned());
+        let final_output = ph::VirtualResource::image("output");
         // TODO: Enforce render() for color attachments for correct behaviour (error on call)
-        let output_pass = ph::PassBuilder::render("final_output".to_owned())
+        let output_pass = ph::PassBuilder::render("final_output")
             .color_attachment(
                 final_output.clone(),
                 vk::AttachmentLoadOp::CLEAR,
                 Some(vk::ClearColorValue { float32: [1.0, 0.0, 0.0, 1.0]}))?
             .build();
 
-        bindings.bind_image("output".to_owned(), self.output.view.clone());
+        bindings.bind_image("output", self.output.view.clone());
         let graph = ph::PassGraph::new()
             .add_pass(output_pass)?;
 

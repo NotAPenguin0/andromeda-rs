@@ -50,7 +50,6 @@ impl WorldRenderer {
         let mut bindings = ph::PhysicalResourceBindings::new();
 
         let final_output = ph::VirtualResource::image("output");
-        // TODO: Enforce render() for color attachments for correct behaviour (error on call)
         let output_pass = ph::PassBuilder::render("final_output")
             .color_attachment(
                 final_output.clone(),

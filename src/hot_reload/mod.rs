@@ -1,5 +1,8 @@
 mod file_watcher;
 
+pub mod dynamic_pipeline_builder;
+pub use dynamic_pipeline_builder::*;
+
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 

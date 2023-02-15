@@ -12,7 +12,7 @@ use tiny_tokio_actor::ActorRef;
 pub use paired_image_view::PairedImageView;
 pub use alloc_wrapper::ThreadSafeAllocator;
 use crate::event::Event;
-use crate::hot_reload::{AddShader, ShaderReloadActor};
+use crate::hot_reload::{AddShader, DynamicPipelineBuilder, IntoDynamic, ShaderReloadActor};
 
 /// All shared graphics objects, these are safely refcounted using Arc and Arc<Mutex> where necessary, so cloning this struct is acceptable.
 #[derive(Debug, Clone)]
@@ -38,25 +38,14 @@ pub struct WorldRenderer {
 // TODO: move world renderer to different module and re-export it
 impl WorldRenderer {
     pub fn new(hot_reload: ActorRef<Event, ShaderReloadActor>, ctx: SharedContext) -> Result<Self> {
-        // Note how we don't add any shaders to this!
-        let pci = ph::PipelineBuilder::new("solid_color")
+        ph::PipelineBuilder::new("solid_color")
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
             .blend_attachment_none()
             .cull_mask(vk::CullModeFlags::NONE)
-            .build();
-        ctx.pipelines.lock().unwrap().create_named_pipeline(pci)?;
-        block_on(async {
-            hot_reload.ask(AddShader{
-                path: "shaders/src/fullscreen.vert.glsl".into(),
-                stage: vk::ShaderStageFlags::VERTEX,
-                pipeline: "solid_color".to_string(),
-            }).await?;
-            hot_reload.ask(AddShader {
-                path: "shaders/src/solid_color.frag.glsl".into(),
-                stage: vk::ShaderStageFlags::FRAGMENT,
-                pipeline: "solid_color".to_string(),
-            }).await
-        })?;
+            .into_dynamic()
+            .attach_shader("shaders/src/fullscreen.vert.glsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/solid_color.frag.glsl", vk::ShaderStageFlags::FRAGMENT)
+            .build(hot_reload, ctx.pipelines.clone())?;
 
         Ok(Self {
             output: PairedImageView::new(

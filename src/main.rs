@@ -1,5 +1,6 @@
 #![feature(async_closure)]
 #![feature(never_type)]
+#![feature(fn_traits)]
 
 mod driver;
 mod gfx;
@@ -7,6 +8,7 @@ mod gui;
 mod repaint;
 mod event;
 mod safe_error;
+mod hot_reload;
 
 use tokio;
 

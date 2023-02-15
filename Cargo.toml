@@ -13,9 +13,11 @@ egui = "0.21.0"
 egui-winit-ash-integration = { git = "https://github.com/NotAPenguin0/egui-winit-ash-integration" }
 futures = "0.3.26"
 log = { version = "0.4.17", features = ["std"] }
+notify = "5.1.0"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs" }
 pretty_env_logger = "0.4.0"
 raw-window-handle = "0.5.0"
+shaderc = "0.8.2"
 tiny-tokio-actor = "0.3.3"
 tokio = { version = "1.25.0", features = ["full"] }
 winit = "0.28.1"

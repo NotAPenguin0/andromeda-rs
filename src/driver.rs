@@ -10,7 +10,8 @@ use winit::event::{VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
-use crate::{event, gfx, gui, repaint};
+use crate::{event, gfx, gui, hot_reload, repaint};
+use crate::hot_reload::ShaderReloadActor;
 use crate::repaint::RepaintListener;
 
 /// Main application driver. Hosts the event loop.
@@ -26,9 +27,10 @@ pub struct Driver<'f> {
     blit_sampler: ph::Sampler,
     renderer: gfx::WorldRenderer,
     ui: gui::UIIntegration,
+    repaint: ActorRef<event::Event, RepaintListener>,
+    shader_reload: ActorRef<event::Event, ShaderReloadActor>,
     pub gfx: gfx::SharedContext,
     instance: ph::VkInstance,
-    repaint: ActorRef<event::Event, RepaintListener>,
 }
 
 impl<'f> Driver<'f> {
@@ -89,6 +91,13 @@ impl<'f> Driver<'f> {
         let bus = EventBus::new(100);
         let system = ActorSystem::new("Main task system", bus);
         let repaint = block_on(system.create_actor("repaint_listener", RepaintListener::default()))?;
+        let shader_hot_reload = block_on(ShaderReloadActor::new(
+            pipelines.clone(),
+            repaint.clone(), &system,
+            "shader_hot_reload",
+            "shaders/src/",
+            true
+        ))?;
 
         let gfx = gfx::SharedContext {
             device,
@@ -115,7 +124,8 @@ impl<'f> Driver<'f> {
             ui,
             frame,
             repaint,
-            renderer: gfx::WorldRenderer::new(gfx.clone())?,
+            renderer: gfx::WorldRenderer::new(shader_hot_reload.clone(), gfx.clone())?,
+            shader_reload: shader_hot_reload,
             blit_sampler: ph::Sampler::default(gfx.device.clone())?
         })
     }
@@ -135,21 +145,7 @@ impl<'f> Driver<'f> {
             // UI integration start of frame
             self.ui.new_frame(&self.window);
 
-            egui::CentralPanel::default().show(&self.ui.context(), |ui| {
-                ui.heading("Editor");
-
-                egui::Window::new("Widget")
-                    .interactable(true)
-                    .movable(true)
-                    .resizable(true)
-                    .default_size((100.0, 100.0))
-                    .show(&self.ui.context(), |ui| {
-                        if ui.button("Do not press me").clicked() {
-                            warn!("Told you");
-                        }
-                        ui.allocate_space(ui.available_size());
-                    });
-            });
+            gui::build_ui(&self.ui.context());
 
             // If we have a repaint, ask the graphics system for a redraw
             // In the future, we could even make this fully asynchronous and keep refreshing the UI while
@@ -183,6 +179,15 @@ impl<'f> Driver<'f> {
         self.gfx.pipelines.lock().unwrap().next_frame(); // TODO: figure out how to properly implement '?' for this
         self.gfx.descriptors.lock().unwrap().next_frame();
         Ok(())
+    }
+}
+
+impl Drop for Driver<'_> {
+    fn drop(&mut self) {
+        block_on( async {
+            self.system.stop_actor(self.shader_reload.path()).await;
+            self.system.stop_actor(self.repaint.path()).await;
+        });
     }
 }
 

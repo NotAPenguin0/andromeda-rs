@@ -22,6 +22,7 @@ use phobos::vk;
 use phobos::vk::MemoryRequirements;
 
 use crate::gfx;
+use crate::gui::{Image, USize};
 
 pub struct Allocation(ph::vk_alloc::Allocation);
 pub struct AllocationCreateInfo(ph::vk_alloc::AllocationCreateDesc<'static>);
@@ -149,8 +150,16 @@ impl UIIntegration {
         let _ = self.integration.handle_event(event);
     }
 
-    pub fn register_texture(&mut self, image: &ph::ImageView) -> egui::TextureId {
-        self.integration.register_user_texture(image.handle, self.sampler.handle)
+    pub fn register_texture(&mut self, image: &ph::ImageView) -> Image {
+        let id = self.integration.register_user_texture(image.handle, self.sampler.handle);
+        Image {
+            id,
+            size: USize::new(image.size.width, image.size.height),
+        }
+    }
+
+    pub fn unregister_texture(&mut self, image: Image) {
+        self.integration.unregister_user_texture(image.id);
     }
 }
 

@@ -6,11 +6,14 @@ use futures::executor::block_on;
 
 use phobos as ph;
 use phobos::{GraphicsCmdBuffer, IncompleteCmdBuffer, vk};
+use tokio::join;
+use tokio::runtime::Handle;
 use winit::event::{VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
 use crate::{event, gfx, gui, hot_reload, repaint};
+use crate::gui::TargetResizeActor;
 use crate::hot_reload::ShaderReloadActor;
 use crate::repaint::RepaintListener;
 
@@ -27,11 +30,12 @@ pub struct Driver<'f> {
     blit_sampler: ph::Sampler,
     renderer: gfx::WorldRenderer,
     ui: gui::UIIntegration,
-    scene_texture_id: egui::TextureId,
+    scene_texture: ActorRef<event::Event, gui::TargetResizeActor>,
     repaint: ActorRef<event::Event, RepaintListener>,
     shader_reload: ActorRef<event::Event, ShaderReloadActor>,
     pub gfx: gfx::SharedContext,
     instance: ph::VkInstance,
+    to_unregister: Vec<(gui::Image, u32)>,
 }
 
 impl<'f> Driver<'f> {
@@ -117,7 +121,7 @@ impl<'f> Driver<'f> {
 
         let renderer = gfx::WorldRenderer::new(shader_hot_reload.clone(), gfx.clone())?;
         // Register the output image with the UI integration
-        let scene_texture_id = ui.register_texture(&renderer.output_image().view);
+        let scene_texture = block_on(system.create_actor("target_resize", TargetResizeActor::default()))?;
         // Initially paint the scene
         repaint.tell(repaint::RepaintAll)?;
 
@@ -134,7 +138,8 @@ impl<'f> Driver<'f> {
             renderer,
             shader_reload: shader_hot_reload,
             blit_sampler: ph::Sampler::default(gfx.device.clone())?,
-            scene_texture_id,
+            scene_texture,
+            to_unregister: vec![],
         })
     }
 
@@ -153,7 +158,36 @@ impl<'f> Driver<'f> {
             // UI integration start of frame
             self.ui.new_frame(&self.window);
 
-            gui::build_ui(&self.ui.context(), self.scene_texture_id);
+            // TODO: ui.delayed_unregister()
+            self.to_unregister.iter_mut().for_each(|(image, ttl)| {
+                *ttl = *ttl - 1;
+                if *ttl == 0 {
+                    self.ui.unregister_texture(*image);
+                }
+            });
+            self.to_unregister.retain(|(_, ttl)| *ttl != 0);
+
+            gui::build_ui(&self.ui.context(), self.scene_texture.clone());
+            Handle::current().block_on(async {
+                // Query current render target size from system
+                let size = self.scene_texture.ask(gui::QuerySceneTextureSize).await?;
+                // If there was a resize request
+                if let Some(size) = size {
+                    // Grab old image and unregister it
+                    let old = self.scene_texture.ask(gui::QueryCurrentSceneTexture).await?;
+                    if let Some(old) = old {
+                        // TODO: ui.delayed_unregister() to clean this up
+                        self.to_unregister.push((old, 4));
+                    }
+                    // Request a repaint
+                    self.repaint.tell(repaint::RepaintAll)?;
+                    // Grab a new image
+                    let image = self.renderer.resize_target(size, &mut self.ui)?;
+                    // Send it to the resize handler
+                    self.scene_texture.ask(gui::SetNewTexture{0: image}).await?;
+                }
+                Ok::<(), anyhow::Error>(())
+            })?;
 
             let scene_output = self.renderer.output_image().view.clone();
 
@@ -165,7 +199,6 @@ impl<'f> Driver<'f> {
                 repaint::RepaintStatus::None => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
                 repaint::RepaintStatus::UIOnly => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
                 repaint::RepaintStatus::All => {
-                    info!("Repainting world.");
                     self.renderer.redraw_world()?
                 }
             };

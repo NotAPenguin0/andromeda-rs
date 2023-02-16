@@ -11,7 +11,9 @@ use tiny_tokio_actor::ActorRef;
 
 pub use paired_image_view::PairedImageView;
 pub use alloc_wrapper::ThreadSafeAllocator;
+
 use crate::event::Event;
+use crate::{gfx, gui};
 use crate::hot_reload::{AddShader, DynamicPipelineBuilder, IntoDynamic, ShaderReloadActor};
 
 /// All shared graphics objects, these are safely refcounted using Arc and Arc<Mutex> where necessary, so cloning this struct is acceptable.
@@ -28,6 +30,7 @@ pub struct SharedContext {
 pub struct WorldRenderer {
     ctx: SharedContext,
     output: PairedImageView,
+    deferred_target_delete: ph::DeletionQueue<PairedImageView>,
 }
 
 // TODO: resize event bus?
@@ -48,16 +51,33 @@ impl WorldRenderer {
             .build(hot_reload, ctx.pipelines.clone())?;
 
         Ok(Self {
-            output: PairedImageView::new(
-                ph::Image::new(ctx.device.clone(), (*ctx.allocator).clone(), 1920, 1080, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, vk::Format::R8G8B8A8_SRGB)?,
-                vk::ImageAspectFlags::COLOR
-            )?,
-            ctx
+            output: Self::allocate_color_target(1920, 1080, ctx.clone())?,
+            ctx,
+            deferred_target_delete: ph::DeletionQueue::new(4),
         })
+    }
+
+    fn allocate_color_target(width: u32, height: u32, ctx: SharedContext) -> Result<PairedImageView> {
+        PairedImageView::new(
+            ph::Image::new(ctx.device, (*ctx.allocator).clone(), width, height, vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED, vk::Format::R8G8B8A8_SRGB)?,
+            vk::ImageAspectFlags::COLOR
+        )
     }
 
     pub fn output_image(&self) -> &PairedImageView {
         &self.output
+    }
+
+    pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
+        let mut new_target = Self::allocate_color_target(size.x(), size.y(), self.ctx.clone())?;
+        std::mem::swap(&mut new_target, &mut self.output);
+
+        self.deferred_target_delete.push(new_target);
+        Ok(ui.register_texture(&self.output.view))
+    }
+
+    pub fn next_frame(&mut self) {
+        self.deferred_target_delete.next_frame();
     }
 
     /// Conventions for output graph:
@@ -77,12 +97,12 @@ impl WorldRenderer {
                       .viewport(vk::Viewport{
                         x: 0.0,
                         y: 0.0,
-                        width: 1920.0,
-                        height: 1080.0,
+                        width: self.output.view.size.width as f32,
+                        height: self.output.view.size.height as f32,
                         min_depth: 0.0,
                         max_depth: 0.0,
                     })
-                    .scissor(vk::Rect2D { offset: Default::default(), extent: vk::Extent2D { width: 1920, height: 1080 } })
+                    .scissor(vk::Rect2D { offset: Default::default(), extent: vk::Extent2D { width: self.output.view.size.width, height: self.output.view.size.height } })
                     .draw(6, 1, 0, 0))
             })
             .build();

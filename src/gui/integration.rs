@@ -83,6 +83,7 @@ impl AllocatorTrait for gfx::ThreadSafeAllocator {
 pub struct UIIntegration {
     #[derivative(Debug="ignore")]
     integration: ManuallyDrop<Integration<gfx::ThreadSafeAllocator>>,
+    sampler: ph::Sampler,
 }
 
 impl UIIntegration {
@@ -97,6 +98,7 @@ impl UIIntegration {
 
 
         Ok(Self {
+            sampler: ph::Sampler::default(ctx.device.clone())?,
             integration: ManuallyDrop::new(Integration::new(
                 event_loop,
                 window.width(),
@@ -122,13 +124,13 @@ impl UIIntegration {
     pub fn render<'w: 's, 's: 'e + 'q, 'e, 'q>(
         &'s mut self,
         window: &'w Window,
-        ctx: gfx::SharedContext,
         swapchain: ph::VirtualResource,
         graph: ph::PassGraph<'e, 'q, ph::domain::All>)
         -> Result<ph::PassGraph<'e, 'q, ph::domain::All>> {
 
         graph.add_pass(ph::PassBuilder::render("ui")
             .color_attachment(swapchain.clone(), vk::AttachmentLoadOp::CLEAR, Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}))?
+            .sample_image(ph::VirtualResource::image("output"), ph::PipelineStage::FRAGMENT_SHADER)
             .execute(|cmd, ifc, _| {
                 let output = self.integration.end_frame(window);
                 let clipped_meshes = self.integration.context().tessellate(output.shapes);
@@ -145,6 +147,10 @@ impl UIIntegration {
 
     pub fn process_event(&mut self, event: &WindowEvent) {
         let _ = self.integration.handle_event(event);
+    }
+
+    pub fn register_texture(&mut self, image: &ph::ImageView) -> egui::TextureId {
+        self.integration.register_user_texture(image.handle, self.sampler.handle)
     }
 }
 

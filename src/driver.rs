@@ -27,6 +27,7 @@ pub struct Driver<'f> {
     blit_sampler: ph::Sampler,
     renderer: gfx::WorldRenderer,
     ui: gui::UIIntegration,
+    scene_texture_id: egui::TextureId,
     repaint: ActorRef<event::Event, RepaintListener>,
     shader_reload: ActorRef<event::Event, ShaderReloadActor>,
     pub gfx: gfx::SharedContext,
@@ -107,12 +108,18 @@ impl<'f> Driver<'f> {
             descriptors,
         };
 
-        let ui = {
+        let mut ui = {
             let queue = gfx.exec.get_queue::<ph::domain::Graphics>().unwrap();
             gui::UIIntegration::new(
                 event_loop, &window, gfx.clone(),queue.deref(), unsafe { frame.get_swapchain() }
             )?
         };
+
+        let renderer = gfx::WorldRenderer::new(shader_hot_reload.clone(), gfx.clone())?;
+        // Register the output image with the UI integration
+        let scene_texture_id = ui.register_texture(&renderer.output_image().view);
+        // Initially paint the scene
+        repaint.tell(repaint::RepaintAll)?;
 
         Ok(Driver {
             system,
@@ -124,9 +131,10 @@ impl<'f> Driver<'f> {
             ui,
             frame,
             repaint,
-            renderer: gfx::WorldRenderer::new(shader_hot_reload.clone(), gfx.clone())?,
+            renderer,
             shader_reload: shader_hot_reload,
-            blit_sampler: ph::Sampler::default(gfx.device.clone())?
+            blit_sampler: ph::Sampler::default(gfx.device.clone())?,
+            scene_texture_id,
         })
     }
 
@@ -145,7 +153,9 @@ impl<'f> Driver<'f> {
             // UI integration start of frame
             self.ui.new_frame(&self.window);
 
-            gui::build_ui(&self.ui.context());
+            gui::build_ui(&self.ui.context(), self.scene_texture_id);
+
+            let scene_output = self.renderer.output_image().view.clone();
 
             // If we have a repaint, ask the graphics system for a redraw
             // In the future, we could even make this fully asynchronous and keep refreshing the UI while
@@ -162,13 +172,15 @@ impl<'f> Driver<'f> {
 
             let swapchain = ph::VirtualResource::image("swapchain");
             // Record UI commands
-            let graph = self.ui.render(&self.window, self.gfx.clone(), swapchain.clone(), graph)?;
+            let graph = self.ui.render(&self.window, swapchain.clone(), graph)?;
             // Add a present pass to the graph.
             let present_pass = ph::PassBuilder::present("present", swapchain.upgrade());
             let mut graph = graph.add_pass(present_pass)?.build()?;
 
             // Bind the swapchain resource.
             bindings.bind_image("swapchain", ifc.swapchain_image.clone().unwrap());
+            // Bind the output image resource
+            bindings.bind_image("output", scene_output);
             // Record this frame.
             let cmd = self.gfx.exec.on_domain::<ph::domain::All>()?;
             let cmd = ph::record_graph(&mut graph, &bindings, &mut ifc, cmd, self.debug_messenger.as_ref())?;

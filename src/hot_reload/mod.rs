@@ -166,6 +166,7 @@ impl ShaderReloadActor {
             pci.shaders.retain(|shader| shader.stage != stage);
             let binary = result.as_binary().to_vec();
             pci.shaders.push(ph::ShaderCreateInfo::from_spirv(stage, binary));
+            // This fixes a validation layer message, but I have no idea why
             pci.build_inner();
             // Register as new pipeline, this will update the PCI
             pipelines.create_named_pipeline(pci)?;

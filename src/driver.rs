@@ -157,6 +157,7 @@ impl<'f> Driver<'f> {
         self.frame.new_frame(self.gfx.exec.clone(), &self.window, &self.surface,  |mut ifc|  {
             // UI integration start of frame
             self.ui.new_frame(&self.window);
+            self.renderer.new_frame();
 
             // TODO: ui.delayed_unregister()
             self.to_unregister.iter_mut().for_each(|(image, ttl)| {

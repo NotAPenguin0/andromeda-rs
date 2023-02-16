@@ -69,6 +69,7 @@ impl WorldRenderer {
     }
 
     pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
+        info!("Resizing render targets. New size: {:?}", size);
         let mut new_target = Self::allocate_color_target(size.x(), size.y(), self.ctx.clone())?;
         std::mem::swap(&mut new_target, &mut self.output);
 
@@ -76,7 +77,7 @@ impl WorldRenderer {
         Ok(ui.register_texture(&self.output.view))
     }
 
-    pub fn next_frame(&mut self) {
+    pub fn new_frame(&mut self) {
         self.deferred_target_delete.next_frame();
     }
 

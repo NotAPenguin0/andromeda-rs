@@ -1,12 +1,6 @@
 use std::ffi::c_void;
-use std::fs;
-use std::fs::File;
-use std::io::Read;
 use std::mem::ManuallyDrop;
-use std::ops::Deref;
-use std::path::Path;
 use std::ptr::NonNull;
-use std::sync::Arc;
 
 use anyhow::Result;
 
@@ -17,7 +11,7 @@ use winit::event_loop::EventLoop;
 use winit::window::Window;
 
 use phobos as ph;
-use phobos::{GraphicsCmdBuffer, WindowSize};
+use phobos::WindowSize;
 use phobos::vk;
 use phobos::vk::MemoryRequirements;
 
@@ -85,6 +79,8 @@ pub struct UIIntegration {
     #[derivative(Debug="ignore")]
     integration: ManuallyDrop<Integration<gfx::ThreadSafeAllocator>>,
     sampler: ph::Sampler,
+    // Deletion queue, but needs access to self so we cant put it in an actual deletion queue.
+    to_unregister: Vec<(Image, u32)>,
 }
 
 impl UIIntegration {
@@ -115,11 +111,19 @@ impl UIIntegration {
                 unsafe { swapchain.handle() },
                 swapchain.format
             )),
+            to_unregister: vec![],
         })
     }
 
     pub fn new_frame(&mut self, window: &Window) {
         self.integration.begin_frame(window);
+        self.to_unregister.iter_mut().for_each(|(image, ttl)| {
+            *ttl = *ttl - 1;
+            if *ttl == 0 {
+                self.integration.unregister_user_texture(image.id);
+            }
+        });
+        self.to_unregister.retain(|(_, ttl)| *ttl != 0);
     }
 
     pub fn render<'w: 's, 's: 'e + 'q, 'e, 'q>(
@@ -159,7 +163,7 @@ impl UIIntegration {
     }
 
     pub fn unregister_texture(&mut self, image: Image) {
-        self.integration.unregister_user_texture(image.id);
+        self.to_unregister.push((image, 4));
     }
 }
 

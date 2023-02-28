@@ -18,7 +18,7 @@ use tiny_tokio_actor::*;
 use tokio::task::JoinHandle;
 
 use anyhow::Result;
-use notify::event::ModifyKind;
+
 use notify::EventKind;
 
 use crate::repaint;

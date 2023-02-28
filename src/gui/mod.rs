@@ -2,7 +2,6 @@ pub mod integration;
 pub mod image;
 pub mod size;
 
-use futures::executor::block_on;
 pub use integration::UIIntegration;
 pub use size::*;
 pub use image::Image;
@@ -10,7 +9,7 @@ pub use image::Image;
 use tiny_tokio_actor::{Actor, ActorContext, ActorRef, async_trait, Handler, Message, SystemEvent};
 use tokio::runtime::Handle;
 
-use crate::{event, gfx};
+use crate::event;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ResizeSceneTexture(USize);

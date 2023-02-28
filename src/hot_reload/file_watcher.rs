@@ -3,10 +3,8 @@ use std::fs;
 use std::path::Path;
 use futures::channel::mpsc::{channel, Receiver};
 use anyhow::Result;
-use futures::{SinkExt, StreamExt, TryFutureExt};
+use futures::{SinkExt, StreamExt};
 use notify::Watcher;
-
-use crate::safe_error::SafeUnwrap;
 
 pub fn create_async_watcher() -> Result<(notify::RecommendedWatcher, Receiver<Result<notify::Event>>)> {
     let (mut tx, rx) = channel(1);
@@ -32,7 +30,7 @@ pub async fn async_watch<P, F>(path: P, recursive: bool, callback: F) -> Result<
     info!("Starting file watcher for path {:?}, recursive = {:?}", path, recursive);
     let path = match fs::canonicalize(path.as_ref()) {
         Ok(path) => { path }
-        Err(err) => { error!("Invalid path {:?}", path); panic!() }
+        Err(_) => { error!("Invalid path {:?}", path); panic!() }
     };
 
     watcher.watch(path.as_ref(), if recursive { notify::RecursiveMode::Recursive } else { notify::RecursiveMode::NonRecursive })?;

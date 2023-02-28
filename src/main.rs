@@ -2,20 +2,19 @@
 #![feature(never_type)]
 #![feature(fn_traits)]
 
-mod driver;
 mod gfx;
 mod gui;
-mod repaint;
-mod event;
-mod safe_error;
+mod app;
+mod core;
 mod hot_reload;
 
 use tokio;
 
 use anyhow::Result;
 use winit::event_loop::ControlFlow;
-use crate::driver::{Driver, process_event};
-use safe_error::SafeUnwrap;
+
+use crate::core::*;
+use crate::app::*;
 
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
@@ -46,5 +45,5 @@ fn main() -> Result<!> {
             Ok(flow) => { *control_flow = flow }
             Err(e) => { Err(e).safe_unwrap() }
         }
-    });
+    })
 }

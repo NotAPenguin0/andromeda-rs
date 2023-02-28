@@ -1,22 +1,17 @@
 use std::ops::Deref;
-use tiny_tokio_actor::*;
 use anyhow::Result;
 
 use futures::executor::block_on;
 
 use phobos as ph;
-use phobos::{IncompleteCmdBuffer, vk};
 use tokio::runtime::Handle;
 use winit::event::{VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
-use crate::{event, gfx, gui, repaint};
+use crate::{gfx, gui, repaint};
 use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
-use crate::gui::TargetResizeActor;
-use crate::hot_reload::ShaderReloadActor;
-use crate::repaint::RepaintListener;
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]

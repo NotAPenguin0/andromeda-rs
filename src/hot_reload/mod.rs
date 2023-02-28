@@ -13,7 +13,6 @@ use std::fmt::Debug;
 use std::{env, fs};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-use std::process::ExitStatus;
 use tokio::process::Command;
 use std::sync::{Arc, Mutex};
 
@@ -28,7 +27,6 @@ use crate::repaint;
 use crate::event::Event;
 use crate::safe_error::SafeUnwrap;
 
-use shaderc;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 

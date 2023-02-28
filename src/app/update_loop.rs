@@ -5,7 +5,7 @@ use phobos::IncompleteCmdBuffer;
 use winit::window::Window;
 
 use crate::{gfx, gui};
-use crate::app::{repaint, RootActorSystem};
+use crate::app::{repaint};
 
 #[derive(Debug)]
 pub struct UpdateLoop {

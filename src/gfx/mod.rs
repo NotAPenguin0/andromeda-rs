@@ -122,8 +122,8 @@ impl WorldRenderer {
             .blend_attachment_none()
             .cull_mask(vk::CullModeFlags::NONE)
             .into_dynamic()
-            .attach_shader("shaders/src/fullscreen.vert.glsl", vk::ShaderStageFlags::VERTEX)
-            .attach_shader("shaders/src/solid_color.frag.glsl", vk::ShaderStageFlags::FRAGMENT)
+            .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(hot_reload, ctx.pipelines.clone())?;
 
         Ok(Self {

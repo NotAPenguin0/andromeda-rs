@@ -1,0 +1,3 @@
+# Linker times are getting out of hand ...
+[build]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]

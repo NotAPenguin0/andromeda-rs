@@ -75,16 +75,27 @@ impl<'f> Driver<'f> {
 
             gui::build_ui(&self.ui.context(), self.actors.scene_texture.clone());
 
-            Handle::current().block_on(self.update.update(
-                ifc,
-                &mut self.ui,
-                &self.window,
-                &mut self.renderer,
-                &mut self.actors,
-                self.gfx.shared.clone(),
-                self.gfx.debug_messenger.as_ref())
-            )
+            Handle::current().block_on(async {
+                self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
+                let scene_output = self.renderer.output_image().view.clone();
 
+                // If we have a repaint, ask the graphics system for a redraw
+                // In the future, we could even make this fully asynchronous and keep refreshing the UI while
+                // we redraw, though this is only necessary if our frame time budget gets seriously
+                // exceeded.
+                let status = self.actors.update_repaint_status().await?;
+
+                self.update.update(
+                    ifc,
+                    &mut self.ui,
+                    &self.window,
+                    scene_output,
+                    &mut self.renderer,
+                    status,
+                    self.gfx.shared.clone(),
+                    self.gfx.debug_messenger.as_ref()).await
+                }
+            )
         }).await?;
 
         self.gfx.next_frame();

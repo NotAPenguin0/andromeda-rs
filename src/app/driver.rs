@@ -49,7 +49,7 @@ impl<'f> Driver<'f> {
         let gfx = gfx::Context::new(&window)?;
         let actors = block_on(RootActorSystem::new(&gfx.shared))?;
         let ui = Self::create_gui_integration(event_loop, &window, &gfx)?;
-        let renderer = gfx::WorldRenderer::new(actors.shader_reload.clone(), gfx.shared.clone())?;
+        let renderer = gfx::WorldRenderer::new(&actors, gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
         Ok(Driver {

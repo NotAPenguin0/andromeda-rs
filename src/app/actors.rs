@@ -4,9 +4,10 @@ use futures::executor::block_on;
 
 use crate::app::{repaint, RepaintAll, RepaintListener};
 use crate::core::Event;
-use crate::{gfx, gui};
+use crate::{gfx, gui, state};
 use crate::gui::TargetResizeActor;
 use crate::hot_reload::ShaderReloadActor;
+use crate::state::Camera;
 
 
 /// Stores the actor system and actor refs to each 'root' actor.
@@ -18,6 +19,7 @@ pub struct RootActorSystem {
     pub scene_texture: ActorRef<Event, TargetResizeActor>,
     pub repaint: ActorRef<Event, RepaintListener>,
     pub shader_reload: ActorRef<Event, ShaderReloadActor>,
+    pub camera: ActorRef<Event, state::Camera>,
 }
 
 impl RootActorSystem {
@@ -39,11 +41,14 @@ impl RootActorSystem {
         // Initially paint the scene
         repaint.ask(RepaintAll).await?;
 
+        let camera = system.create_actor("camera_state", Camera::default()).await?;
+
         Ok(Self {
             system,
             scene_texture,
             repaint,
             shader_reload,
+            camera
         })
     }
 
@@ -83,6 +88,7 @@ impl Drop for RootActorSystem {
             self.system.stop_actor(self.shader_reload.path()).await;
             self.system.stop_actor(self.repaint.path()).await;
             self.system.stop_actor(self.scene_texture.path()).await;
+            self.system.stop_actor(self.camera.path()).await;
         });
     }
 }

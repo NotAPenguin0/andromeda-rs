@@ -13,7 +13,7 @@ pub struct UpdateLoop {
 }
 
 impl UpdateLoop {
-    pub fn new(gfx: &gfx::Context) -> Result<Self> {
+    pub fn new(_gfx: &gfx::Context) -> Result<Self> {
         Ok(Self{
 
         })
@@ -35,7 +35,7 @@ impl UpdateLoop {
             repaint::RepaintStatus::None => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
             repaint::RepaintStatus::UIOnly => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
             repaint::RepaintStatus::All => {
-                renderer.redraw_world()?
+                renderer.redraw_world().await?
             }
         };
 

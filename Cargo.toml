@@ -12,6 +12,7 @@ derivative = "2.2.0"
 egui = "0.21.0"
 egui-winit-ash-integration = { git = "https://github.com/NotAPenguin0/egui-winit-ash-integration" }
 futures = "0.3.26"
+glam = "0.23.0"
 log = { version = "0.4.17", features = ["std"] }
 notify = "5.1.0"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl"] }

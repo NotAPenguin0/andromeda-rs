@@ -49,7 +49,7 @@ impl<E> Actor<E> for TargetResizeActor where E: SystemEvent {}
 
 #[async_trait]
 impl<E> Handler<E, ResizeSceneTexture> for TargetResizeActor where E: SystemEvent {
-    async fn handle(&mut self, msg: ResizeSceneTexture, ctx: &mut ActorContext<E>) -> Option<Image> {
+    async fn handle(&mut self, msg: ResizeSceneTexture, _ctx: &mut ActorContext<E>) -> Option<Image> {
         if let Some(cur) = &self.current_image {
             if cur.size != msg.0 {
                 self.new_size = Some(msg.0);
@@ -64,21 +64,21 @@ impl<E> Handler<E, ResizeSceneTexture> for TargetResizeActor where E: SystemEven
 
 #[async_trait]
 impl<E> Handler<E, QuerySceneTextureSize> for TargetResizeActor where E: SystemEvent {
-    async fn handle(&mut self, msg: QuerySceneTextureSize, ctx: &mut ActorContext<E>) -> Option<USize> {
+    async fn handle(&mut self, _msg: QuerySceneTextureSize, _ctx: &mut ActorContext<E>) -> Option<USize> {
         self.new_size
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, QueryCurrentSceneTexture> for TargetResizeActor where E: SystemEvent {
-    async fn handle(&mut self, msg: QueryCurrentSceneTexture, ctx: &mut ActorContext<E>) -> Option<Image> {
+    async fn handle(&mut self, _msg: QueryCurrentSceneTexture, _ctx: &mut ActorContext<E>) -> Option<Image> {
         self.current_image
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, SetNewTexture> for TargetResizeActor where E: SystemEvent {
-    async fn handle(&mut self, msg: SetNewTexture, ctx: &mut ActorContext<E>) -> () {
+    async fn handle(&mut self, msg: SetNewTexture, _ctx: &mut ActorContext<E>) -> () {
         self.current_image = Some(msg.0);
         self.new_size = None;
     }

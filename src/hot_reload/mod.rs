@@ -11,7 +11,7 @@ use phobos::vk;
 
 use std::fmt::Debug;
 use std::{env, fs};
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use std::sync::{Arc, Mutex};
@@ -85,20 +85,20 @@ impl Message for AddShader {
 
 #[async_trait]
 impl<E> Handler<E, SetJoinHandle> for ShaderReloadActor where E: SystemEvent {
-    async fn handle(&mut self, msg: SetJoinHandle, ctx: &mut ActorContext<E>) -> () {
+    async fn handle(&mut self, msg: SetJoinHandle, _ctx: &mut ActorContext<E>) -> () {
         self.watch_task = Some(msg.0);
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, FileEventMessage> for ShaderReloadActor where E: SystemEvent {
-    async fn handle(&mut self, msg: FileEventMessage, ctx: &mut ActorContext<E>) -> () {
+    async fn handle(&mut self, msg: FileEventMessage, _ctx: &mut ActorContext<E>) -> () {
         match msg.0 {
             notify::Event { kind, paths, .. } => {
                 match kind {
                     EventKind::Modify(_) => {
                         for path in paths {
-                            if path.extension().unwrap() != OsString::from("spv") {
+                            if path.extension().unwrap_or(OsStr::new("")) == OsString::from("hlsl") {
                                 self.reload_file(path).await.safe_unwrap();
                             }
                         }
@@ -112,7 +112,7 @@ impl<E> Handler<E, FileEventMessage> for ShaderReloadActor where E: SystemEvent 
 
 #[async_trait]
 impl<E> Handler<E, AddShader> for ShaderReloadActor where E: SystemEvent {
-    async fn handle(&mut self, msg: AddShader, ctx: &mut ActorContext<E>) -> () {
+    async fn handle(&mut self, msg: AddShader, _ctx: &mut ActorContext<E>) -> () {
         info!("Pipeline {:?} added to watch for shader {:?}", msg.pipeline, msg.path);
         let entry = self.shaders.entry(fs::canonicalize(msg.path.clone()).unwrap());
         match entry {

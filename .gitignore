@@ -2,3 +2,4 @@
 Cargo.lock
 /.idea
 shaders/src/out/*
+/shaders/src/.vs/

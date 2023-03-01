@@ -7,6 +7,7 @@ mod gui;
 mod app;
 mod core;
 mod hot_reload;
+mod state;
 
 use tokio;
 

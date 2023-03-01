@@ -68,7 +68,7 @@ impl<'f> Driver<'f> {
             self.ui.new_frame(&self.window);
             self.renderer.new_frame();
 
-            gui::build_ui(&self.ui.context(), self.actors.scene_texture.clone());
+            gui::build_ui(&self.ui.context(), &self.actors);
 
             Handle::current().block_on(async {
                 self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;

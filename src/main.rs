@@ -8,6 +8,7 @@ mod app;
 mod core;
 mod hot_reload;
 mod state;
+mod math;
 
 use tokio;
 

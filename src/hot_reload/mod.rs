@@ -57,30 +57,18 @@ impl<E> Actor<E> for ShaderReloadActor where E: SystemEvent {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Message)]
 struct SetJoinHandle(Arc<JoinHandle<Result<()>>>);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 struct FileEventMessage(notify::Event);
 
 /// Send this message to the shader reload actor to register a shader to a graphics pipeline.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct AddShader {
     pub path: PathBuf,
     pub stage: vk::ShaderStageFlags,
     pub pipeline: String,
-}
-
-impl Message for SetJoinHandle {
-    type Response = ();
-}
-
-impl Message for FileEventMessage {
-    type Response = ();
-}
-
-impl Message for AddShader {
-    type Response = ();
 }
 
 #[async_trait]

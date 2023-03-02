@@ -5,19 +5,11 @@ use atomic_enum::atomic_enum;
 
 use crate::event::Event;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Message)]
 pub struct RepaintAll;
 
-impl Message for RepaintAll {
-    type Response = ();
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Message)]
 pub struct RepaintUI;
-
-impl Message for RepaintUI {
-    type Response = ();
-}
 
 #[atomic_enum]
 #[derive(Default, PartialEq, Eq)]
@@ -28,22 +20,16 @@ pub enum RepaintStatus {
     None,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Message)]
+#[response(RepaintStatus)]
 pub struct CheckRepaint;
 
-impl Message for CheckRepaint {
-    type Response = RepaintStatus;
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Message)]
 pub struct ResetRepaint;
-
-impl Message for ResetRepaint {
-    type Response = ();
-}
 
 /// Listens to repaint events from the rest of the application.
 /// This is reset once every frame, after which it will listen again.
+#[derive(Actor)]
 pub struct RepaintListener {
     pub repaint_requested: AtomicRepaintStatus,
 }
@@ -56,7 +42,6 @@ impl Default for RepaintListener {
     }
 }
 
-impl Actor<Event> for RepaintListener {}
 
 #[async_trait]
 impl Handler<Event, RepaintAll> for RepaintListener {

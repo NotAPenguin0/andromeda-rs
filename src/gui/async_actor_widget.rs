@@ -2,7 +2,7 @@ use tiny_tokio_actor::{Actor, ActorRef, Handler, Message, SystemEvent};
 
 use anyhow::Result;
 
-pub async fn actor_edit<T, Query, Set, R, A, E>(
+pub async fn actor_edit<T, Query, Set, A, E>(
     ui: &mut egui::Ui,
     actor: ActorRef<E, A>,
     add_contents: impl FnOnce(&mut egui::Ui, &mut T) -> bool)

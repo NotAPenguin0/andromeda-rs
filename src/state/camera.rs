@@ -1,8 +1,8 @@
 use glam::{Mat4, Vec3};
-use tiny_tokio_actor::{Actor, ActorContext, async_trait, Handler, Message, SystemEvent};
+use tiny_tokio_actor::{Actor, Message, ActorContext, async_trait, Handler, SystemEvent};
 use crate::math;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Actor)]
 pub struct Camera {
     position: math::Position,
     rotation: math::Rotation,
@@ -11,26 +11,29 @@ pub struct Camera {
 #[derive(Debug, Clone)]
 pub struct CameraMatrix(pub Mat4);
 
-impl<E> Actor<E> for Camera where E: SystemEvent {}
-
 /// Query camera matrix
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Message)]
+#[response(CameraMatrix)]
 pub struct QueryCameraMatrix;
-#[derive(Debug, Default, Clone)]
+
+#[derive(Debug, Default, Clone, Message)]
+#[response(math::Position)]
 pub struct QueryCameraPosition;
-#[derive(Debug, Default, Clone)]
+
+#[derive(Debug, Default, Clone, Message)]
+#[response(math::Rotation)]
 pub struct QueryCameraRotation;
 /// Reset camera position to new value
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct SetCameraPosition(pub math::Position);
 /// Reset camera rotation to new value
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct SetCameraRotation(pub math::Rotation);
 /// Add value to camera position
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct UpdateCameraPosition(pub math::Position);
 /// Add value to camera rotation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Message)]
 pub struct UpdateCameraRotation(pub math::Rotation);
 
 impl From<math::Position> for SetCameraPosition {
@@ -43,35 +46,6 @@ impl From<math::Rotation> for SetCameraRotation {
     fn from(value: math::Rotation) -> Self {
         Self(value)
     }
-}
-
-
-impl Message for QueryCameraMatrix {
-    type Response = CameraMatrix;
-}
-
-impl Message for QueryCameraPosition {
-    type Response = math::Position;
-}
-
-impl Message for QueryCameraRotation {
-    type Response = math::Rotation;
-}
-
-impl Message for SetCameraPosition {
-    type Response = ();
-}
-
-impl Message for SetCameraRotation {
-    type Response = ();
-}
-
-impl Message for UpdateCameraPosition {
-    type Response = ();
-}
-
-impl Message for UpdateCameraRotation {
-    type Response = ();
 }
 
 #[async_trait]

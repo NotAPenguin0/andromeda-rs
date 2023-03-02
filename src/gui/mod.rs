@@ -100,11 +100,11 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
             .resizable(true)
             .show(&context, |ui| {
                 Handle::current().block_on(async {
-                    let mut dirty = actor_edit::<math::Position, state::QueryCameraPosition, state::SetCameraPosition, bool, _, _>(ui, actors.camera.clone(), |ui, value| {
+                    let mut dirty = actor_edit::<math::Position, state::QueryCameraPosition, state::SetCameraPosition, _, _>(ui, actors.camera.clone(), |ui, value| {
                         drag3(ui, "Position", &mut value.0, 0.1).inner
                     }).await;
-                    dirty |= actor_edit::<math::Rotation, state::QueryCameraRotation, state::SetCameraRotation, bool, _, _>(ui, actors.camera.clone(), |ui, value| {
-                        drag3(ui, "Rotation", &mut value.0, 0.1).inner
+                    dirty |= actor_edit::<math::Rotation, state::QueryCameraRotation, state::SetCameraRotation, _, _>(ui, actors.camera.clone(), |ui, value| {
+                        drag3(ui, "Rotation", &mut value.0, 0.3).inner
                     }).await;
 
                     dirty

@@ -12,6 +12,7 @@ use winit::window::{Window, WindowBuilder};
 use crate::{gfx, gui, repaint};
 use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
+use crate::core::{InputEvent, MousePosition};
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -129,7 +130,9 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 }
                 WindowEvent::ModifiersChanged(_) => {}
                 WindowEvent::Ime(_) => {}
-                WindowEvent::CursorMoved { .. } => {}
+                WindowEvent::CursorMoved { device_id, position, .. } => {
+                    driver.actors.input.tell(InputEvent::MouseMove(MousePosition(position.x, position.y)))?;
+                }
                 WindowEvent::CursorEntered { .. } => {}
                 WindowEvent::CursorLeft { .. } => {}
                 WindowEvent::MouseWheel { .. } => {}

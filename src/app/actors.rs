@@ -1,13 +1,12 @@
-use tiny_tokio_actor::{ActorRef, ActorSystem, EventBus};
+use tiny_tokio_actor::{ActorRef, ActorSystem, async_trait, EventBus};
 use anyhow::Result;
 use futures::executor::block_on;
 
 use crate::app::{repaint, RepaintAll, RepaintListener};
-use crate::core::Event;
-use crate::{gfx, gui, state};
+use crate::core::{AddInputListener, Event, InputEvent, InputListener};
+use crate::{core, gfx, gui, state};
 use crate::gui::TargetResizeActor;
 use crate::hot_reload::ShaderReloadActor;
-use crate::state::Camera;
 
 
 /// Stores the actor system and actor refs to each 'root' actor.
@@ -20,6 +19,7 @@ pub struct RootActorSystem {
     pub repaint: ActorRef<Event, RepaintListener>,
     pub shader_reload: ActorRef<Event, ShaderReloadActor>,
     pub camera: ActorRef<Event, state::Camera>,
+    pub input: ActorRef<Event, core::Input>,
 }
 
 impl RootActorSystem {
@@ -41,14 +41,18 @@ impl RootActorSystem {
         // Initially paint the scene
         repaint.ask(RepaintAll).await?;
 
-        let camera = system.create_actor("camera_state", Camera::default()).await?;
+        let camera = system.create_actor("camera_state", state::Camera::default()).await?;
+        let input = system.create_actor("input", core::Input::default()).await?;
+
+        input.ask(AddInputListener(TestListener{})).await?;
 
         Ok(Self {
             system,
             scene_texture,
             repaint,
             shader_reload,
-            camera
+            camera,
+            input
         })
     }
 
@@ -89,6 +93,7 @@ impl Drop for RootActorSystem {
             self.system.stop_actor(self.repaint.path()).await;
             self.system.stop_actor(self.scene_texture.path()).await;
             self.system.stop_actor(self.camera.path()).await;
+            self.system.stop_actor(self.input.path()).await;
         });
     }
 }

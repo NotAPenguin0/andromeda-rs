@@ -11,3 +11,14 @@ pub fn drag3(ui: &mut egui::Ui, label: impl Into<egui::WidgetText>, value: &mut 
         dirty
     })
 }
+
+pub fn drag3_angle(ui: &mut egui::Ui, label: impl Into<egui::WidgetText>, value: &mut Vec3) -> egui::InnerResponse<bool> {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        let mut dirty = false;
+        dirty |= ui.drag_angle(&mut value.x).changed();
+        dirty |= ui.drag_angle(&mut value.y).changed();
+        dirty |= ui.drag_angle(&mut value.z).changed();
+        dirty
+    })
+}

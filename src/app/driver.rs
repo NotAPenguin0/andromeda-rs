@@ -5,14 +5,14 @@ use futures::executor::block_on;
 
 use phobos as ph;
 use tokio::runtime::Handle;
-use winit::event::{VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, ModifiersState, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
 use crate::{gfx, gui, repaint};
 use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
-use crate::core::{InputEvent, MousePosition};
+use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition};
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -99,6 +99,26 @@ impl<'f> Driver<'f> {
     }
 }
 
+impl From<winit::event::MouseButton> for MouseButton {
+    fn from(value: winit::event::MouseButton) -> Self {
+        match value {
+            winit::event::MouseButton::Left => { MouseButton::Left },
+            winit::event::MouseButton::Right => { MouseButton::Right },
+            winit::event::MouseButton::Middle => { MouseButton::Middle },
+            winit::event::MouseButton::Other(x) => { MouseButton::Other(x) },
+        }
+    }
+}
+
+impl From<ElementState> for ButtonState {
+    fn from(value: ElementState) -> Self {
+        match value {
+            ElementState::Pressed => { ButtonState::Pressed }
+            ElementState::Released => { ButtonState::Released }
+        }
+    }
+}
+
 pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<ControlFlow> {
     use winit::event::Event;
     match event {
@@ -128,15 +148,32 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                         }
                     }
                 }
-                WindowEvent::ModifiersChanged(_) => {}
+                WindowEvent::ModifiersChanged(state) => {
+                    if state.shift() {
+                        driver.actors.input.tell(InputEvent::Button(KeyState {
+                            state: ButtonState::Pressed,
+                            button: Key::Shift,
+                        }))?;
+                    } else {
+                        driver.actors.input.tell(InputEvent::Button(KeyState {
+                            state: ButtonState::Released,
+                            button: Key::Shift,
+                        }))?;
+                    }
+                }
                 WindowEvent::Ime(_) => {}
-                WindowEvent::CursorMoved { device_id, position, .. } => {
-                    driver.actors.input.tell(InputEvent::MouseMove(MousePosition(position.x, position.y)))?;
+                WindowEvent::CursorMoved { position, .. } => {
+                    driver.actors.input.tell(InputEvent::MouseMove(MousePosition { x: position.x, y: position.y }))?;
                 }
                 WindowEvent::CursorEntered { .. } => {}
                 WindowEvent::CursorLeft { .. } => {}
                 WindowEvent::MouseWheel { .. } => {}
-                WindowEvent::MouseInput { .. } => {}
+                WindowEvent::MouseInput { state, button, .. } => {
+                    driver.actors.input.tell(InputEvent::MouseButton(MouseButtonState {
+                        state: state.into(),
+                        button: button.into(),
+                    }))?;
+                }
                 WindowEvent::TouchpadMagnify { .. } => {}
                 WindowEvent::SmartMagnify { .. } => {}
                 WindowEvent::TouchpadRotate { .. } => {}

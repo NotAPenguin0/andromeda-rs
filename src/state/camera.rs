@@ -8,13 +8,25 @@ pub struct Camera {
     rotation: math::Rotation,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct CameraMatrix(pub Mat4);
+
+/// Base vectors for the camera's coordinate space.
+#[derive(Debug, Clone, Copy)]
+pub struct CameraVectors {
+    pub front: Vec3,
+    pub right: Vec3,
+    pub up: Vec3,
+}
 
 /// Query camera matrix
 #[derive(Debug, Default, Clone, Message)]
 #[response(CameraMatrix)]
 pub struct QueryCameraMatrix;
+
+#[derive(Debug, Default, Clone, Message)]
+#[response(CameraVectors)]
+pub struct QueryCameraVectors;
 
 #[derive(Debug, Default, Clone, Message)]
 #[response(math::Position)]
@@ -23,6 +35,7 @@ pub struct QueryCameraPosition;
 #[derive(Debug, Default, Clone, Message)]
 #[response(math::Rotation)]
 pub struct QueryCameraRotation;
+
 /// Reset camera position to new value
 #[derive(Debug, Clone, Message)]
 pub struct SetCameraPosition(pub math::Position);
@@ -48,20 +61,44 @@ impl From<math::Rotation> for SetCameraRotation {
     }
 }
 
+impl Camera {
+    fn front(&self) -> Vec3 {
+        let cos_pitch = self.rotation.0.x.cos();
+        let cos_yaw = self.rotation.0.y.cos();
+        let sin_pitch = self.rotation.0.x.sin();
+        let sin_yaw = self.rotation.0.y.sin();
+
+        Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize()
+    }
+
+    fn right(&self) -> Vec3 {
+        self.front().cross(Vec3::new(0.0, 1.0, 0.0)).normalize()
+    }
+
+    fn up(&self) -> Vec3 {
+        self.right().cross(self.front()).normalize()
+    }
+}
+
 #[async_trait]
 impl<E> Handler<E, QueryCameraMatrix> for Camera where E: SystemEvent {
     async fn handle(&mut self, _msg: QueryCameraMatrix, _ctx: &mut ActorContext<E>) -> CameraMatrix {
-        let cos_pitch = self.rotation.0.x.to_radians().cos();
-        let cos_yaw = self.rotation.0.y.to_radians().cos();
-        let sin_pitch = self.rotation.0.x.to_radians().sin();
-        let sin_yaw = self.rotation.0.y.to_radians().sin();
-
-        let front = Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize();
-        let right = front.cross(Vec3::new(0.0, 1.0, 0.0)).normalize();
-        let up = right.cross(front).normalize();
+        let front = self.front();
+        let up = self.up();
 
         CameraMatrix {
             0: Mat4::look_at_rh(self.position.0, self.position.0 + front, up)
+        }
+    }
+}
+
+#[async_trait]
+impl<E> Handler<E, QueryCameraVectors> for Camera where E: SystemEvent {
+    async fn handle(&mut self, _msg: QueryCameraVectors, _ctx: &mut ActorContext<E>) -> CameraVectors {
+        CameraVectors {
+            front: self.front(),
+            right: self.right(),
+            up: self.up()
         }
     }
 }

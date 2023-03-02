@@ -4,18 +4,21 @@ pub mod size;
 
 mod drag3;
 mod async_actor_widget;
+mod camera_controller;
 
-use egui::InnerResponse;
+use egui::{Color32, PointerButton, Pos2, Rect, Sense, Vec2};
 pub use integration::UIIntegration;
 pub use size::*;
 pub use image::Image;
+pub use camera_controller::CameraController;
 
 use tiny_tokio_actor::{Actor, ActorContext, async_trait, Handler, Message, SystemEvent};
 use tokio::runtime::Handle;
-use crate::app::{repaint, RootActorSystem};
+use crate::app::{repaint, RepaintAll, RootActorSystem};
 use crate::gui::async_actor_widget::actor_edit;
-use crate::gui::drag3::drag3;
+use crate::gui::drag3::{drag3, drag3_angle};
 use crate::{math, state};
+use crate::gui::camera_controller::DragWorld;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ResizeSceneTexture(USize);
@@ -104,7 +107,7 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
                         drag3(ui, "Position", &mut value.0, 0.1).inner
                     }).await;
                     dirty |= actor_edit::<math::Rotation, state::QueryCameraRotation, state::SetCameraRotation, _, _>(ui, actors.camera.clone(), |ui, value| {
-                        drag3(ui, "Rotation", &mut value.0, 0.3).inner
+                        drag3_angle(ui, "Rotation", &mut value.0).inner
                     }).await;
 
                     dirty
@@ -124,16 +127,35 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
         }
 
         egui::Window::new("World view")
-            .interactable(true)
-            .movable(true)
             .resizable(true)
             .default_size((800.0, 600.0))
+            .movable(true)
             .show(&context, |ui| {
+                let cursor = ui.cursor();
                 let remaining_size = ui.available_size();
+                let (response, painter) = ui.allocate_painter(remaining_size, Sense::drag());
                 // Send resize event to the scene texture actor, as a result we get the texture back
-                let image = Handle::current().block_on(actors.scene_texture.ask(ResizeSceneTexture(USize::new(remaining_size.x as u32, remaining_size.y as u32)))).unwrap();
+                let image = Handle::current().block_on(actors.scene_texture.ask(
+                    ResizeSceneTexture(USize::new(
+                        remaining_size.x as u32,
+                        remaining_size.y as u32))))
+                    .unwrap();
                 if let Some(image) = image {
-                    ui.image(image.id, image.size);
+                    painter.image(
+                        image.id,
+                        Rect::from_min_size(cursor.min, remaining_size),
+                        Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
+                        Color32::WHITE
+                    );
+                }
+
+                // Handle drag events and send them to the camera controller
+                if response.dragged() {
+                    actors.camera_controller.tell(DragWorld {
+                        x: response.drag_delta().x,
+                        y: response.drag_delta().y,
+                    }).unwrap();
+                    actors.repaint.tell(RepaintAll).unwrap();
                 }
         });
     });

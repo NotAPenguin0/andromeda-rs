@@ -33,7 +33,7 @@ impl CameraController {
     }
 
     async fn handle_rotate(&self, drag: DragWorld) {
-        let delta = Vec3::new(drag.y, drag.x, 0.0);
+        let delta = Vec3::new(-drag.y, drag.x, 0.0);
         const SPEED: f32 = 0.02;
         self.camera.tell(UpdateCameraRotation(Rotation(delta * SPEED))).unwrap();
     }

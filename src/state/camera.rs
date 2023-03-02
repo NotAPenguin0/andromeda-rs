@@ -78,6 +78,12 @@ impl Camera {
     fn up(&self) -> Vec3 {
         self.right().cross(self.front()).normalize()
     }
+
+    fn clamp_rotation(rot: math::Rotation) -> math::Rotation {
+        const MAX_ANGLE: f32 = std::f32::consts::PI / 2.0 - 0.0001;
+        const UNBOUNDED: f32 = f32::MAX;
+        math::Rotation(rot.0.clamp(Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0), Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0)))
+    }
 }
 
 #[async_trait]
@@ -127,7 +133,7 @@ impl<E> Handler<E, SetCameraPosition> for Camera where E: SystemEvent {
 #[async_trait]
 impl<E> Handler<E, SetCameraRotation> for Camera where E: SystemEvent {
     async fn handle(&mut self, msg: SetCameraRotation, _ctx: &mut ActorContext<E>) -> () {
-        self.rotation = msg.0;
+        self.rotation = Self::clamp_rotation(msg.0);
     }
 }
 
@@ -142,5 +148,6 @@ impl<E> Handler<E, UpdateCameraPosition> for Camera where E: SystemEvent {
 impl<E> Handler<E, UpdateCameraRotation> for Camera where E: SystemEvent {
     async fn handle(&mut self, msg: UpdateCameraRotation, _ctx: &mut ActorContext<E>) -> () {
         self.rotation.0 += msg.0.0;
+        self.rotation = Self::clamp_rotation(self.rotation);
     }
 }

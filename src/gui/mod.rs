@@ -98,35 +98,6 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
     egui::CentralPanel::default().show(&context, |ui| {
         ui.heading("Editor");
 
-        let dirty = egui::Window::new("Camera settings")
-            .interactable(true)
-            .movable(true)
-            .resizable(true)
-            .show(&context, |ui| {
-                Handle::current().block_on(async {
-                    let mut dirty = actor_edit::<math::Position, state::QueryCameraPosition, state::SetCameraPosition, _, _>(ui, actors.camera.clone(), |ui, value| {
-                        drag3(ui, "Position", &mut value.0, 0.1).inner
-                    }).await;
-                    dirty |= actor_edit::<math::Rotation, state::QueryCameraRotation, state::SetCameraRotation, _, _>(ui, actors.camera.clone(), |ui, value| {
-                        drag3_angle(ui, "Rotation", &mut value.0).inner
-                    }).await;
-
-                    dirty
-                })
-            });
-
-        match dirty {
-            None => {}
-            Some(response) => {
-                match response.inner {
-                    Some(true) => {
-                        actors.repaint.tell(repaint::RepaintAll).unwrap();
-                    },
-                    _ => {}
-                }
-            }
-        }
-
         egui::Window::new("World view")
             .resizable(true)
             .default_size((800.0, 600.0))

@@ -42,7 +42,7 @@ impl<'f> Context<'f> {
             .validation(cfg!(debug_assertions))
             .window(window)
             .present_mode(vk::PresentModeKHR::MAILBOX)
-            .scratch_size(1 * 1024)
+            .scratch_size(8 * 1024 * 1024)
             .gpu(ph::GPURequirements {
                 dedicated: true,
                 min_video_memory: 1 * 1024 * 1024 * 1024,

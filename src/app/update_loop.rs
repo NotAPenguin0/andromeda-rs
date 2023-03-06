@@ -41,7 +41,7 @@ impl UpdateLoop {
 
         let swapchain = ph::VirtualResource::image("swapchain");
         // Record UI commands
-        let graph = ui.render(window, swapchain.clone(), graph)?;
+        let graph = ui.render(window, swapchain.clone(), graph).await?;
         // Add a present pass to the graph.
         let present_pass = ph::PassBuilder::present("present", swapchain.upgrade());
         let mut graph = graph.add_pass(present_pass)?.build()?;

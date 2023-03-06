@@ -14,6 +14,7 @@ use crate::hot_reload::IntoDynamic;
 #[derive(Debug, Default)]
 struct RenderState {
     view: Mat4,
+    projection: Mat4,
 }
 
 #[derive(Debug)]
@@ -108,9 +109,7 @@ impl WorldRenderer {
         vtx.mapped_slice()?.copy_from_slice(&VERTS);
         idx.mapped_slice()?.copy_from_slice(&IDX);
 
-        let projection = Mat4::perspective_rh(90f32.to_radians(), self.aspect_ratio(), 0.1, 100.0);
-
-        let pv = projection * self.state.view;
+        let pv = self.state.projection * self.state.view;
 
         let mut cam_ubo = ifc.allocate_scratch_ubo(pv.byte_size() as vk::DeviceSize)?;
         cam_ubo.mapped_slice::<Mat4>()?.copy_from_slice(std::slice::from_ref(&pv));
@@ -138,6 +137,12 @@ impl WorldRenderer {
 
     async fn update_render_state(&mut self) -> Result<()> {
         self.state.view = self.camera.ask(state::QueryCameraMatrix).await?.0;
+        self.state.projection = Mat4::perspective_rh(
+            self.camera.ask(state::QueryCameraFOV).await?.to_radians(),
+            self.aspect_ratio(),
+            0.1,
+            100.0
+        );
         Ok(())
     }
 

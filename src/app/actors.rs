@@ -3,9 +3,9 @@ use anyhow::Result;
 use futures::executor::block_on;
 
 use crate::app::{repaint, RepaintAll, RepaintListener};
-use crate::core::Event;
+use crate::core::{AddInputListener, Event};
 use crate::{core, gfx, gui, state};
-use crate::gui::{CameraController, TargetResizeActor};
+use crate::gui::{CameraController, CameraScrollListener, TargetResizeActor};
 use crate::hot_reload::ShaderReloadActor;
 
 /// Stores the actor system and actor refs to each 'root' actor.
@@ -50,6 +50,8 @@ impl RootActorSystem {
                 input.clone(),
                 camera.clone()))
             .await?;
+
+        input.tell(AddInputListener(CameraScrollListener::new(camera_controller.clone(), repaint.clone())))?;
 
         Ok(Self {
             system,

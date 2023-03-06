@@ -42,11 +42,18 @@ pub struct KeyState {
     pub button: Key,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ScrollInfo {
+    pub delta_x: f32,
+    pub delta_y: f32
+}
+
 #[derive(Debug, Clone, Copy, Message)]
 pub enum InputEvent {
     MouseMove(MousePosition),
     MouseButton(MouseButtonState),
-    Button(KeyState)
+    Button(KeyState),
+    Scroll(ScrollInfo),
 }
 
 #[derive(Debug, Copy, Clone, Message)]
@@ -99,6 +106,7 @@ impl<E> Handler<E, InputEvent> for Input where E: SystemEvent {
             InputEvent::MouseMove(pos) => { self.mouse = pos; }
             InputEvent::MouseButton(state) => { self.mouse_buttons.insert(state.button, state.state); }
             InputEvent::Button(state) => { self.kb_buttons.insert(state.button, state.state); }
+            InputEvent::Scroll(_) => {}
         }
         self.process_event(msg).await;
     }

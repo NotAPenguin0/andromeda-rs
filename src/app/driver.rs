@@ -5,14 +5,14 @@ use futures::executor::block_on;
 
 use phobos as ph;
 use tokio::runtime::Handle;
-use winit::event::{ElementState, ModifiersState, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, ModifiersState, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
 use crate::{gfx, gui, repaint};
 use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
-use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition};
+use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -45,7 +45,6 @@ impl<'f> Driver<'f> {
                                 unsafe { gfx.frame.get_swapchain() })
     }
 
-    // TODO: Cleanup
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver<'f>> {
         let gfx = gfx::Context::new(&window)?;
         let actors = block_on(RootActorSystem::new(&gfx.shared))?;
@@ -167,7 +166,22 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 }
                 WindowEvent::CursorEntered { .. } => {}
                 WindowEvent::CursorLeft { .. } => {}
-                WindowEvent::MouseWheel { .. } => {}
+                WindowEvent::MouseWheel { delta, .. } => {
+                    match delta {
+                        MouseScrollDelta::LineDelta(x, y) => {
+                            driver.actors.input.tell(InputEvent::Scroll(ScrollInfo {
+                                delta_x: x,
+                                delta_y: y,
+                            })).unwrap();
+                        }
+                        MouseScrollDelta::PixelDelta(px) => {
+                            driver.actors.input.tell(InputEvent::Scroll(ScrollInfo {
+                                delta_x: px.x as f32,
+                                delta_y: px.y as f32,
+                            })).unwrap();
+                        }
+                    };
+                }
                 WindowEvent::MouseInput { state, button, .. } => {
                     driver.actors.input.tell(InputEvent::MouseButton(MouseButtonState {
                         state: state.into(),

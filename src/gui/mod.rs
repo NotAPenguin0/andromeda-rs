@@ -11,6 +11,7 @@ pub use integration::UIIntegration;
 pub use size::*;
 pub use image::Image;
 pub use camera_controller::CameraController;
+pub use camera_controller::CameraScrollListener;
 
 use tiny_tokio_actor::{Actor, ActorContext, async_trait, Handler, Message, SystemEvent};
 use tokio::runtime::Handle;
@@ -18,7 +19,7 @@ use crate::app::{repaint, RepaintAll, RootActorSystem};
 use crate::gui::async_actor_widget::actor_edit;
 use crate::gui::drag3::{drag3, drag3_angle};
 use crate::{math, state};
-use crate::gui::camera_controller::DragWorld;
+use crate::gui::camera_controller::{DragWorld, MouseOverWorld};
 
 #[derive(Debug, Copy, Clone)]
 pub struct ResizeSceneTexture(USize);
@@ -157,6 +158,9 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
                     }).unwrap();
                     actors.repaint.tell(RepaintAll).unwrap();
                 }
+
+                let hover = response.hovered();
+                actors.camera_controller.tell(MouseOverWorld(hover)).unwrap();
         });
     });
 }

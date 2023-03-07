@@ -71,22 +71,22 @@ impl UIIntegration {
         &'s mut self,
         window: &Window,
         swapchain: ph::VirtualResource,
-        graph: ph::PassGraph<'e, 'q, ph::domain::All>)
-        -> Result<ph::PassGraph<'e, 'q, ph::domain::All>> {
+        graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
 
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
-        // TODO: TODOTODO fix and make more robust
-        let scene_output = ph::VirtualResource::image("msaa_resolve_output").upgrade(); // NOTE THE UPGRADE CALL
-        self.integration.paint(
-            graph,
-            std::slice::from_ref(&scene_output),
-            swapchain,
-            vk::AttachmentLoadOp::CLEAR,
-            Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}),
-            clipped_meshes,
-            output.textures_delta
-        ).await
+        // TODO: Allow for aliases inside FrameGraph instead so we can make this always work
+        let scene_output = graph.latest_version(ph::VirtualResource::image("msaa_resolve_output"))?;
+        graph.add_pass(self.integration.paint(
+                std::slice::from_ref(&scene_output),
+                swapchain,
+                vk::AttachmentLoadOp::CLEAR,
+                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}),
+                clipped_meshes,
+                output.textures_delta
+            ).await?
+        );
+        Ok(())
     }
 
     pub fn context(&self) -> egui::Context {

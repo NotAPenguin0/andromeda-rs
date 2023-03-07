@@ -53,29 +53,20 @@ impl UpdateLoop {
         ui: &mut gui::UIIntegration,
         window: &Window,
         renderer: &mut gfx::WorldRenderer,
-        status: repaint::RepaintStatus,
         gfx: gfx::SharedContext,
         debug: Option<&ph::DebugMessenger>)
         -> Result<ph::CommandBuffer<ph::domain::All>> {
 
-        let (graph, mut bindings) = match status {
-            repaint::RepaintStatus::None => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
-            repaint::RepaintStatus::UIOnly => { (ph::PassGraph::new(), ph::PhysicalResourceBindings::new()) }
-            repaint::RepaintStatus::All => {
-                renderer.redraw_world().await?
-            }
-        };
+        // Always repaint every frame from now on
+        let (mut graph, mut bindings) = renderer.redraw_world().await?;
 
         let swapchain = ph::VirtualResource::image("swapchain");
         // Record UI commands
-        let graph = ui.render(window, swapchain.clone(), graph).await?;
+        ui.render(window, swapchain.clone(), &mut graph).await?;
         // Add a present pass to the graph.
         let present_pass = ph::PassBuilder::present("present", swapchain.upgrade());
-        let mut graph = graph.add_pass(present_pass)?.build()?;
-
-        if status == repaint::RepaintStatus::All {
-            save_dotfile(graph.task_graph(), "graph.svg").await;
-        }
+        graph.add_pass(present_pass);
+        let mut graph = graph.build()?;
 
         // Bind the swapchain resource.
         bindings.bind_image("swapchain", ifc.swapchain_image.clone().unwrap());

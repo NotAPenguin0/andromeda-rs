@@ -74,7 +74,7 @@ impl WorldRenderer {
     }
 
     pub fn output_image(&self) -> ph::ImageView {
-        self.targets.get_target_view("scene_output").unwrap()
+        self.targets.get_target_view("msaa_resolve_output").unwrap()
     }
 
     pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
@@ -132,7 +132,7 @@ impl WorldRenderer {
     /// Conventions for output graph:
     /// - Contains a pass `final_output` which renders to a virtual resource named `output`.
     /// - This resource is bound to the internal output color attachment.
-    pub async fn redraw_world<'s: 'e + 'q, 'e, 'q>(&'s mut self) -> Result<(ph::PassGraph<'e, 'q, ph::domain::All>, ph::PhysicalResourceBindings)> {
+    pub async fn redraw_world<'s: 'e + 'q, 'e, 'q>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         self.targets.bind_targets(&mut bindings);
         bindings.alias("output", "msaa_resolve_output")?;
@@ -154,11 +154,9 @@ impl WorldRenderer {
             })
             .build();
 
-        let msaa_resolve_pass = self.resolve.get_pass(output_pass.output(&scene_output).unwrap())?;
-
-        let graph = ph::PassGraph::new()
-            .add_pass(output_pass)?
-            .add_pass(msaa_resolve_pass)?;
+        let mut graph = gfx::FrameGraph::new();
+        graph.add_pass(output_pass);
+        self.resolve.add_pass(scene_output, &mut graph)?;
 
         Ok((graph, bindings))
     }

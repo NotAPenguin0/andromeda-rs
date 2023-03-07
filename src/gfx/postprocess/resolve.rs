@@ -36,9 +36,10 @@ impl MSAAResolve {
         "msaa_resolve_output"
     }
 
-    pub fn get_pass<'s: 'e + 'q, 'e, 'q>(&'s self, input: ph::VirtualResource) -> Result<ph::Pass<'e, 'q, ph::domain::All>> {
+    pub fn add_pass<'s: 'e + 'q, 'e, 'q>(&'s self, in_resource: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
+        let input = graph.latest_version(in_resource)?;
         let out = ph::VirtualResource::image(Self::output_name());
-        Ok(ph::PassBuilder::render("msaa_resolve")
+        let pass = ph::PassBuilder::render("msaa_resolve")
             .sample_image(input.clone(), ph::PipelineStage::FRAGMENT_SHADER)
             .color_attachment(out,
                               vk::AttachmentLoadOp::CLEAR,
@@ -56,6 +57,9 @@ impl MSAAResolve {
                 cmd = cmd.draw(6, 1, 0, 0);
                 Ok(cmd)
             })
-            .build())
+            .build();
+
+        graph.add_pass(pass);
+        Ok(())
     }
 }

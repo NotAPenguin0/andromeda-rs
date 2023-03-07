@@ -26,8 +26,7 @@ pub struct CameraController {
 
 #[derive(Debug)]
 pub struct CameraScrollListener {
-    camera: ActorRef<Event, CameraController>,
-    repaint: ActorRef<Event, RepaintListener>,
+    camera: ActorRef<Event, CameraController>
 }
 
 impl CameraController {
@@ -86,10 +85,9 @@ impl<E> Handler<E, ScrollWorld> for CameraController where E: SystemEvent {
 }
 
 impl CameraScrollListener {
-    pub fn new(camera: ActorRef<Event, CameraController>, repaint: ActorRef<Event, RepaintListener>) -> Self {
+    pub fn new(camera: ActorRef<Event, CameraController>) -> Self {
         Self {
             camera,
-            repaint,
         }
     }
 }
@@ -103,7 +101,6 @@ impl InputListener for CameraScrollListener {
             InputEvent::Button(_) => {}
             InputEvent::Scroll(delta) => {
                 self.camera.tell(ScrollWorld(delta.delta_y)).unwrap();
-                self.repaint.tell(RepaintAll).unwrap();
             }
         };
         Ok(())

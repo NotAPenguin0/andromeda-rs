@@ -40,7 +40,6 @@ pub struct ShaderReloadActor {
     pipelines: Arc<Mutex<ph::PipelineCache>>,
     shaders: HashMap<PathBuf, ShaderInfo>,
     watch_task: Option<Arc<JoinHandle<Result<()>>>>,
-    repaint: ActorRef<Event, repaint::RepaintListener>,
 }
 
 unsafe impl Send for ShaderReloadActor {}
@@ -116,7 +115,7 @@ impl<E> Handler<E, AddShader> for ShaderReloadActor where E: SystemEvent {
 }
 
 impl ShaderReloadActor {
-    pub async fn new<E>(pipelines: Arc<Mutex<ph::PipelineCache>>, repaint: ActorRef<Event, repaint::RepaintListener>, system: &ActorSystem<E>, name: &str, path: impl Into<PathBuf>, recursive: bool) -> Result<ActorRef<E, Self>>
+    pub async fn new<E>(pipelines: Arc<Mutex<ph::PipelineCache>>, system: &ActorSystem<E>, name: &str, path: impl Into<PathBuf>, recursive: bool) -> Result<ActorRef<E, Self>>
         where
             E: SystemEvent {
 
@@ -124,7 +123,6 @@ impl ShaderReloadActor {
             pipelines,
             shaders: HashMap::new(),
             watch_task: None,
-            repaint
         }).await?;
 
         let copy = actor.clone();
@@ -240,8 +238,6 @@ impl ShaderReloadActor {
         for pipeline in &info.pipelines {
             self.reload_pipeline(&path, pipeline, info.stage).await?;
         }
-        // Pipelines reloaded, so scene has to be repainted
-        self.repaint.tell(repaint::RepaintAll)?;
         Ok(())
     }
 }

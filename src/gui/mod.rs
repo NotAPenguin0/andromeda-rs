@@ -127,7 +127,6 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
                         x: response.drag_delta().x,
                         y: response.drag_delta().y,
                     }).unwrap();
-                    actors.repaint.tell(RepaintAll).unwrap();
                 }
 
                 let hover = response.hovered();

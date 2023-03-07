@@ -73,18 +73,11 @@ impl<'f> Driver<'f> {
             Handle::current().block_on(async {
                 self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
 
-                // If we have a repaint, ask the graphics system for a redraw
-                // In the future, we could even make this fully asynchronous and keep refreshing the UI while
-                // we redraw, though this is only necessary if our frame time budget gets seriously
-                // exceeded.
-                let status = self.actors.update_repaint_status().await?;
-
                 self.update.update(
                     ifc,
                     &mut self.ui,
                     &self.window,
                     &mut self.renderer,
-                    status,
                     self.gfx.shared.clone(),
                     self.gfx.debug_messenger.as_ref()).await
                 }
@@ -137,13 +130,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::ReceivedCharacter(_) => {}
                 WindowEvent::Focused(_) => {}
                 WindowEvent::KeyboardInput { input, .. } => {
-                    // Register a key callback for repainting the scene.
-                    // Note that we will abstract away input processing later
-                    if let Some(keycode) = input.virtual_keycode {
-                        if keycode == VirtualKeyCode::Return {
-                            driver.actors.repaint.tell(repaint::RepaintAll)?;
-                        }
-                    }
+
                 }
                 WindowEvent::ModifiersChanged(state) => {
                     if state.shift() {

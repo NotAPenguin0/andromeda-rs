@@ -72,7 +72,6 @@ impl<'f> Driver<'f> {
 
             Handle::current().block_on(async {
                 self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
-                let scene_output = self.renderer.output_image().view.clone();
 
                 // If we have a repaint, ask the graphics system for a redraw
                 // In the future, we could even make this fully asynchronous and keep refreshing the UI while
@@ -84,7 +83,6 @@ impl<'f> Driver<'f> {
                     ifc,
                     &mut self.ui,
                     &self.window,
-                    scene_output,
                     &mut self.renderer,
                     status,
                     self.gfx.shared.clone(),

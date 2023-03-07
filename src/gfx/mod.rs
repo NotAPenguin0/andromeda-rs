@@ -1,6 +1,8 @@
 mod paired_image_view;
 mod world_renderer;
 mod alloc_wrapper;
+mod postprocess;
+mod targets;
 
 
 use std::sync::{Arc, Mutex};
@@ -13,6 +15,8 @@ use winit::window::Window;
 pub use paired_image_view::PairedImageView;
 pub use alloc_wrapper::ThreadSafeAllocator;
 pub use world_renderer::WorldRenderer;
+pub use targets::RenderTargets;
+pub use targets::SizeGroup;
 
 /// The entire graphics context.
 #[derive(Debug)]

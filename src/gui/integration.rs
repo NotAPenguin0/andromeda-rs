@@ -76,7 +76,8 @@ impl UIIntegration {
 
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
-        let scene_output = ph::VirtualResource::image("output").upgrade(); // NOTE THE UPGRADE CALL
+        // TODO: TODOTODO fix and make more robust
+        let scene_output = ph::VirtualResource::image("msaa_resolve_output").upgrade(); // NOTE THE UPGRADE CALL
         self.integration.paint(
             graph,
             std::slice::from_ref(&scene_output),

@@ -41,6 +41,10 @@ impl RenderTargets {
     }
 
     pub fn set_output_resolution(&mut self, width: u32, height: u32) -> Result<()> {
+        // no change
+        if self.output_resolution.0 == width && self.output_resolution.1 == height {
+            return Ok(());
+        }
         self.output_resolution = (width, height);
         for (_, entry) in &mut self.targets {
             if entry.size_group == SizeGroup::OutputResolution {

@@ -23,3 +23,7 @@ shaderc = "0.8.2"
 tiny-tokio-actor = { git = "https://github.com/NotAPenguin0/tiny-tokio-actor" }
 tokio = { version = "1.25.0", features = ["full"] }
 winit = "0.28.1"
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true

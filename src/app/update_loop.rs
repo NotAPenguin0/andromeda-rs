@@ -63,9 +63,11 @@ impl UpdateLoop {
         // Record UI commands
         ui.render(window, swapchain.clone(), &mut graph).await?;
         // Add a present pass to the graph.
-        let present_pass = ph::PassBuilder::present("present", swapchain.upgrade());
+        let present_pass = ph::PassBuilder::present("present", graph.latest_version(swapchain)?);
         graph.add_pass(present_pass);
         let mut graph = graph.build()?;
+
+        // save_dotfile(graph.task_graph(), "graph.svg").await;
 
         // Bind the swapchain resource.
         bindings.bind_image("swapchain", ifc.swapchain_image.clone().unwrap());

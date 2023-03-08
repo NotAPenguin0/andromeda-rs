@@ -6,7 +6,7 @@ mod drag3;
 mod async_actor_widget;
 mod camera_controller;
 
-use egui::{Color32, PointerButton, Pos2, Rect, Sense, Vec2};
+use egui::{Color32, Pos2, Rect, Sense};
 pub use integration::UIIntegration;
 pub use size::*;
 pub use image::Image;
@@ -15,10 +15,7 @@ pub use camera_controller::CameraScrollListener;
 
 use tiny_tokio_actor::{Actor, ActorContext, async_trait, Handler, Message, SystemEvent};
 use tokio::runtime::Handle;
-use crate::app::{repaint, RepaintAll, RootActorSystem};
-use crate::gui::async_actor_widget::actor_edit;
-use crate::gui::drag3::{drag3, drag3_angle};
-use crate::{math, state};
+use crate::app::{RootActorSystem};
 use crate::gui::camera_controller::{DragWorld, MouseOverWorld};
 
 #[derive(Debug, Copy, Clone)]

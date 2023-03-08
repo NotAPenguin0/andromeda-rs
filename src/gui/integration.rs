@@ -1,7 +1,5 @@
-use std::ffi::c_void;
 use std::mem::ManuallyDrop;
 use std::ops::Deref;
-use std::ptr::NonNull;
 
 use anyhow::Result;
 
@@ -14,7 +12,6 @@ use winit::window::Window;
 use phobos as ph;
 use phobos::WindowSize;
 use phobos::vk;
-use phobos::vk::MemoryRequirements;
 
 use crate::gfx;
 use crate::gui::{Image, USize};
@@ -32,9 +29,7 @@ pub struct UIIntegration {
 impl UIIntegration {
     pub fn new(event_loop: &EventLoop<()>,
                window: &Window,
-               ctx: gfx::SharedContext,
-               gfx_queue: &ph::Queue,
-               swapchain: &ph::Swapchain) -> Result<Self> {
+               ctx: gfx::SharedContext) -> Result<Self> {
         let mut style = egui::Style::default();
 
         style.visuals.window_shadow = egui::epaint::Shadow::NONE;

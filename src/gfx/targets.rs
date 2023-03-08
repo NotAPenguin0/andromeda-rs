@@ -54,7 +54,7 @@ impl RenderTargets {
         Ok(())
     }
 
-    pub fn set_render_resolution(&mut self, width: u32, height: u32) -> Result<()> {
+    pub fn set_render_resolution(&mut self, _width: u32, _height: u32) -> Result<()> {
         todo!()
     }
 

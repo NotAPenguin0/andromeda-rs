@@ -23,8 +23,6 @@ use anyhow::{anyhow, Result};
 
 use notify::EventKind;
 
-use crate::repaint;
-use crate::event::Event;
 use crate::safe_error::SafeUnwrap;
 
 use tokio::fs::File;

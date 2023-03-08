@@ -143,7 +143,7 @@ impl<E> Handler<E, QueryCameraRotation> for Camera where E: SystemEvent {
 
 #[async_trait]
 impl<E> Handler<E, QueryCameraFOV> for Camera where E: SystemEvent {
-    async fn handle(&mut self, msg: QueryCameraFOV, ctx: &mut ActorContext<E>) -> f32 {
+    async fn handle(&mut self, _msg: QueryCameraFOV, _ctx: &mut ActorContext<E>) -> f32 {
         self.fov
     }
 }

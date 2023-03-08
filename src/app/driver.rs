@@ -5,11 +5,11 @@ use futures::executor::block_on;
 
 use phobos as ph;
 use tokio::runtime::Handle;
-use winit::event::{ElementState, ModifiersState, MouseScrollDelta, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
-use crate::{gfx, gui, repaint};
+use crate::{gfx, gui};
 use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
 use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
@@ -37,12 +37,7 @@ impl<'f> Driver<'f> {
     }
 
     fn create_gui_integration(event_loop: &EventLoop<()>, window: &Window, gfx: &gfx::Context) -> Result<gui::UIIntegration> {
-        let queue = gfx.shared.exec.get_queue::<ph::domain::Graphics>().unwrap();
-        gui::UIIntegration::new(event_loop,
-                                &window,
-                                gfx.shared.clone(),
-                                queue.deref(),
-                                unsafe { gfx.frame.get_swapchain() })
+        gui::UIIntegration::new(event_loop, &window, gfx.shared.clone())
     }
 
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver<'f>> {
@@ -129,7 +124,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::HoveredFileCancelled => {}
                 WindowEvent::ReceivedCharacter(_) => {}
                 WindowEvent::Focused(_) => {}
-                WindowEvent::KeyboardInput { input, .. } => {
+                WindowEvent::KeyboardInput { .. } => {
 
                 }
                 WindowEvent::ModifiersChanged(state) => {

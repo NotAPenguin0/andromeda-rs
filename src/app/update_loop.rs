@@ -11,7 +11,6 @@ use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
 use crate::{gfx, gui};
-use crate::app::{repaint};
 
 #[derive(Debug)]
 pub struct UpdateLoop {

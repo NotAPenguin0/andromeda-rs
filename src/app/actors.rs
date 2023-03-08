@@ -2,7 +2,6 @@ use tiny_tokio_actor::{ActorRef, ActorSystem, EventBus};
 use anyhow::Result;
 use futures::executor::block_on;
 
-use crate::app::{repaint, RepaintAll, RepaintListener};
 use crate::core::{AddInputListener, Event};
 use crate::{core, gfx, gui, state};
 use crate::gui::{CameraController, CameraScrollListener, TargetResizeActor};

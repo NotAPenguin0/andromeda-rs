@@ -36,7 +36,7 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
             .ok_or(anyhow!("No such resource {:?}", resource))
     }
 
-    pub fn build(mut self) -> Result<ph::BuiltPassGraph<'e, 'q, ph::domain::All>> {
+    pub fn build(self) -> Result<ph::BuiltPassGraph<'e, 'q, ph::domain::All>> {
         let mut graph = ph::PassGraph::new();
         for (_, pass) in self.passes {
             graph = graph.add_pass(pass)?;

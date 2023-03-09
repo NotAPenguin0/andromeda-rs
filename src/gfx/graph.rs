@@ -15,6 +15,11 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
         Self { passes: Default::default() }
     }
 
+    /// Returns source version of swapchain resource
+    pub fn swapchain_resource(&self) -> ph::VirtualResource {
+        ph::VirtualResource::image("swapchain")
+    }
+
     pub fn add_pass(&mut self, pass: ph::Pass<'e, 'q, ph::domain::All>) {
         self.passes.insert(pass.name().to_owned(), pass);
     }
@@ -37,7 +42,7 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
     }
 
     pub fn build(self) -> Result<ph::BuiltPassGraph<'e, 'q, ph::domain::All>> {
-        let mut graph = ph::PassGraph::new();
+        let mut graph = ph::PassGraph::new(Some(self.swapchain_resource()));
         for (_, pass) in self.passes {
             graph = graph.add_pass(pass)?;
         }

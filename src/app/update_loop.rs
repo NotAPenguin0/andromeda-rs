@@ -59,7 +59,7 @@ impl UpdateLoop {
         // Always repaint every frame from now on
         let (mut graph, mut bindings) = renderer.redraw_world().await?;
 
-        let swapchain = ph::VirtualResource::image("swapchain");
+        let swapchain = graph.swapchain_resource();
         // Record UI commands
         ui.render(window, swapchain.clone(), &mut graph).await?;
         // Add a present pass to the graph.

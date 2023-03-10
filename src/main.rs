@@ -25,7 +25,7 @@ extern crate pretty_env_logger;
 extern crate derivative;
 
 fn main() -> Result<!> {
-    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_LOG", "trace");
     pretty_env_logger::init_timed();
 
     // Initialize tokio runtime

@@ -52,7 +52,7 @@ impl MSAAResolve {
                                                       .resolve_and_bind_sampled_image(0, input.clone(), &self.sampler, &bindings)?
                                                       .build()
                 )?;
-                let samples: u32 = 8;
+                let samples: u32 = 4;
                 cmd = cmd.push_constants(vk::ShaderStageFlags::FRAGMENT, 0, std::slice::from_ref(&samples));
                 cmd = cmd.draw(6, 1, 0, 0);
                 Ok(cmd)

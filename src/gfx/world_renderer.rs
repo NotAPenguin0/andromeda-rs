@@ -37,7 +37,7 @@ impl WorldRenderer {
             .blend_attachment_none()
             .depth(true, true, false, vk::CompareOp::LESS)
             .cull_mask(vk::CullModeFlags::NONE)
-            .samples(vk::SampleCountFlags::TYPE_8) // TODO: Config, etc.
+            .samples(vk::SampleCountFlags::TYPE_4) // TODO: Config, etc.
             .into_dynamic()
             .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
@@ -52,7 +52,7 @@ impl WorldRenderer {
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::R32G32B32A32_SFLOAT,
-            vk::SampleCountFlags::TYPE_8
+            vk::SampleCountFlags::TYPE_4
         )?;
 
         targets.register_multisampled_depth_target(
@@ -61,7 +61,7 @@ impl WorldRenderer {
             ctx.clone(),
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::D32_SFLOAT,
-            vk::SampleCountFlags::TYPE_8
+            vk::SampleCountFlags::TYPE_4
         )?;
 
         Ok(Self {

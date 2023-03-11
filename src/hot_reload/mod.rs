@@ -27,6 +27,7 @@ use crate::safe_error::SafeUnwrap;
 
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
+use tokio::join;
 
 #[derive(Debug, Clone)]
 struct ShaderInfo {
@@ -37,7 +38,7 @@ struct ShaderInfo {
 pub struct ShaderReloadActor {
     pipelines: Arc<Mutex<ph::PipelineCache>>,
     shaders: HashMap<PathBuf, ShaderInfo>,
-    watch_task: Option<Arc<JoinHandle<Result<()>>>>,
+    watch_tasks: Vec<Arc<JoinHandle<Result<()>>>>,
 }
 
 unsafe impl Send for ShaderReloadActor {}
@@ -46,16 +47,15 @@ unsafe impl Sync for ShaderReloadActor {}
 #[async_trait]
 impl<E> Actor<E> for ShaderReloadActor where E: SystemEvent {
     async fn post_stop(&mut self, _ctx: &mut ActorContext<E>) {
-        // Kill the owned file watcher
-        match &self.watch_task {
-            None => {}
-            Some(task) => { task.abort() }
+        // Kill the owned file watchers
+        for task in &self.watch_tasks {
+            task.abort();
         }
     }
 }
 
 #[derive(Clone, Message)]
-struct SetJoinHandle(Arc<JoinHandle<Result<()>>>);
+struct PushJoinHandle(Arc<JoinHandle<Result<()>>>);
 
 #[derive(Debug, Clone, Message)]
 struct FileEventMessage(notify::Event);
@@ -69,9 +69,9 @@ pub struct AddShader {
 }
 
 #[async_trait]
-impl<E> Handler<E, SetJoinHandle> for ShaderReloadActor where E: SystemEvent {
-    async fn handle(&mut self, msg: SetJoinHandle, _ctx: &mut ActorContext<E>) -> () {
-        self.watch_task = Some(msg.0);
+impl<E> Handler<E, PushJoinHandle> for ShaderReloadActor where E: SystemEvent {
+    async fn handle(&mut self, msg: PushJoinHandle, _ctx: &mut ActorContext<E>) -> () {
+        self.watch_tasks.push(msg.0);
     }
 }
 
@@ -120,15 +120,15 @@ impl ShaderReloadActor {
         let actor = system.create_actor(name, ShaderReloadActor {
             pipelines,
             shaders: HashMap::new(),
-            watch_task: None,
+            watch_tasks: vec![],
         }).await?;
 
         let copy = actor.clone();
-        let task = tokio::spawn(file_watcher::async_watch(path.into(), recursive, move |event| {
+        let watcher = tokio::spawn(file_watcher::async_watch(path.into(), recursive, move |event| {
             actor.tell(FileEventMessage(event)).unwrap();
         }));
 
-        copy.tell(SetJoinHandle{0: Arc::new(task)})?;
+        copy.ask(PushJoinHandle {0: Arc::new(watcher)}).await?;
 
         Ok(copy)
     }
@@ -199,7 +199,7 @@ impl ShaderReloadActor {
         }
     }
 
-    async fn reload_pipeline(&mut self, shader: &Path, pipeline: &str, stage: vk::ShaderStageFlags) -> Result<()> {
+    async fn reload_pipeline(&self, shader: &Path, pipeline: &str, stage: vk::ShaderStageFlags) -> Result<()> {
         info!("Reloading pipeline {:?}", pipeline);
         // let mut file = File::open(shader).await?;
         // let mut source = String::new();
@@ -230,7 +230,18 @@ impl ShaderReloadActor {
     }
 
     async fn reload_file(&mut self, path: PathBuf) -> Result<()> {
-        // CLion always saves quickly files with an ~ suffix first for some reason, so we add a quick hack to ignore this temporary file
+        // If our shader was an included shader, we naively reload all pipelines
+        if path.to_str().unwrap().contains("shaders\\include\\") {
+            info!("Included shader {:?} changed. Reloading all pipelines.", path.file_name().unwrap());
+            for (path, info) in &self.shaders {
+                for pipeline in &info.pipelines {
+                    self.reload_pipeline(&path, pipeline, info.stage).await?;
+                }
+            }
+            return Ok(());
+        }
+
+        // CLion always saves quickly files with a ~ suffix first for some reason, so we add a quick hack to ignore this temporary file
         if path.file_name().unwrap().to_str().unwrap().ends_with("~") { return Ok(()); }
         info!("Reloading shader file {:?}", path.file_name().unwrap());
         // Get all involved pipelines

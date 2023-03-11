@@ -30,7 +30,7 @@ pub struct Context<'f> {
     pub instance: ph::VkInstance,
 }
 
-/// All shared graphics objects, these are safely refcounted using Arc and Arc<Mutex> where necessary, so cloning this struct is acceptable.
+/// All shared graphics objects, these are safely refcounted using `Arc` and `Arc<Mutex>` where necessary, so cloning this struct is acceptable.
 #[derive(Debug, Clone)]
 pub struct SharedContext {
     pub allocator: ThreadSafeAllocator,

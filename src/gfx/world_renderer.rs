@@ -25,6 +25,7 @@ pub struct WorldRenderer {
     camera: ActorRef<Event, state::Camera>,
     state: RenderState,
     targets: RenderTargets,
+    tonemap: postprocess::Tonemap,
 }
 
 impl WorldRenderer {
@@ -64,7 +65,7 @@ impl WorldRenderer {
         )?;
 
         targets.register_color_target(
-            Self::output_name(),
+            "resolved_output",
             SizeGroup::OutputResolution,
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
@@ -74,12 +75,13 @@ impl WorldRenderer {
             ctx: ctx.clone(),
             camera: actors.camera.clone(),
             state: RenderState::default(),
+            tonemap: postprocess::Tonemap::new(ctx.clone(), &actors, &mut targets)?,
             targets,
         })
     }
 
     pub fn output_name() -> &'static str {
-        return "resolved_output"
+        postprocess::Tonemap::output_name()
     }
 
     pub fn output_image(&self) -> ph::ImageView {
@@ -176,18 +178,14 @@ impl WorldRenderer {
         Ok(())
     }
 
-    /// Conventions for output graph:
-    /// - Contains a pass `final_output` which renders to a virtual resource named `output`.
-    /// - This resource is bound to the internal output color attachment.
     pub async fn redraw_world<'s: 'e + 'q, 'e, 'q>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         self.targets.bind_targets(&mut bindings);
-        bindings.alias("output", Self::output_name())?;
 
         self.update_render_state().await?;
         let scene_output = ph::VirtualResource::image("scene_output");
         let depth = ph::VirtualResource::image("depth");
-        let resolved_output = ph::VirtualResource::image(Self::output_name());
+        let resolved_output = ph::VirtualResource::image("resolved_output");
         let output_pass = ph::PassBuilder::render("final_output")
             .color_attachment(
                 scene_output.clone(),
@@ -205,7 +203,9 @@ impl WorldRenderer {
 
         let mut graph = gfx::FrameGraph::new();
         graph.add_pass(output_pass);
-        graph.alias("renderer_output", resolved_output);
+        let tonemapped_output = ph::VirtualResource::image(postprocess::Tonemap::output_name());
+        self.tonemap.render(resolved_output, &mut graph)?;
+        graph.alias("renderer_output", tonemapped_output);
 
         Ok((graph, bindings))
     }

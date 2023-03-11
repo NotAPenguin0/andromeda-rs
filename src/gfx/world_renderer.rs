@@ -37,7 +37,7 @@ impl WorldRenderer {
             .blend_attachment_none()
             .depth(true, true, false, vk::CompareOp::LESS)
             .cull_mask(vk::CullModeFlags::NONE)
-            .samples(vk::SampleCountFlags::TYPE_4) // TODO: Config, etc.
+            .samples(vk::SampleCountFlags::TYPE_8) // TODO: Config, etc.
             .into_dynamic()
             .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
@@ -52,7 +52,7 @@ impl WorldRenderer {
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::R32G32B32A32_SFLOAT,
-            vk::SampleCountFlags::TYPE_4
+            vk::SampleCountFlags::TYPE_8
         )?;
 
         targets.register_multisampled_depth_target(
@@ -61,7 +61,7 @@ impl WorldRenderer {
             ctx.clone(),
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::D32_SFLOAT,
-            vk::SampleCountFlags::TYPE_4
+            vk::SampleCountFlags::TYPE_8
         )?;
 
         Ok(Self {
@@ -92,13 +92,52 @@ impl WorldRenderer {
 
     fn draw_cube<'q>(cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>, ifc: &mut ph::InFlightContext, state: &RenderState, ctx: gfx::SharedContext) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {
         // We need to allocate a vertex and uniform buffer from the ifc
-        const VERTS: [f32; 24] = [-1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0];
-        const IDX: [u32; 36] = [2, 6, 7, 2, 3, 7, 0, 4, 5, 0, 1, 5, 0, 2, 6, 0, 4, 6, 1, 3, 7, 1, 5, 7, 0, 2, 3, 0, 1, 3, 4, 6, 7, 4, 5, 7];
+        const VERTS: [f32; 108] = [
+            -0.5, -0.5, -0.5,
+            0.5, -0.5, -0.5,
+            0.5,  0.5, -0.5,
+            0.5,  0.5, -0.5,
+            -0.5,  0.5, -0.5,
+            -0.5, -0.5, -0.5,
+
+            -0.5, -0.5,  0.5,
+            0.5, -0.5,  0.5,
+            0.5,  0.5,  0.5,
+            0.5,  0.5,  0.5,
+            -0.5,  0.5,  0.5,
+            -0.5, -0.5,  0.5,
+
+            -0.5,  0.5,  0.5,
+            -0.5,  0.5, -0.5,
+            -0.5, -0.5, -0.5,
+            -0.5, -0.5, -0.5,
+            -0.5, -0.5,  0.5,
+            -0.5,  0.5,  0.5,
+
+            0.5,  0.5,  0.5,
+            0.5,  0.5, -0.5,
+            0.5, -0.5, -0.5,
+            0.5, -0.5, -0.5,
+            0.5, -0.5,  0.5,
+            0.5,  0.5,  0.5,
+
+            -0.5, -0.5, -0.5,
+            0.5, -0.5, -0.5,
+            0.5, -0.5,  0.5,
+            0.5, -0.5,  0.5,
+            -0.5, -0.5,  0.5,
+            -0.5, -0.5, -0.5,
+
+            -0.5,  0.5, -0.5,
+            0.5,  0.5, -0.5,
+            0.5,  0.5,  0.5,
+            0.5,  0.5,  0.5,
+            -0.5,  0.5,  0.5,
+            -0.5,  0.5, -0.5,
+        ];
 
         let mut vtx = ifc.allocate_scratch_vbo(VERTS.byte_size() as vk::DeviceSize)?;
-        let mut idx = ifc.allocate_scratch_ibo(IDX.byte_size() as vk::DeviceSize)?;
         vtx.mapped_slice()?.copy_from_slice(&VERTS);
-        idx.mapped_slice()?.copy_from_slice(&IDX);
 
         let pv = state.projection * state.view;
 
@@ -113,8 +152,7 @@ impl WorldRenderer {
                                              .bind_named_uniform_buffer("Camera", cam_ubo)?
                                              .build())?
                 .bind_vertex_buffer(0, vtx)
-                .bind_index_buffer(idx, vk::IndexType::UINT32)
-                .draw_indexed(IDX.len() as u32, 1, 0, 0, 0);
+                .draw(36, 1, 0, 0);
         Ok(cmd)
     }
 

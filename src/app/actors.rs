@@ -28,7 +28,7 @@ impl RootActorSystem {
             gfx.pipelines.clone(),
             &system,
             "shader_hot_reload",
-            "shaders/src/",
+            "shaders/",
             true
         ).await?;
 

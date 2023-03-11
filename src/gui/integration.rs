@@ -68,6 +68,8 @@ impl UIIntegration {
         swapchain: ph::VirtualResource,
         graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
 
+        self.integration.resize(window.width(), window.height());
+
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
         // TODO: Allow for aliases inside FrameGraph instead so we can make this always work

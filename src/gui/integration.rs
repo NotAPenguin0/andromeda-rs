@@ -72,13 +72,12 @@ impl UIIntegration {
 
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
-        // TODO: Allow for aliases inside FrameGraph instead so we can make this always work
-        let scene_output = graph.latest_version(ph::VirtualResource::image("msaa_resolve_output"))?;
+        let scene_output = graph.latest_version(graph.aliased_resource("renderer_output")?)?;
         graph.add_pass(self.integration.paint(
                 std::slice::from_ref(&scene_output),
                 swapchain,
                 vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}),
+                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}),
                 clipped_meshes,
                 output.textures_delta
             ).await?

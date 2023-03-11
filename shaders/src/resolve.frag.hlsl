@@ -30,7 +30,7 @@ struct PC {
 } pc;
 
 float4 main(in PS_INPUT input) : SV_TARGET {
-    float weight = float3(1.0 / pc.samples, 1.0 / pc.samples, 1.0 / pc.samples);
+    float3 weight = float3(1.0 / pc.samples, 1.0 / pc.samples, 1.0 / pc.samples);
     float w, h, _samples;
     hdr_input.GetDimensions(w, h, _samples);
     int2 texels = input.UV * int2(w, h);

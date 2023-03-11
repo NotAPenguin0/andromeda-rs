@@ -23,7 +23,6 @@ struct RenderState {
 pub struct WorldRenderer {
     ctx: gfx::SharedContext,
     camera: ActorRef<Event, state::Camera>,
-    resolve: postprocess::MSAAResolve,
     state: RenderState,
     targets: RenderTargets,
 }
@@ -50,7 +49,7 @@ impl WorldRenderer {
             "scene_output",
             SizeGroup::OutputResolution,
             ctx.clone(),
-            vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+            vk::ImageUsageFlags::COLOR_ATTACHMENT,
             vk::Format::R32G32B32A32_SFLOAT,
             vk::SampleCountFlags::TYPE_8
         )?;
@@ -59,27 +58,37 @@ impl WorldRenderer {
             "depth",
             SizeGroup::OutputResolution,
             ctx.clone(),
-            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             vk::Format::D32_SFLOAT,
             vk::SampleCountFlags::TYPE_8
         )?;
 
+        targets.register_color_target(
+            Self::output_name(),
+            SizeGroup::OutputResolution,
+            ctx.clone(),
+            vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+            vk::Format::R32G32B32A32_SFLOAT)?;
+
         Ok(Self {
             ctx: ctx.clone(),
             camera: actors.camera.clone(),
-            resolve: postprocess::MSAAResolve::new(&actors, &mut targets,ctx.clone())?,
             state: RenderState::default(),
             targets,
         })
     }
 
+    pub fn output_name() -> &'static str {
+        return "resolved_output"
+    }
+
     pub fn output_image(&self) -> ph::ImageView {
-        self.targets.get_target_view("msaa_resolve_output").unwrap()
+        self.targets.get_target_view(Self::output_name()).unwrap()
     }
 
     pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
         self.targets.set_output_resolution(size.x(), size.y())?;
-        Ok(ui.register_texture(&self.targets.get_target_view("msaa_resolve_output")?))
+        Ok(ui.register_texture(&self.targets.get_target_view(Self::output_name())?))
     }
 
     pub fn new_frame(&mut self) {
@@ -173,20 +182,22 @@ impl WorldRenderer {
     pub async fn redraw_world<'s: 'e + 'q, 'e, 'q>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         self.targets.bind_targets(&mut bindings);
-        bindings.alias("output", "msaa_resolve_output")?;
+        bindings.alias("output", Self::output_name())?;
 
         self.update_render_state().await?;
         let scene_output = ph::VirtualResource::image("scene_output");
         let depth = ph::VirtualResource::image("depth");
+        let resolved_output = ph::VirtualResource::image(Self::output_name());
         let output_pass = ph::PassBuilder::render("final_output")
             .color_attachment(
                 scene_output.clone(),
                 vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 1.0]}))?
+                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}))?
             .depth_attachment(
                 depth.clone(), 
                 vk::AttachmentLoadOp::CLEAR, 
                 Some(vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 }))?
+            .resolve(scene_output, resolved_output.clone())
             .execute(|cmd, mut ifc, _| {
                 Self::draw_cube(cmd, &mut ifc, &self.state, self.ctx.clone())
             })
@@ -194,7 +205,7 @@ impl WorldRenderer {
 
         let mut graph = gfx::FrameGraph::new();
         graph.add_pass(output_pass);
-        self.resolve.add_pass(scene_output, &mut graph)?;
+        graph.alias("renderer_output", resolved_output);
 
         Ok((graph, bindings))
     }

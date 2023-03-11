@@ -181,6 +181,8 @@ impl ShaderReloadActor {
             // .arg("-fspv-reflect")
             // SPIR-V target env
             .arg("-fspv-target-env=vulkan1.3")
+            // Add include path
+            .arg("-I shaders/include")
             // Actually generate SPIR-V
             .arg("-spirv")
             // Our input file

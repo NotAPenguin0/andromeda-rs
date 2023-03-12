@@ -22,6 +22,8 @@ VSOutput main(VSInput input, uint VertexIndex : SV_VertexID) {
 
     VSOutput output = (VSOutput)0;
     output.UV = vertices[VertexIndex].zw;
-    output.Position = float4(vertices[VertexIndex].xy, 0.0, 1.0);
+    // For simple '2D' passes the z and w coordinates wont matter, but for the atmosphere pass we want this to be behind
+    // all other geometry, so we set z = w = 1
+    output.Position = float4(vertices[VertexIndex].xy, 1.0, 1.0);
     return output;
 }

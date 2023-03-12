@@ -4,6 +4,7 @@ mod alloc_wrapper;
 mod postprocess;
 mod targets;
 mod graph;
+mod passes;
 
 
 use std::sync::{Arc, Mutex};
@@ -19,6 +20,8 @@ pub use world_renderer::WorldRenderer;
 pub use targets::RenderTargets;
 pub use targets::SizeGroup;
 pub use graph::FrameGraph;
+
+pub(self) use world_renderer::RenderState;
 
 /// The entire graphics context.
 #[derive(Debug)]

@@ -1,22 +1,30 @@
 use phobos as ph;
 
 use anyhow::Result;
-use glam::Mat4;
+use glam::{Mat3, Mat4, Vec3};
 use phobos::{GraphicsCmdBuffer, vk};
 
 use tiny_tokio_actor::ActorRef;
 
 use crate::core::{ByteSize, Event};
-use crate::{gfx, gui, state};
+use crate::{gfx, gui, math, state};
 use crate::app::RootActorSystem;
-use crate::gfx::postprocess;
+use crate::gfx::{passes, postprocess};
+use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug, Default)]
-struct RenderState {
-    view: Mat4,
-    projection: Mat4,
+pub struct RenderState {
+    pub view: Mat4,
+    pub projection: Mat4,
+    pub projection_view: Mat4,
+    pub inverse_projection: Mat4,
+    pub inverse_projection_view: Mat4,
+    pub inverse_view_rotation: Mat4,
+    pub position: Vec3,
+    pub atmosphere: AtmosphereInfo,
+    pub sun_dir: Vec3,
 }
 
 #[derive(Debug)]
@@ -26,6 +34,7 @@ pub struct WorldRenderer {
     state: RenderState,
     targets: RenderTargets,
     tonemap: postprocess::Tonemap,
+    atmosphere: passes::AtmosphereRenderer,
 }
 
 impl WorldRenderer {
@@ -76,6 +85,7 @@ impl WorldRenderer {
             camera: actors.camera.clone(),
             state: RenderState::default(),
             tonemap: postprocess::Tonemap::new(ctx.clone(), &actors, &mut targets)?,
+            atmosphere: passes::AtmosphereRenderer::new(ctx.clone(), &actors)?,
             targets,
         })
     }
@@ -150,10 +160,8 @@ impl WorldRenderer {
         let mut vtx = ifc.allocate_scratch_vbo(VERTS.byte_size() as vk::DeviceSize)?;
         vtx.mapped_slice()?.copy_from_slice(&VERTS);
 
-        let pv = state.projection * state.view;
-
-        let mut cam_ubo = ifc.allocate_scratch_ubo(pv.byte_size() as vk::DeviceSize)?;
-        cam_ubo.mapped_slice::<Mat4>()?.copy_from_slice(std::slice::from_ref(&pv));
+        let mut cam_ubo = ifc.allocate_scratch_ubo(state.projection_view.byte_size() as vk::DeviceSize)?;
+        cam_ubo.mapped_slice::<Mat4>()?.copy_from_slice(std::slice::from_ref(&state.projection_view));
 
         let cmd =
             cmd.bind_graphics_pipeline("flat_draw", ctx.pipelines.clone())?
@@ -175,18 +183,32 @@ impl WorldRenderer {
             0.1,
             100.0
         );
+        // Flip y because Vulkan
+        let v = self.state.projection.col_mut(1).y;
+        self.state.projection.col_mut(1).y = v * -1.0;
+        self.state.position = self.camera.ask(state::QueryCameraPosition).await?.0;
+        self.state.projection_view = self.state.projection * self.state.view;
+        self.state.inverse_projection_view = self.state.projection_view.inverse();
+        self.state.inverse_projection = self.state.projection.inverse();
+        self.state.inverse_view_rotation = Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
+        self.state.atmosphere = AtmosphereInfo::earth();
+        self.state.sun_dir = -self.camera.ask(state::QueryCameraVectors).await?.front;
         Ok(())
     }
 
     pub async fn redraw_world<'s: 'e + 'q, 'e, 'q>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
+        let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
 
         self.update_render_state().await?;
+
         let scene_output = ph::VirtualResource::image("scene_output");
         let depth = ph::VirtualResource::image("depth");
         let resolved_output = ph::VirtualResource::image("resolved_output");
-        let output_pass = ph::PassBuilder::render("final_output")
+        let tonemapped_output = ph::VirtualResource::image(postprocess::Tonemap::output_name());
+
+        let main_render = ph::PassBuilder::render("final_output")
             .color_attachment(
                 scene_output.clone(),
                 vk::AttachmentLoadOp::CLEAR,
@@ -195,16 +217,26 @@ impl WorldRenderer {
                 depth.clone(), 
                 vk::AttachmentLoadOp::CLEAR, 
                 Some(vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 }))?
-            .resolve(scene_output, resolved_output.clone())
             .execute(|cmd, mut ifc, _| {
                 Self::draw_cube(cmd, &mut ifc, &self.state, self.ctx.clone())
             })
             .build();
 
-        let mut graph = gfx::FrameGraph::new();
-        graph.add_pass(output_pass);
-        let tonemapped_output = ph::VirtualResource::image(postprocess::Tonemap::output_name());
+        // 1. Render main geometry pass
+        graph.add_pass(main_render);
+        // 2. Render atmosphere
+        self.atmosphere.render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state).await?;
+        // 3. Resolve MSAA
+        let resolve = ph::PassBuilder::render("msaa_resolve")
+            .color_attachment(graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?
+            // We dont currently need depth resolved
+            // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
+            .resolve(graph.latest_version(scene_output.clone())?, resolved_output.clone())
+            .build();
+        graph.add_pass(resolve);
+        // 4. Apply tonemapping
         self.tonemap.render(resolved_output, &mut graph)?;
+        // 5. Alias our final result to the expected name
         graph.alias("renderer_output", tonemapped_output);
 
         Ok((graph, bindings))

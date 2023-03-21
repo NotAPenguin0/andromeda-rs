@@ -27,7 +27,6 @@ use crate::safe_error::SafeUnwrap;
 
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use tokio::join;
 
 #[derive(Debug, Clone)]
 struct ShaderInfo {

@@ -1,9 +1,6 @@
-use std::ops::Deref;
 use anyhow::Result;
 
 use futures::executor::block_on;
-
-use phobos::prelude as ph;
 
 use tokio::runtime::Handle;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};

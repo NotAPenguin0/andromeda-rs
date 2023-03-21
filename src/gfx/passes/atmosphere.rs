@@ -65,7 +65,7 @@ impl AtmosphereRenderer {
 
     pub async fn render<'s: 'e + 'q, 'state: 'e + 'q, 'e, 'q>(&'s mut self,
          graph: &mut gfx::FrameGraph<'e, 'q>,
-         bindings: &mut ph::PhysicalResourceBindings,
+         _bindings: &mut ph::PhysicalResourceBindings,
          color: ph::VirtualResource,
          depth: ph::VirtualResource,
          state: &'state gfx::RenderState,
@@ -74,7 +74,7 @@ impl AtmosphereRenderer {
         let pass = ph::PassBuilder::render("atmosphere")
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
             .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
-            .execute(|mut cmd, ifc, bindings| {
+            .execute(|mut cmd, ifc, _bindings| {
 
                 #[repr(C)]
                 struct Camera {
@@ -101,7 +101,7 @@ impl AtmosphereRenderer {
                 }
                 // TODO: Macro magic to make this more convenient?
                 let mut atmosphere = ifc.allocate_scratch_ubo(std::mem::size_of::<Atmosphere>() as vk::DeviceSize)?;
-                let mut atmosphere_data = atmosphere.mapped_slice::<Atmosphere>()?;
+                let atmosphere_data = atmosphere.mapped_slice::<Atmosphere>()?;
                 let mut atmosphere_data = atmosphere_data.get_mut(0).unwrap();
                 atmosphere_data.radii_mie_albedo_g = Vec4::new(
                     state.atmosphere.planet_radius,

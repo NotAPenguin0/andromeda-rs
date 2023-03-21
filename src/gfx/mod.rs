@@ -10,7 +10,6 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 
 use phobos::prelude as ph;
-use phobos::prelude::traits::*;
 use ph::vk;
 
 use winit::window::Window;

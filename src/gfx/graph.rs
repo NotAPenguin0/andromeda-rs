@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use phobos::prelude as ph;
-use phobos::prelude::traits::*;
 
 use anyhow::{anyhow, Result};
 use phobos::graph::pass_graph::BuiltPassGraph;

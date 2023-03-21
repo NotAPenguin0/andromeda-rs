@@ -52,7 +52,7 @@ impl Tonemap {
                 vk::AttachmentLoadOp::CLEAR,
                 Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}))?
             .sample_image(&input, ph::PipelineStage::FRAGMENT_SHADER)
-            .execute(move |mut cmd, ifc, bindings| {
+            .execute(move |mut cmd, _ifc, bindings| {
                 cmd = cmd
                     .bind_graphics_pipeline("tonemap")?
                     .full_viewport_scissor()

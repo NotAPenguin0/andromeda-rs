@@ -7,7 +7,7 @@ use phobos::{GraphicsCmdBuffer, vk};
 use tiny_tokio_actor::ActorRef;
 
 use crate::core::{ByteSize, Event};
-use crate::{gfx, gui, math, state};
+use crate::{gfx, gui, state};
 use crate::app::RootActorSystem;
 use crate::gfx::{passes, postprocess};
 use crate::gfx::passes::AtmosphereInfo;
@@ -111,7 +111,7 @@ impl WorldRenderer {
         self.output_image().size.width as f32 / self.output_image().size.height as f32
     }
 
-    fn draw_cube<'q>(cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>, ifc: &mut ph::InFlightContext, state: &RenderState, ctx: gfx::SharedContext) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {
+    fn draw_cube<'q>(cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>, ifc: &mut ph::InFlightContext, state: &RenderState, _ctx: gfx::SharedContext) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {
         // We need to allocate a vertex and uniform buffer from the ifc
         const VERTS: [f32; 108] = [
             -0.5, -0.5, -0.5,

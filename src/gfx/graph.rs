@@ -1,7 +1,10 @@
 use std::collections::HashMap;
-use phobos as ph;
+
+use phobos::prelude as ph;
+use phobos::prelude::traits::*;
 
 use anyhow::{anyhow, Result};
+use phobos::graph::pass_graph::BuiltPassGraph;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -37,7 +40,7 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
 
     pub fn latest_version(&self, resource: ph::VirtualResource) -> Result<ph::VirtualResource> {
         self.passes.values().flat_map(|pass| {
-            pass.output(&resource)
+            pass.output(&resource).cloned()
         })
         .max_by_key(|resource| {
             resource.version()
@@ -45,15 +48,15 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
         .ok_or(anyhow!("No such resource {:?}", resource))
     }
 
-    pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<ph::VirtualResource> {
+    pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<&ph::VirtualResource> {
         let pass = self.passes.get(pass)
             .ok_or(anyhow!("No such pass {:?}", pass))?;
         pass.output(&resource)
             .ok_or(anyhow!("No such resource {:?}", resource))
     }
 
-    pub fn build(self) -> Result<ph::BuiltPassGraph<'e, 'q, ph::domain::All>> {
-        let mut graph = ph::PassGraph::new(Some(self.swapchain_resource()));
+    pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All>> {
+        let mut graph = ph::PassGraph::new(Some(&self.swapchain_resource()));
         for (_, pass) in self.passes {
             graph = graph.add_pass(pass)?;
         }

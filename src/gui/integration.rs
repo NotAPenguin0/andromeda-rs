@@ -9,9 +9,8 @@ use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use phobos as ph;
-use phobos::WindowSize;
-use phobos::vk;
+use phobos::{prelude as ph, vk};
+use phobos::prelude::traits::*;
 
 use crate::gfx;
 use crate::gui::{Image, USize};
@@ -21,7 +20,7 @@ use crate::gui::{Image, USize};
 #[derivative(Debug)]
 pub struct UIIntegration {
     #[derivative(Debug="ignore")]
-    integration: ManuallyDrop<Integration>,
+    integration: ManuallyDrop<Integration<ph::DefaultAllocator>>,
     // Deletion queue, but needs access to self so we cant put it in an actual deletion queue.
     to_unregister: Vec<(Image, u32)>,
 }
@@ -42,7 +41,7 @@ impl UIIntegration {
                 window.scale_factor() as f32, event_loop,
                 egui::FontDefinitions::default(), style,
                 ctx.device.clone(),
-                ctx.allocator.deref().clone(),
+                ctx.allocator.clone(),
                 ctx.exec.clone(),
                 ctx.pipelines.clone(),
                 ctx.descriptors.clone()
@@ -75,7 +74,7 @@ impl UIIntegration {
         let scene_output = graph.latest_version(graph.aliased_resource("renderer_output")?)?;
         graph.add_pass(self.integration.paint(
                 std::slice::from_ref(&scene_output),
-                swapchain,
+                &swapchain,
                 vk::AttachmentLoadOp::CLEAR,
                 Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}),
                 clipped_meshes,

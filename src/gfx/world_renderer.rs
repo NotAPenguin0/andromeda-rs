@@ -164,14 +164,11 @@ impl WorldRenderer {
         cam_ubo.mapped_slice::<Mat4>()?.copy_from_slice(std::slice::from_ref(&state.projection_view));
 
         let cmd =
-            cmd.bind_graphics_pipeline("flat_draw", ctx.pipelines.clone())?
+            cmd.bind_graphics_pipeline("flat_draw")?
                 .full_viewport_scissor()
-                .bind_new_descriptor_set(0, ctx.descriptors.clone(),
-                                         ph::DescriptorSetBuilder::with_reflection(ctx.pipelines.lock().unwrap().reflection_info("flat_draw")?)
-                                             .bind_named_uniform_buffer("Camera", cam_ubo)?
-                                             .build())?
-                .bind_vertex_buffer(0, vtx)
-                .draw(36, 1, 0, 0);
+                .bind_uniform_buffer(0, 0, &cam_ubo)?
+                .bind_vertex_buffer(0, &vtx)
+                .draw(36, 1, 0, 0)?;
         Ok(cmd)
     }
 
@@ -196,7 +193,7 @@ impl WorldRenderer {
         Ok(())
     }
 
-    pub async fn redraw_world<'s: 'e + 'q, 'e, 'q>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
+    pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
@@ -210,11 +207,11 @@ impl WorldRenderer {
 
         let main_render = ph::PassBuilder::render("final_output")
             .color_attachment(
-                scene_output.clone(),
+                &scene_output,
                 vk::AttachmentLoadOp::CLEAR,
                 Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}))?
             .depth_attachment(
-                depth.clone(), 
+                &depth,
                 vk::AttachmentLoadOp::CLEAR, 
                 Some(vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 }))?
             .execute(|cmd, mut ifc, _| {
@@ -228,10 +225,10 @@ impl WorldRenderer {
         self.atmosphere.render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state).await?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
-            .color_attachment(graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?
+            .color_attachment(&graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?
             // We dont currently need depth resolved
             // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
-            .resolve(graph.latest_version(scene_output.clone())?, resolved_output.clone())
+            .resolve(&graph.latest_version(scene_output.clone())?, &resolved_output)
             .build();
         graph.add_pass(resolve);
         // 4. Apply tonemapping

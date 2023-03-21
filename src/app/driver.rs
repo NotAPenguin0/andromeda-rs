@@ -3,7 +3,8 @@ use anyhow::Result;
 
 use futures::executor::block_on;
 
-use phobos as ph;
+use phobos::prelude as ph;
+
 use tokio::runtime::Handle;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
@@ -17,16 +18,16 @@ use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButt
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct Driver<'f> {
+pub struct Driver {
     pub window: Window,
     renderer: gfx::WorldRenderer,
     ui: gui::UIIntegration,
     update: UpdateLoop,
     pub actors: RootActorSystem,
-    pub gfx: gfx::Context<'f>
+    pub gfx: gfx::Context
 }
 
-impl<'f> Driver<'f> {
+impl Driver {
     pub fn create_window() -> Result<(EventLoop<()>, Window)> {
         let event_loop = EventLoopBuilder::new().build();
         let window = WindowBuilder::new()
@@ -40,7 +41,7 @@ impl<'f> Driver<'f> {
         gui::UIIntegration::new(event_loop, &window, gfx.shared.clone())
     }
 
-    pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver<'f>> {
+    pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
         let gfx = gfx::Context::new(&window)?;
         let actors = block_on(RootActorSystem::new(&gfx.shared))?;
         let ui = Self::create_gui_integration(event_loop, &window, &gfx)?;

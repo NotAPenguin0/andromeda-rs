@@ -1,11 +1,13 @@
 use std::path::Path;
-use phobos as ph;
 
 use anyhow::Result;
 use layout::backends::svg::SVGWriter;
 use layout::gv;
 use layout::gv::GraphBuilder;
-use phobos::{GraphViz, IncompleteCmdBuffer};
+
+use phobos::prelude::traits::*;
+use phobos::prelude as ph;
+
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use winit::window::Window;
@@ -63,17 +65,17 @@ impl UpdateLoop {
         // Record UI commands
         ui.render(window, swapchain.clone(), &mut graph).await?;
         // Add a present pass to the graph.
-        let present_pass = ph::PassBuilder::present("present", graph.latest_version(swapchain)?);
+        let present_pass = ph::PassBuilder::present("present", &graph.latest_version(swapchain)?);
         graph.add_pass(present_pass);
         let mut graph = graph.build()?;
 
         // save_dotfile(graph.task_graph(), "graph.svg").await;
 
         // Bind the swapchain resource.
-        bindings.bind_image("swapchain", ifc.swapchain_image.clone().unwrap());
+        bindings.bind_image("swapchain", ifc.swapchain_image.as_ref().unwrap());
         // Record this frame.
-        let cmd = gfx.exec.on_domain::<ph::domain::All>()?;
-        let cmd = ph::record_graph(&mut graph, &bindings, &mut ifc, cmd, debug)?;
+        let cmd = gfx.exec.on_domain::<ph::domain::All>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
+        let cmd = graph.record(cmd, &bindings, &mut ifc, debug)?;
         cmd.finish()
     }
 }

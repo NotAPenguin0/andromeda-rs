@@ -58,10 +58,11 @@ impl RenderTargets {
         todo!()
     }
 
-    pub fn register_simple_target(&mut self, name: impl Into<String>, size: SizeGroup, ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format, aspect: vk::ImageAspectFlags, samples: vk::SampleCountFlags) -> Result<()> {
+    pub fn register_simple_target(&mut self, name: impl Into<String>, size: SizeGroup, mut ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format, aspect: vk::ImageAspectFlags, samples: vk::SampleCountFlags) -> Result<()> {
+        let mut alloc = ctx.allocator.clone();
         self.register_target(name, size, move |width, height| {
             gfx::PairedImageView::new(
-                ph::Image::new(ctx.device.clone(), (*ctx.allocator).clone(), width, height, usage, format, samples)?,
+                ph::Image::new(ctx.device.clone(), &mut alloc.clone(), width, height, usage, format, samples)?,
                 aspect
             )
         })
@@ -117,7 +118,7 @@ impl RenderTargets {
 
     pub fn bind_targets(&self, bindings: &mut ph::PhysicalResourceBindings) {
         for (name, target) in &self.targets {
-            bindings.bind_image(name.clone(), target.target.view.clone());
+            bindings.bind_image(name.clone(), &target.target.view);
         }
     }
 

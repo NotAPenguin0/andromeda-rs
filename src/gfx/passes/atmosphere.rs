@@ -72,8 +72,8 @@ impl AtmosphereRenderer {
     ) -> Result<()> {
 
         let pass = ph::PassBuilder::render("atmosphere")
-            .color_attachment(graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
-            .depth_attachment(graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
+            .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
+            .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
             .execute(|mut cmd, ifc, bindings| {
 
                 #[repr(C)]
@@ -115,17 +115,13 @@ impl AtmosphereRenderer {
 
                 let pc = Vec4::from((state.sun_dir, 0.0));
 
-                let set = ph::DescriptorSetBuilder::new()
-                    .bind_uniform_buffer(0, camera)
-                    .bind_uniform_buffer(1, atmosphere)
-                    .build();
-
                 cmd = cmd
-                    .bind_graphics_pipeline("atmosphere", self.ctx.pipelines.clone())?
+                    .bind_graphics_pipeline("atmosphere")?
                     .full_viewport_scissor()
-                    .bind_new_descriptor_set(0, self.ctx.descriptors.clone(), set)?
+                    .bind_uniform_buffer(0, 0, &camera)?
+                    .bind_uniform_buffer(0, 1, &atmosphere)?
                     .push_constants(vk::ShaderStageFlags::FRAGMENT, 0, std::slice::from_ref(&pc))
-                    .draw(6, 1, 0, 0);
+                    .draw(6, 1, 0, 0)?;
 
                 Ok(cmd)
             })

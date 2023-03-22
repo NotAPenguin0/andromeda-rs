@@ -1,32 +1,28 @@
-mod file_watcher;
-
-pub mod dynamic_pipeline_builder;
-pub use dynamic_pipeline_builder::*;
-
+use std::{env, fs};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-
-use phobos as ph;
-use phobos::vk;
-
-use std::fmt::Debug;
-use std::{env, fs};
 use std::ffi::{OsStr, OsString};
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use tokio::process::Command;
 use std::sync::{Arc, Mutex};
 
+use anyhow::{anyhow, Result};
+use notify::EventKind;
+use phobos as ph;
+use phobos::vk;
 use tiny_tokio_actor::*;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use tokio::process::Command;
 use tokio::task::JoinHandle;
 
-use anyhow::{anyhow, Result};
-
-use notify::EventKind;
+pub use dynamic_pipeline_builder::*;
 
 use crate::safe_error::SafeUnwrap;
 
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
+mod file_watcher;
+
+pub mod dynamic_pipeline_builder;
 
 #[derive(Debug, Clone)]
 struct ShaderInfo {
@@ -217,7 +213,7 @@ impl ShaderReloadActor {
             let mut pipelines = self.pipelines.lock().unwrap();
             let mut pci = pipelines.pipeline_info(pipeline).ok_or(ph::Error::PipelineNotFound(pipeline.to_owned()))?.clone();
             // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
-            pci.shaders.retain(|shader| shader.stage != stage);
+            pci.shaders.retain(|shader| shader.stage() != stage);
             pci.shaders.push(ph::ShaderCreateInfo::from_spirv(stage, binary));
             // This fixes a validation layer message, but I have no idea why
             pci.build_inner();

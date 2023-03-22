@@ -1,14 +1,12 @@
-use phobos as ph;
-
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
+use phobos as ph;
 use phobos::{GraphicsCmdBuffer, vk};
-
 use tiny_tokio_actor::ActorRef;
 
-use crate::core::{ByteSize, Event};
 use crate::{gfx, gui, state};
 use crate::app::RootActorSystem;
+use crate::core::{ByteSize, Event};
 use crate::gfx::{passes, postprocess};
 use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
@@ -108,7 +106,7 @@ impl WorldRenderer {
     }
 
     pub fn aspect_ratio(&self) -> f32 {
-        self.output_image().size.width as f32 / self.output_image().size.height as f32
+        self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
     fn draw_cube<'q>(cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>, ifc: &mut ph::InFlightContext, state: &RenderState, _ctx: gfx::SharedContext) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {

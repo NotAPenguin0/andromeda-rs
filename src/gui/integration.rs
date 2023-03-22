@@ -1,19 +1,15 @@
 use std::mem::ManuallyDrop;
 
 use anyhow::Result;
-
 use egui_winit_phobos::Integration;
-
+use phobos::{prelude as ph, vk};
+use phobos::prelude::traits::*;
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use phobos::{prelude as ph, vk};
-use phobos::prelude::traits::*;
-
 use crate::gfx;
 use crate::gui::{Image, USize};
-
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -42,8 +38,7 @@ impl UIIntegration {
                 ctx.device.clone(),
                 ctx.allocator.clone(),
                 ctx.exec.clone(),
-                ctx.pipelines.clone(),
-                ctx.descriptors.clone()
+                ctx.pipelines.clone()
             )?),
             to_unregister: vec![],
         })
@@ -95,7 +90,7 @@ impl UIIntegration {
         let id = self.integration.register_user_texture(image);
         Image {
             id,
-            size: USize::new(image.size.width, image.size.height),
+            size: USize::new(image.width(), image.height()),
         }
     }
 

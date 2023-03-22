@@ -3,9 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use futures::executor::block_on;
-
 use phobos::{PipelineBuilder, PipelineCache, vk};
-
 use tiny_tokio_actor::ActorRef;
 
 use crate::event::Event;
@@ -19,7 +17,7 @@ pub trait IntoDynamic {
 
 pub struct DynamicPipelineBuilder {
     inner: PipelineBuilder,
-    shaders: Vec<hot_reload::AddShader>
+    shaders: Vec<hot_reload::AddShader>,
 }
 
 impl DynamicPipelineBuilder {
@@ -33,17 +31,24 @@ impl DynamicPipelineBuilder {
     }
 
     /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
-    pub fn build(self, hot_reload: ActorRef<Event, hot_reload::ShaderReloadActor>, cache: Arc<Mutex<PipelineCache>>) -> Result<()> {
+    pub fn build(
+        self,
+        hot_reload: ActorRef<Event, hot_reload::ShaderReloadActor>,
+        cache: Arc<Mutex<PipelineCache>>,
+    ) -> Result<()> {
         let pci = self.inner.build();
         {
             let mut cache = cache.lock().unwrap();
             cache.create_named_pipeline(pci)?;
         }
 
-        let _ = self.shaders.into_iter().map(|shader| {
-            block_on(hot_reload.ask(shader)).unwrap();
-        }).collect::<Vec<_>>();
-
+        let _ = self
+            .shaders
+            .into_iter()
+            .map(|shader| {
+                block_on(hot_reload.ask(shader)).unwrap();
+            })
+            .collect::<Vec<_>>();
 
         Ok(())
     }

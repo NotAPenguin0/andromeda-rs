@@ -1,3 +1,4 @@
+pub use camera::*;
+
 mod camera;
 
-pub use camera::*;

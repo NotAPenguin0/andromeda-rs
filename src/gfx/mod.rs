@@ -1,26 +1,23 @@
-mod paired_image_view;
-mod world_renderer;
-mod postprocess;
-mod targets;
-mod graph;
-mod passes;
-
-
 use std::sync::{Arc, Mutex};
+
 use anyhow::Result;
-
-use phobos::prelude as ph;
 use ph::vk;
-
+use phobos::prelude as ph;
 use winit::window::Window;
 
+pub use graph::FrameGraph;
 pub use paired_image_view::PairedImageView;
-pub use world_renderer::WorldRenderer;
 pub use targets::RenderTargets;
 pub use targets::SizeGroup;
-pub use graph::FrameGraph;
-
 pub(self) use world_renderer::RenderState;
+pub use world_renderer::WorldRenderer;
+
+mod graph;
+mod paired_image_view;
+mod passes;
+mod postprocess;
+mod targets;
+mod world_renderer;
 
 /// The entire graphics context.
 #[derive(Debug)]
@@ -39,7 +36,7 @@ pub struct SharedContext {
     pub exec: ph::ExecutionManager,
     pub pipelines: Arc<Mutex<ph::PipelineCache>>,
     pub descriptors: Arc<Mutex<ph::DescriptorCache>>,
-    pub device: Arc<ph::Device>
+    pub device: Arc<ph::Device>,
 }
 
 impl Context {
@@ -56,9 +53,18 @@ impl Context {
                 min_video_memory: 1 * 1024 * 1024 * 1024,
                 min_dedicated_video_memory: 0,
                 queues: vec![
-                    ph::QueueRequest { dedicated: false, queue_type: ph::QueueType::Graphics },
-                    ph::QueueRequest { dedicated: true, queue_type: ph::QueueType::Transfer },
-                    ph::QueueRequest { dedicated: true, queue_type: ph::QueueType::Compute }
+                    ph::QueueRequest {
+                        dedicated: false,
+                        queue_type: ph::QueueType::Graphics,
+                    },
+                    ph::QueueRequest {
+                        dedicated: true,
+                        queue_type: ph::QueueType::Transfer,
+                    },
+                    ph::QueueRequest {
+                        dedicated: true,
+                        queue_type: ph::QueueType::Compute,
+                    },
                 ],
                 ..Default::default()
             })
@@ -79,14 +85,14 @@ impl Context {
         let device = ph::Device::new(&instance, &physical_device, &settings)?;
         let alloc = ph::DefaultAllocator::new(&instance, &device, &physical_device)?;
         let exec = ph::ExecutionManager::new(device.clone(), &physical_device)?;
-        let frame  = {
+        let frame = {
             let swapchain = ph::Swapchain::new(&instance, device.clone(), &settings, &surface)?;
             ph::FrameManager::new(device.clone(), alloc.clone(), &settings, swapchain)?
         };
 
         let pipelines = ph::PipelineCache::new(device.clone())?;
         let descriptors = ph::DescriptorCache::new(device.clone())?;
-        
+
         Ok(Self {
             debug_messenger,
             frame,

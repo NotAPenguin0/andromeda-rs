@@ -1,3 +1,4 @@
+pub use tonemap::Tonemap;
+
 mod tonemap;
 
-pub use tonemap::Tonemap;

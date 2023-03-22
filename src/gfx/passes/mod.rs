@@ -1,4 +1,5 @@
+pub use atmosphere::AtmosphereInfo;
+pub use atmosphere::AtmosphereRenderer;
+
 mod atmosphere;
 
-pub use atmosphere::AtmosphereRenderer;
-pub use atmosphere::AtmosphereInfo;

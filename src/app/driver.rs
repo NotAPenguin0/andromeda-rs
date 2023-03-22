@@ -1,7 +1,5 @@
 use anyhow::Result;
-
 use futures::executor::block_on;
-
 use tokio::runtime::Handle;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
@@ -10,7 +8,10 @@ use winit::window::{Window, WindowBuilder};
 use crate::{gfx, gui};
 use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
-use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
+use crate::core::{
+    ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
+    ScrollInfo,
+};
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -21,7 +22,7 @@ pub struct Driver {
     ui: gui::UIIntegration,
     update: UpdateLoop,
     pub actors: RootActorSystem,
-    pub gfx: gfx::Context
+    pub gfx: gfx::Context,
 }
 
 impl Driver {
@@ -34,7 +35,11 @@ impl Driver {
         Ok((event_loop, window))
     }
 
-    fn create_gui_integration(event_loop: &EventLoop<()>, window: &Window, gfx: &gfx::Context) -> Result<gui::UIIntegration> {
+    fn create_gui_integration(
+        event_loop: &EventLoop<()>,
+        window: &Window,
+        gfx: &gfx::Context,
+    ) -> Result<gui::UIIntegration> {
         gui::UIIntegration::new(event_loop, &window, gfx.shared.clone())
     }
 
@@ -56,26 +61,38 @@ impl Driver {
     }
 
     pub async fn process_frame(&mut self) -> Result<()> {
-        self.gfx.frame.new_frame(self.gfx.shared.exec.clone(), &self.window, &self.gfx.surface,  |mut ifc| {
-            // Do start of frame logic, we'll keep this here to keep things a bit easier
-            self.ui.new_frame(&self.window);
-            self.renderer.new_frame();
+        self.gfx
+            .frame
+            .new_frame(
+                self.gfx.shared.exec.clone(),
+                &self.window,
+                &self.gfx.surface,
+                |mut ifc| {
+                    // Do start of frame logic, we'll keep this here to keep things a bit easier
+                    self.ui.new_frame(&self.window);
+                    self.renderer.new_frame();
 
-            gui::build_ui(&self.ui.context(), &self.actors);
+                    gui::build_ui(&self.ui.context(), &self.actors);
 
-            Handle::current().block_on(async {
-                self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
+                    Handle::current().block_on(async {
+                        self.actors
+                            .update_rt_size(&mut self.ui, &mut self.renderer)
+                            .await?;
 
-                self.update.update(
-                    ifc,
-                    &mut self.ui,
-                    &self.window,
-                    &mut self.renderer,
-                    self.gfx.shared.clone(),
-                    self.gfx.debug_messenger.as_ref()).await
-                }
+                        self.update
+                            .update(
+                                ifc,
+                                &mut self.ui,
+                                &self.window,
+                                &mut self.renderer,
+                                self.gfx.shared.clone(),
+                                self.gfx.debug_messenger.as_ref(),
+                            )
+                            .await
+                    })
+                },
             )
-        }).await?;
+            .await?;
 
         self.gfx.next_frame();
         Ok(())
@@ -85,10 +102,10 @@ impl Driver {
 impl From<winit::event::MouseButton> for MouseButton {
     fn from(value: winit::event::MouseButton) -> Self {
         match value {
-            winit::event::MouseButton::Left => { MouseButton::Left },
-            winit::event::MouseButton::Right => { MouseButton::Right },
-            winit::event::MouseButton::Middle => { MouseButton::Middle },
-            winit::event::MouseButton::Other(x) => { MouseButton::Other(x) },
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            winit::event::MouseButton::Other(x) => MouseButton::Other(x),
         }
     }
 }
@@ -96,8 +113,8 @@ impl From<winit::event::MouseButton> for MouseButton {
 impl From<ElementState> for ButtonState {
     fn from(value: ElementState) -> Self {
         match value {
-            ElementState::Pressed => { ButtonState::Pressed }
-            ElementState::Released => { ButtonState::Released }
+            ElementState::Pressed => ButtonState::Pressed,
+            ElementState::Released => ButtonState::Released,
         }
     }
 }
@@ -105,7 +122,7 @@ impl From<ElementState> for ButtonState {
 pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<ControlFlow> {
     use winit::event::Event;
     match event {
-        Event::WindowEvent { event, window_id} => {
+        Event::WindowEvent { event, window_id } => {
             driver.ui.process_event(&event);
             match event {
                 WindowEvent::Resized(_) => {}
@@ -122,9 +139,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::HoveredFileCancelled => {}
                 WindowEvent::ReceivedCharacter(_) => {}
                 WindowEvent::Focused(_) => {}
-                WindowEvent::KeyboardInput { .. } => {
-
-                }
+                WindowEvent::KeyboardInput { .. } => {}
                 WindowEvent::ModifiersChanged(state) => {
                     if state.shift() {
                         driver.actors.input.tell(InputEvent::Button(KeyState {
@@ -140,31 +155,48 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 }
                 WindowEvent::Ime(_) => {}
                 WindowEvent::CursorMoved { position, .. } => {
-                    driver.actors.input.tell(InputEvent::MouseMove(MousePosition { x: position.x, y: position.y }))?;
+                    driver
+                        .actors
+                        .input
+                        .tell(InputEvent::MouseMove(MousePosition {
+                            x: position.x,
+                            y: position.y,
+                        }))?;
                 }
                 WindowEvent::CursorEntered { .. } => {}
                 WindowEvent::CursorLeft { .. } => {}
                 WindowEvent::MouseWheel { delta, .. } => {
                     match delta {
                         MouseScrollDelta::LineDelta(x, y) => {
-                            driver.actors.input.tell(InputEvent::Scroll(ScrollInfo {
-                                delta_x: x,
-                                delta_y: y,
-                            })).unwrap();
+                            driver
+                                .actors
+                                .input
+                                .tell(InputEvent::Scroll(ScrollInfo {
+                                    delta_x: x,
+                                    delta_y: y,
+                                }))
+                                .unwrap();
                         }
                         MouseScrollDelta::PixelDelta(px) => {
-                            driver.actors.input.tell(InputEvent::Scroll(ScrollInfo {
-                                delta_x: px.x as f32,
-                                delta_y: px.y as f32,
-                            })).unwrap();
+                            driver
+                                .actors
+                                .input
+                                .tell(InputEvent::Scroll(ScrollInfo {
+                                    delta_x: px.x as f32,
+                                    delta_y: px.y as f32,
+                                }))
+                                .unwrap();
                         }
                     };
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
-                    driver.actors.input.tell(InputEvent::MouseButton(MouseButtonState {
-                        state: state.into(),
-                        button: button.into(),
-                    }))?;
+                    driver
+                        .actors
+                        .input
+                        .tell(InputEvent::MouseButton(MouseButtonState {
+                            state: state.into(),
+                            button: button.into(),
+                        }))?;
                 }
                 WindowEvent::TouchpadMagnify { .. } => {}
                 WindowEvent::SmartMagnify { .. } => {}
@@ -176,11 +208,12 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::ThemeChanged(_) => {}
                 WindowEvent::Occluded(_) => {}
             }
-        },
+        }
         Event::MainEventsCleared => {
             driver.window.request_redraw();
         }
-        Event::RedrawRequested(_) => { // TODO: Multi-window
+        Event::RedrawRequested(_) => {
+            // TODO: Multi-window
             block_on(driver.process_frame())?
         }
         _ => (),

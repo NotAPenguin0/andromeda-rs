@@ -46,8 +46,14 @@ impl WorldRenderer {
             .cull_mask(vk::CullModeFlags::NONE)
             .samples(vk::SampleCountFlags::TYPE_8) // TODO: Config, etc.
             .into_dynamic()
-            .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
-            .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
+            .attach_shader(
+                "shaders/src/simple_mesh.vert.hlsl",
+                vk::ShaderStageFlags::VERTEX,
+            )
+            .attach_shader(
+                "shaders/src/solid_color.frag.hlsl",
+                vk::ShaderStageFlags::FRAGMENT,
+            )
             .build(actors.shader_reload.clone(), ctx.pipelines.clone())?;
 
         let mut targets = RenderTargets::new()?;
@@ -59,7 +65,7 @@ impl WorldRenderer {
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT,
             vk::Format::R32G32B32A32_SFLOAT,
-            vk::SampleCountFlags::TYPE_8
+            vk::SampleCountFlags::TYPE_8,
         )?;
 
         targets.register_multisampled_depth_target(
@@ -68,7 +74,7 @@ impl WorldRenderer {
             ctx.clone(),
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             vk::Format::D32_SFLOAT,
-            vk::SampleCountFlags::TYPE_8
+            vk::SampleCountFlags::TYPE_8,
         )?;
 
         targets.register_color_target(
@@ -76,7 +82,8 @@ impl WorldRenderer {
             SizeGroup::OutputResolution,
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-            vk::Format::R32G32B32A32_SFLOAT)?;
+            vk::Format::R32G32B32A32_SFLOAT,
+        )?;
 
         Ok(Self {
             ctx: ctx.clone(),
@@ -96,7 +103,11 @@ impl WorldRenderer {
         self.targets.get_target_view(Self::output_name()).unwrap()
     }
 
-    pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
+    pub fn resize_target(
+        &mut self,
+        size: gui::USize,
+        ui: &mut gui::UIIntegration,
+    ) -> Result<gui::Image> {
         self.targets.set_output_resolution(size.x(), size.y())?;
         Ok(ui.register_texture(&self.targets.get_target_view(Self::output_name())?))
     }
@@ -109,64 +120,38 @@ impl WorldRenderer {
         self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
-    fn draw_cube<'q>(cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>, ifc: &mut ph::InFlightContext, state: &RenderState, _ctx: gfx::SharedContext) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {
+    fn draw_cube<'q>(
+        cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>,
+        ifc: &mut ph::InFlightContext,
+        state: &RenderState,
+        _ctx: gfx::SharedContext,
+    ) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {
         // We need to allocate a vertex and uniform buffer from the ifc
         const VERTS: [f32; 108] = [
-            -0.5, -0.5, -0.5,
-            0.5, -0.5, -0.5,
-            0.5,  0.5, -0.5,
-            0.5,  0.5, -0.5,
-            -0.5,  0.5, -0.5,
-            -0.5, -0.5, -0.5,
-
-            -0.5, -0.5,  0.5,
-            0.5, -0.5,  0.5,
-            0.5,  0.5,  0.5,
-            0.5,  0.5,  0.5,
-            -0.5,  0.5,  0.5,
-            -0.5, -0.5,  0.5,
-
-            -0.5,  0.5,  0.5,
-            -0.5,  0.5, -0.5,
-            -0.5, -0.5, -0.5,
-            -0.5, -0.5, -0.5,
-            -0.5, -0.5,  0.5,
-            -0.5,  0.5,  0.5,
-
-            0.5,  0.5,  0.5,
-            0.5,  0.5, -0.5,
-            0.5, -0.5, -0.5,
-            0.5, -0.5, -0.5,
-            0.5, -0.5,  0.5,
-            0.5,  0.5,  0.5,
-
-            -0.5, -0.5, -0.5,
-            0.5, -0.5, -0.5,
-            0.5, -0.5,  0.5,
-            0.5, -0.5,  0.5,
-            -0.5, -0.5,  0.5,
-            -0.5, -0.5, -0.5,
-
-            -0.5,  0.5, -0.5,
-            0.5,  0.5, -0.5,
-            0.5,  0.5,  0.5,
-            0.5,  0.5,  0.5,
-            -0.5,  0.5,  0.5,
-            -0.5,  0.5, -0.5,
+            -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5,
+            -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5,
+            0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5,
+            -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
+            -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5,
+            -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5,
+            -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
         ];
 
         let mut vtx = ifc.allocate_scratch_vbo(VERTS.byte_size() as vk::DeviceSize)?;
         vtx.mapped_slice()?.copy_from_slice(&VERTS);
 
-        let mut cam_ubo = ifc.allocate_scratch_ubo(state.projection_view.byte_size() as vk::DeviceSize)?;
-        cam_ubo.mapped_slice::<Mat4>()?.copy_from_slice(std::slice::from_ref(&state.projection_view));
+        let mut cam_ubo =
+            ifc.allocate_scratch_ubo(state.projection_view.byte_size() as vk::DeviceSize)?;
+        cam_ubo
+            .mapped_slice::<Mat4>()?
+            .copy_from_slice(std::slice::from_ref(&state.projection_view));
 
-        let cmd =
-            cmd.bind_graphics_pipeline("flat_draw")?
-                .full_viewport_scissor()
-                .bind_uniform_buffer(0, 0, &cam_ubo)?
-                .bind_vertex_buffer(0, &vtx)
-                .draw(36, 1, 0, 0)?;
+        let cmd = cmd
+            .bind_graphics_pipeline("flat_draw")?
+            .full_viewport_scissor()
+            .bind_uniform_buffer(0, 0, &cam_ubo)?
+            .bind_vertex_buffer(0, &vtx)
+            .draw(36, 1, 0, 0)?;
         Ok(cmd)
     }
 
@@ -176,7 +161,7 @@ impl WorldRenderer {
             self.camera.ask(state::QueryCameraFOV).await?.to_radians(),
             self.aspect_ratio(),
             0.1,
-            100.0
+            100.0,
         );
         // Flip y because Vulkan
         let v = self.state.projection.col_mut(1).y;
@@ -185,13 +170,16 @@ impl WorldRenderer {
         self.state.projection_view = self.state.projection * self.state.view;
         self.state.inverse_projection_view = self.state.projection_view.inverse();
         self.state.inverse_projection = self.state.projection.inverse();
-        self.state.inverse_view_rotation = Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
+        self.state.inverse_view_rotation =
+            Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.atmosphere = AtmosphereInfo::earth();
         self.state.sun_dir = -self.camera.ask(state::QueryCameraVectors).await?.front;
         Ok(())
     }
 
-    pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(&'s mut self) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
+    pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(
+        &'s mut self,
+    ) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
@@ -207,11 +195,18 @@ impl WorldRenderer {
             .color_attachment(
                 &scene_output,
                 vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}))?
+                Some(vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 0.0],
+                }),
+            )?
             .depth_attachment(
                 &depth,
-                vk::AttachmentLoadOp::CLEAR, 
-                Some(vk::ClearDepthStencilValue { depth: 1.0, stencil: 0 }))?
+                vk::AttachmentLoadOp::CLEAR,
+                Some(vk::ClearDepthStencilValue {
+                    depth: 1.0,
+                    stencil: 0,
+                }),
+            )?
             .execute(|cmd, mut ifc, _| {
                 Self::draw_cube(cmd, &mut ifc, &self.state, self.ctx.clone())
             })
@@ -220,13 +215,28 @@ impl WorldRenderer {
         // 1. Render main geometry pass
         graph.add_pass(main_render);
         // 2. Render atmosphere
-        self.atmosphere.render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state).await?;
+        self.atmosphere
+            .render(
+                &mut graph,
+                &mut bindings,
+                scene_output.clone(),
+                depth.clone(),
+                &self.state,
+            )
+            .await?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
-            .color_attachment(&graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?
+            .color_attachment(
+                &graph.latest_version(scene_output.clone())?,
+                vk::AttachmentLoadOp::LOAD,
+                None,
+            )?
             // We dont currently need depth resolved
             // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
-            .resolve(&graph.latest_version(scene_output.clone())?, &resolved_output)
+            .resolve(
+                &graph.latest_version(scene_output.clone())?,
+                &resolved_output,
+            )
             .build();
         graph.add_pass(resolve);
         // 4. Apply tonemapping

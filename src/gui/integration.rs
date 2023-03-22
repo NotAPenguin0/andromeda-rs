@@ -14,16 +14,18 @@ use crate::gui::{Image, USize};
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct UIIntegration {
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     integration: ManuallyDrop<Integration<ph::DefaultAllocator>>,
     // Deletion queue, but needs access to self so we cant put it in an actual deletion queue.
     to_unregister: Vec<(Image, u32)>,
 }
 
 impl UIIntegration {
-    pub fn new(event_loop: &EventLoop<()>,
-               window: &Window,
-               ctx: gfx::SharedContext) -> Result<Self> {
+    pub fn new(
+        event_loop: &EventLoop<()>,
+        window: &Window,
+        ctx: gfx::SharedContext,
+    ) -> Result<Self> {
         let mut style = egui::Style::default();
 
         style.visuals.window_shadow = egui::epaint::Shadow::NONE;
@@ -33,12 +35,14 @@ impl UIIntegration {
             integration: ManuallyDrop::new(Integration::new(
                 window.width(),
                 window.height(),
-                window.scale_factor() as f32, event_loop,
-                egui::FontDefinitions::default(), style,
+                window.scale_factor() as f32,
+                event_loop,
+                egui::FontDefinitions::default(),
+                style,
                 ctx.device.clone(),
                 ctx.allocator.clone(),
                 ctx.exec.clone(),
-                ctx.pipelines.clone()
+                ctx.pipelines.clone(),
             )?),
             to_unregister: vec![],
         })
@@ -59,21 +63,26 @@ impl UIIntegration {
         &'s mut self,
         window: &Window,
         swapchain: ph::VirtualResource,
-        graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
-
+        graph: &mut gfx::FrameGraph<'e, 'q>,
+    ) -> Result<()> {
         self.integration.resize(window.width(), window.height());
 
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
         let scene_output = graph.latest_version(graph.aliased_resource("renderer_output")?)?;
-        graph.add_pass(self.integration.paint(
-                std::slice::from_ref(&scene_output),
-                &swapchain,
-                vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}),
-                clipped_meshes,
-                output.textures_delta
-            ).await?
+        graph.add_pass(
+            self.integration
+                .paint(
+                    std::slice::from_ref(&scene_output),
+                    &swapchain,
+                    vk::AttachmentLoadOp::CLEAR,
+                    Some(vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 0.0],
+                    }),
+                    clipped_meshes,
+                    output.textures_delta,
+                )
+                .await?,
         );
         Ok(())
     }

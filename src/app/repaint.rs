@@ -1,7 +1,7 @@
-use tiny_tokio_actor::*;
 use std::sync::atomic::Ordering;
 
 use atomic_enum::atomic_enum;
+use tiny_tokio_actor::*;
 
 use crate::event::Event;
 
@@ -37,23 +37,24 @@ pub struct RepaintListener {
 impl Default for RepaintListener {
     fn default() -> Self {
         Self {
-            repaint_requested: AtomicRepaintStatus::new(RepaintStatus::None)
+            repaint_requested: AtomicRepaintStatus::new(RepaintStatus::None),
         }
     }
 }
 
-
 #[async_trait]
 impl Handler<Event, RepaintAll> for RepaintListener {
     async fn handle(&mut self, _: RepaintAll, _: &mut ActorContext<Event>) -> () {
-        self.repaint_requested.store(RepaintStatus::All, Ordering::Relaxed);
+        self.repaint_requested
+            .store(RepaintStatus::All, Ordering::Relaxed);
     }
 }
 
 #[async_trait]
 impl Handler<Event, RepaintUI> for RepaintListener {
     async fn handle(&mut self, _: RepaintUI, _: &mut ActorContext<Event>) -> () {
-        self.repaint_requested.store(RepaintStatus::UIOnly, Ordering::Relaxed);
+        self.repaint_requested
+            .store(RepaintStatus::UIOnly, Ordering::Relaxed);
     }
 }
 
@@ -67,6 +68,7 @@ impl Handler<Event, CheckRepaint> for RepaintListener {
 #[async_trait]
 impl Handler<Event, ResetRepaint> for RepaintListener {
     async fn handle(&mut self, _: ResetRepaint, _: &mut ActorContext<Event>) -> () {
-        self.repaint_requested.store(RepaintStatus::None, Ordering::Relaxed);
+        self.repaint_requested
+            .store(RepaintStatus::None, Ordering::Relaxed);
     }
 }

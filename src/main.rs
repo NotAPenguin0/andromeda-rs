@@ -2,27 +2,26 @@
 #![feature(never_type)]
 #![feature(fn_traits)]
 
-mod gfx;
-mod gui;
-mod app;
-mod core;
-mod hot_reload;
-mod state;
-mod math;
-
-use tokio;
-
-use anyhow::Result;
-use winit::event_loop::ControlFlow;
-
-use crate::core::*;
-use crate::app::*;
-
-extern crate pretty_env_logger;
-#[macro_use] extern crate log;
-
 #[macro_use]
 extern crate derivative;
+#[macro_use]
+extern crate log;
+extern crate pretty_env_logger;
+
+use anyhow::Result;
+use tokio;
+use winit::event_loop::ControlFlow;
+
+use crate::app::*;
+use crate::core::*;
+
+mod app;
+mod core;
+mod gfx;
+mod gui;
+mod hot_reload;
+mod math;
+mod state;
 
 fn main() -> Result<!> {
     std::env::set_var("RUST_LOG", "trace");
@@ -41,11 +40,13 @@ fn main() -> Result<!> {
 
     // Run the app driver on the event loop
     event_loop.run(move |event, _, control_flow| {
-        if let ControlFlow::ExitWithCode(_) = *control_flow { return; }
+        if let ControlFlow::ExitWithCode(_) = *control_flow {
+            return;
+        }
         let result = process_event(&mut driver, event);
         match result {
-            Ok(flow) => { *control_flow = flow }
-            Err(e) => { Err(e).safe_unwrap() }
+            Ok(flow) => *control_flow = flow,
+            Err(e) => Err(e).safe_unwrap(),
         }
     })
 }

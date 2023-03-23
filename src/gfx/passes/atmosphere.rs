@@ -40,6 +40,7 @@ impl AtmosphereInfo {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct AtmosphereRenderer {
     ctx: gfx::SharedContext,

@@ -45,6 +45,7 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
             .ok_or(anyhow!("No such resource {:?}", resource))
     }
 
+    #[allow(dead_code)]
     pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<&ph::VirtualResource> {
         let pass = self.passes.get(pass).ok_or(anyhow!("No such pass {:?}", pass))?;
         pass.output(&resource).ok_or(anyhow!("No such resource {:?}", resource))

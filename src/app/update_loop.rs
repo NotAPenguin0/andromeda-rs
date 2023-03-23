@@ -10,13 +10,14 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
+use crate::gfx;
 use crate::gfx::world::World;
 use crate::gui::util::integration::UIIntegration;
-use crate::{gfx, gui};
 
 #[derive(Debug)]
 pub struct UpdateLoop {}
 
+#[allow(dead_code)]
 async fn save_dotfile<G>(graph: &G, path: &str)
 where
     G: GraphViz, {

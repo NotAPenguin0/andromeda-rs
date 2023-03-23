@@ -14,6 +14,7 @@ pub fn show(context: &egui::Context, world: &mut World) {
                     .show(ui);
                 Drag::new("Atmosphere radius", &mut world.atmosphere.atmosphere_radius)
                     .suffix(" km")
+                    .relative_to(world.atmosphere.planet_radius)
                     .scale(10e-4)
                     .show(ui);
                 Drag::new("Sun intensity", &mut world.atmosphere.sun_intensity)
@@ -25,8 +26,7 @@ pub fn show(context: &egui::Context, world: &mut World) {
                     .digits(3)
                     .show(ui);
                 Drag::new("Rayleigh scatter height", &mut world.atmosphere.rayleigh_scatter_height)
-                    .suffix(" km")
-                    .scale(10e-4)
+                    .suffix(" m")
                     .show(ui);
                 Drag::new("Mie scattering", &mut world.atmosphere.mie_coefficients)
                     .speed(0.1)

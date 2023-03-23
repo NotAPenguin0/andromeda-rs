@@ -1,4 +1,4 @@
-use std::ops::{Div, Mul};
+use std::ops::{Add, Div, Mul, Sub};
 
 use glam::Vec3;
 
@@ -18,6 +18,26 @@ impl Rotation {
         let sin_yaw = self.0.y.sin();
 
         Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize()
+    }
+}
+
+impl Add<Rotation> for Rotation {
+    type Output = Self;
+
+    fn add(self, rhs: Rotation) -> Self::Output {
+        Self {
+            0: self.0 + rhs.0,
+        }
+    }
+}
+
+impl Sub<Rotation> for Rotation {
+    type Output = Self;
+
+    fn sub(self, rhs: Rotation) -> Self::Output {
+        Self {
+            0: self.0 - rhs.0,
+        }
     }
 }
 

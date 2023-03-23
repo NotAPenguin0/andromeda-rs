@@ -66,7 +66,7 @@ impl Driver {
     pub async fn process_frame(&mut self) -> Result<()> {
         self.gfx
             .frame
-            .new_frame(self.gfx.shared.exec.clone(), &self.window, &self.gfx.surface, |mut ifc| {
+            .new_frame(self.gfx.shared.exec.clone(), &self.window, &self.gfx.surface, |ifc| {
                 // Do start of frame logic, we'll keep this here to keep things a bit easier
                 self.ui.new_frame(&self.window);
                 self.renderer.new_frame();

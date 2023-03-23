@@ -1,5 +1,3 @@
-use glam::Vec3;
-
 use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;
 

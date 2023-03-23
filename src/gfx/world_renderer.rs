@@ -1,11 +1,11 @@
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
-use phobos::{vk, GraphicsCmdBuffer};
+use phobos::vk;
 use tiny_tokio_actor::ActorRef;
 
 use crate::app::RootActorSystem;
-use crate::core::{ByteSize, Event};
+use crate::core::Event;
 use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
@@ -29,6 +29,7 @@ pub struct RenderState {
     pub sun_dir: Vec3,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorldRenderer {
     ctx: gfx::SharedContext,
@@ -163,7 +164,7 @@ impl WorldRenderer {
                     stencil: 0,
                 }),
             )?
-            .execute(|cmd, mut ifc, _| Ok(cmd))
+            .execute(|cmd, _ifc, _bindings| Ok(cmd))
             .build();
 
         // 1. Render main geometry pass

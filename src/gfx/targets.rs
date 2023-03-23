@@ -6,6 +6,7 @@ use phobos::vk;
 
 use crate::gfx;
 
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SizeGroup {
     RenderResolution,
@@ -22,6 +23,7 @@ struct RenderTargetEntry {
     pub recreate: Box<dyn Fn(u32, u32) -> Result<gfx::PairedImageView>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct RenderTargets {
     targets: HashMap<String, RenderTargetEntry>,
@@ -54,6 +56,7 @@ impl RenderTargets {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn set_render_resolution(&mut self, _width: u32, _height: u32) -> Result<()> {
         todo!()
     }
@@ -62,13 +65,13 @@ impl RenderTargets {
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        mut ctx: gfx::SharedContext,
+        ctx: gfx::SharedContext,
         usage: vk::ImageUsageFlags,
         format: vk::Format,
         aspect: vk::ImageAspectFlags,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        let mut alloc = ctx.allocator.clone();
+        let alloc = ctx.allocator.clone();
         self.register_target(name, size, move |width, height| {
             gfx::PairedImageView::new(
                 ph::Image::new(ctx.device.clone(), &mut alloc.clone(), width, height, usage, format, samples)?,
@@ -96,6 +99,7 @@ impl RenderTargets {
         )
     }
 
+    #[allow(dead_code)]
     pub fn register_depth_target(
         &mut self,
         name: impl Into<String>,
@@ -162,6 +166,7 @@ impl RenderTargets {
         self.deferred_delete.next_frame();
     }
 
+    #[allow(dead_code)]
     pub fn target_size(&self, name: &str) -> Result<(u32, u32)> {
         let target = self.targets.get(name).ok_or(anyhow!("Target {} not found", name))?;
         Ok(self.size_group_resolution(target.size_group))

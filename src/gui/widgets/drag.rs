@@ -1,11 +1,11 @@
-use std::ops::{Div, Mul, RangeInclusive};
+use std::ops::{Add, Div, Mul, Sub};
 
-use egui::{emath, Ui};
+use egui::Ui;
 use glam::Vec3;
 
 use crate::math::Rotation;
 
-pub trait Draggable: Copy + Mul<f32, Output = Self> + Div<f32, Output = Self> {
+pub trait Draggable: Copy + Default + Sub<Self, Output = Self> + Add<Self, Output = Self> + Mul<f32, Output = Self> + Div<f32, Output = Self> {
     fn drag(&mut self, ui: &mut egui::Ui, speed: f64, digits: usize, suffix: &str);
 }
 
@@ -46,6 +46,7 @@ where
     scaled_value: T,
     scale: f32,
     speed: f64,
+    base: T,
     label: L,
     digits: usize,
     suffix: Option<&'s str>,
@@ -65,6 +66,7 @@ where
             suffix: None,
             scale: 1.0,
             speed: 1.0,
+            base: T::default(),
         }
     }
 
@@ -89,12 +91,18 @@ where
         self
     }
 
+    /// Set a base value. The value shown to the user will be shown with this base value subtracted (before scaling).
+    pub fn relative_to(mut self, base: T) -> Self {
+        self.base = base;
+        self
+    }
+
     pub fn show(mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(self.label.into());
-            self.scaled_value = *self.original_value * self.scale;
+            self.scaled_value = (*self.original_value - self.base) * self.scale;
             self.scaled_value.drag(ui, self.speed, self.digits, self.suffix.unwrap_or(""));
-            *self.original_value = self.scaled_value / self.scale;
+            *self.original_value = (self.scaled_value / self.scale) + self.base;
         });
     }
 }

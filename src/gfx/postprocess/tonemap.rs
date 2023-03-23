@@ -6,6 +6,7 @@ use crate::app::RootActorSystem;
 use crate::gfx;
 use crate::hot_reload::IntoDynamic;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Tonemap {
     ctx: gfx::SharedContext,

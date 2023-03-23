@@ -11,6 +11,7 @@ use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
 use crate::{gfx, gui};
+use crate::gfx::world::World;
 
 #[derive(Debug)]
 pub struct UpdateLoop {}
@@ -50,12 +51,13 @@ impl UpdateLoop {
         mut ifc: ph::InFlightContext<'_>,
         ui: &mut gui::UIIntegration,
         window: &Window,
+        world: &World,
         renderer: &mut gfx::WorldRenderer,
         gfx: gfx::SharedContext,
         debug: Option<&ph::DebugMessenger>,
     ) -> Result<ph::CommandBuffer<ph::domain::All>> {
         // Always repaint every frame from now on
-        let (mut graph, mut bindings) = renderer.redraw_world().await?;
+        let (mut graph, mut bindings) = renderer.redraw_world(world).await?;
 
         let swapchain = graph.swapchain_resource();
         // Record UI commands

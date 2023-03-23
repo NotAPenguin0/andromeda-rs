@@ -9,6 +9,7 @@ pub use integration::UIIntegration;
 pub use size::*;
 
 use crate::app::RootActorSystem;
+use crate::gfx::world::World;
 use crate::gui::camera_controller::{DragWorld, MouseOverWorld};
 
 pub mod image;
@@ -116,7 +117,7 @@ impl<E> Handler<E, SetNewTexture> for TargetResizeActor
     }
 }
 
-pub fn build_ui(context: &egui::Context, actors: &RootActorSystem) {
+pub fn build_ui(context: &egui::Context, actors: &RootActorSystem, world: &mut World) {
     egui::CentralPanel::default().show(&context, |ui| {
         ui.heading("Editor");
 

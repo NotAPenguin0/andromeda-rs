@@ -8,7 +8,7 @@ use crate::app::RootActorSystem;
 use crate::gfx;
 use crate::hot_reload::IntoDynamic;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct AtmosphereInfo {
     planet_radius: f32,
     atmosphere_radius: f32,

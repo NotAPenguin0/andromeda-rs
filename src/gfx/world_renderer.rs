@@ -10,6 +10,7 @@ use crate::core::{ByteSize, Event};
 use crate::gfx::{passes, postprocess};
 use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
+use crate::gfx::world::World;
 use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug, Default)]
@@ -120,42 +121,7 @@ impl WorldRenderer {
         self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
-    fn draw_cube<'q>(
-        cmd: ph::IncompleteCommandBuffer<'q, ph::domain::All>,
-        ifc: &mut ph::InFlightContext,
-        state: &RenderState,
-        _ctx: gfx::SharedContext,
-    ) -> Result<ph::IncompleteCommandBuffer<'q, ph::domain::All>> {
-        // We need to allocate a vertex and uniform buffer from the ifc
-        const VERTS: [f32; 108] = [
-            -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, -0.5,
-            -0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5,
-            0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, -0.5,
-            -0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
-            -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5,
-            -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5,
-            -0.5, 0.5, 0.5, -0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5, -0.5,
-        ];
-
-        let mut vtx = ifc.allocate_scratch_vbo(VERTS.byte_size() as vk::DeviceSize)?;
-        vtx.mapped_slice()?.copy_from_slice(&VERTS);
-
-        let mut cam_ubo =
-            ifc.allocate_scratch_ubo(state.projection_view.byte_size() as vk::DeviceSize)?;
-        cam_ubo
-            .mapped_slice::<Mat4>()?
-            .copy_from_slice(std::slice::from_ref(&state.projection_view));
-
-        let cmd = cmd
-            .bind_graphics_pipeline("flat_draw")?
-            .full_viewport_scissor()
-            .bind_uniform_buffer(0, 0, &cam_ubo)?
-            .bind_vertex_buffer(0, &vtx)
-            .draw(36, 1, 0, 0)?;
-        Ok(cmd)
-    }
-
-    async fn update_render_state(&mut self) -> Result<()> {
+    async fn update_render_state(&mut self, world: &World) -> Result<()> {
         self.state.view = self.camera.ask(state::QueryCameraMatrix).await?.0;
         self.state.projection = Mat4::perspective_rh(
             self.camera.ask(state::QueryCameraFOV).await?.to_radians(),
@@ -172,19 +138,19 @@ impl WorldRenderer {
         self.state.inverse_projection = self.state.projection.inverse();
         self.state.inverse_view_rotation =
             Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
-        self.state.atmosphere = AtmosphereInfo::earth();
-        self.state.sun_dir = -self.camera.ask(state::QueryCameraVectors).await?.front;
+        self.state.atmosphere = world.atmosphere;
+        self.state.sun_dir = world.sun_direction;
         Ok(())
     }
 
     pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(
-        &'s mut self,
+        &'s mut self, world: &World,
     ) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
 
-        self.update_render_state().await?;
+        self.update_render_state(world).await?;
 
         let scene_output = ph::VirtualResource::image("scene_output");
         let depth = ph::VirtualResource::image("depth");
@@ -208,7 +174,7 @@ impl WorldRenderer {
                 }),
             )?
             .execute(|cmd, mut ifc, _| {
-                Self::draw_cube(cmd, &mut ifc, &self.state, self.ctx.clone())
+                Ok(cmd)
             })
             .build();
 

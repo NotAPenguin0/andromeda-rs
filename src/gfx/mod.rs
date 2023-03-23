@@ -7,6 +7,7 @@ use winit::window::Window;
 
 pub use graph::FrameGraph;
 pub use paired_image_view::PairedImageView;
+pub use passes::AtmosphereInfo;
 pub use targets::RenderTargets;
 pub use targets::SizeGroup;
 pub(self) use world_renderer::RenderState;
@@ -18,6 +19,7 @@ mod passes;
 mod postprocess;
 mod targets;
 mod world_renderer;
+pub mod world;
 
 /// The entire graphics context.
 #[derive(Debug)]

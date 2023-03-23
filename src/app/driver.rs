@@ -1,5 +1,6 @@
 use anyhow::Result;
 use futures::executor::block_on;
+use glam::Vec3;
 use tokio::runtime::Handle;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
@@ -12,6 +13,8 @@ use crate::core::{
     ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
     ScrollInfo,
 };
+use crate::gfx::AtmosphereInfo;
+use crate::gfx::world::World;
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -21,6 +24,7 @@ pub struct Driver {
     renderer: gfx::WorldRenderer,
     ui: gui::UIIntegration,
     update: UpdateLoop,
+    pub world: World,
     pub actors: RootActorSystem,
     pub gfx: gfx::Context,
 }
@@ -57,6 +61,10 @@ impl Driver {
             renderer,
             actors,
             update,
+            world: World {
+                sun_direction: Vec3::new(0.0, -1.0, 0.0),
+                atmosphere: AtmosphereInfo::earth(),
+            },
         })
     }
 
@@ -72,7 +80,7 @@ impl Driver {
                     self.ui.new_frame(&self.window);
                     self.renderer.new_frame();
 
-                    gui::build_ui(&self.ui.context(), &self.actors);
+                    gui::build_ui(&self.ui.context(), &self.actors, &mut self.world);
 
                     Handle::current().block_on(async {
                         self.actors
@@ -84,6 +92,7 @@ impl Driver {
                                 ifc,
                                 &mut self.ui,
                                 &self.window,
+                                &self.world,
                                 &mut self.renderer,
                                 self.gfx.shared.clone(),
                                 self.gfx.debug_messenger.as_ref(),

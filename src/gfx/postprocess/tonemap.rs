@@ -1,11 +1,10 @@
+use anyhow::Result;
+use phobos as ph;
+use phobos::{vk, GraphicsCmdBuffer};
+
 use crate::app::RootActorSystem;
 use crate::gfx;
 use crate::hot_reload::IntoDynamic;
-
-use phobos as ph;
-use phobos::{GraphicsCmdBuffer, vk};
-
-use anyhow::Result;
 
 #[derive(Debug)]
 pub struct Tonemap {
@@ -30,12 +29,12 @@ impl Tonemap {
             gfx::SizeGroup::OutputResolution,
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
-            vk::Format::R8G8B8A8_SRGB
+            vk::Format::R8G8B8A8_SRGB,
         )?;
 
         Ok(Self {
             ctx: ctx.clone(),
-            sampler: ph::Sampler::default(ctx.device)?
+            sampler: ph::Sampler::default(ctx.device)?,
         })
     }
 
@@ -43,24 +42,24 @@ impl Tonemap {
         "tonemap_output"
     }
 
-    pub fn render<'s: 'e + 'q, 'e, 'q>(&'s self, input: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
+    pub fn render<'s: 'e + 'q, 'q, 'e>(&'s self, input: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
         let input = graph.latest_version(input)?;
         let output = ph::VirtualResource::image(Self::output_name());
         let pass = ph::PassBuilder::render("tonemap")
             .color_attachment(
-                output,
+                &output,
                 vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}))?
-            .sample_image(input.clone(), ph::PipelineStage::FRAGMENT_SHADER)
-            .execute(move |mut cmd, ifc, bindings| {
-                let set = ph::DescriptorSetBuilder::new()
-                    .resolve_and_bind_sampled_image(0, input.clone(), &self.sampler, bindings)?
-                    .build();
+                Some(vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 0.0],
+                }),
+            )?
+            .sample_image(&input, ph::PipelineStage::FRAGMENT_SHADER)
+            .execute(move |mut cmd, _ifc, bindings| {
                 cmd = cmd
-                    .bind_graphics_pipeline("tonemap", self.ctx.pipelines.clone())?
+                    .bind_graphics_pipeline("tonemap")?
                     .full_viewport_scissor()
-                    .bind_new_descriptor_set(0, self.ctx.descriptors.clone(), set)?
-                    .draw(6, 1, 0, 0);
+                    .resolve_and_bind_sampled_image(0, 0, &input, &self.sampler, bindings)?
+                    .draw(6, 1, 0, 0)?;
                 Ok(cmd)
             })
             .build();

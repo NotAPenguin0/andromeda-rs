@@ -1,35 +1,27 @@
 use std::mem::ManuallyDrop;
-use std::ops::Deref;
 
 use anyhow::Result;
-
 use egui_winit_phobos::Integration;
-
+use phobos::prelude::traits::*;
+use phobos::{prelude as ph, vk};
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use phobos as ph;
-use phobos::WindowSize;
-use phobos::vk;
-
 use crate::gfx;
 use crate::gui::{Image, USize};
-
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct UIIntegration {
-    #[derivative(Debug="ignore")]
-    integration: ManuallyDrop<Integration>,
+    #[derivative(Debug = "ignore")]
+    integration: ManuallyDrop<Integration<ph::DefaultAllocator>>,
     // Deletion queue, but needs access to self so we cant put it in an actual deletion queue.
     to_unregister: Vec<(Image, u32)>,
 }
 
 impl UIIntegration {
-    pub fn new(event_loop: &EventLoop<()>,
-               window: &Window,
-               ctx: gfx::SharedContext) -> Result<Self> {
+    pub fn new(event_loop: &EventLoop<()>, window: &Window, ctx: gfx::SharedContext) -> Result<Self> {
         let mut style = egui::Style::default();
 
         style.visuals.window_shadow = egui::epaint::Shadow::NONE;
@@ -39,13 +31,14 @@ impl UIIntegration {
             integration: ManuallyDrop::new(Integration::new(
                 window.width(),
                 window.height(),
-                window.scale_factor() as f32, event_loop,
-                egui::FontDefinitions::default(), style,
+                window.scale_factor() as f32,
+                event_loop,
+                egui::FontDefinitions::default(),
+                style,
                 ctx.device.clone(),
-                ctx.allocator.deref().clone(),
+                ctx.allocator.clone(),
                 ctx.exec.clone(),
                 ctx.pipelines.clone(),
-                ctx.descriptors.clone()
             )?),
             to_unregister: vec![],
         })
@@ -62,25 +55,25 @@ impl UIIntegration {
         self.to_unregister.retain(|(_, ttl)| *ttl != 0);
     }
 
-    pub async fn render<'s: 'e + 'q, 'e, 'q>(
-        &'s mut self,
-        window: &Window,
-        swapchain: ph::VirtualResource,
-        graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
-
+    pub async fn render<'s: 'e + 'q, 'e, 'q>(&'s mut self, window: &Window, swapchain: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
         self.integration.resize(window.width(), window.height());
 
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
         let scene_output = graph.latest_version(graph.aliased_resource("renderer_output")?)?;
-        graph.add_pass(self.integration.paint(
-                std::slice::from_ref(&scene_output),
-                swapchain,
-                vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue { float32: [0.0, 0.0, 0.0, 0.0]}),
-                clipped_meshes,
-                output.textures_delta
-            ).await?
+        graph.add_pass(
+            self.integration
+                .paint(
+                    std::slice::from_ref(&scene_output),
+                    &swapchain,
+                    vk::AttachmentLoadOp::CLEAR,
+                    Some(vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 0.0],
+                    }),
+                    clipped_meshes,
+                    output.textures_delta,
+                )
+                .await?,
         );
         Ok(())
     }
@@ -97,7 +90,7 @@ impl UIIntegration {
         let id = self.integration.register_user_texture(image);
         Image {
             id,
-            size: USize::new(image.size.width, image.size.height),
+            size: USize::new(image.width(), image.height()),
         }
     }
 

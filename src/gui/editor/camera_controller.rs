@@ -1,5 +1,7 @@
 use glam::Vec3;
-use tiny_tokio_actor::{Message, Actor, ActorContext, ActorRef, async_trait, Handler, SystemEvent};
+use tiny_tokio_actor::{async_trait, Actor, ActorContext, ActorRef, Handler, Message, SystemEvent};
+
+use crate::app::RootActorSystem;
 use crate::core::{ButtonState, Event, Input, InputEvent, InputListener, Key, MouseButton, QueryKeyState, QueryMouseButton};
 use crate::math::{Position, Rotation};
 use crate::state::{Camera, QueryCameraVectors, UpdateCameraPosition, UpdateCameraRotation};
@@ -7,7 +9,7 @@ use crate::state::{Camera, QueryCameraVectors, UpdateCameraPosition, UpdateCamer
 #[derive(Message)]
 pub struct DragWorld {
     pub x: f32,
-    pub y: f32
+    pub y: f32,
 }
 
 #[derive(Message)]
@@ -25,7 +27,7 @@ pub struct CameraController {
 
 #[derive(Debug)]
 pub struct CameraScrollListener {
-    camera: ActorRef<Event, CameraController>
+    camera: ActorRef<Event, CameraController>,
 }
 
 impl CameraController {
@@ -33,7 +35,7 @@ impl CameraController {
         Self {
             input,
             camera,
-            mouse_over: false
+            mouse_over: false,
         }
     }
 
@@ -52,7 +54,10 @@ impl CameraController {
 }
 
 #[async_trait]
-impl<E> Handler<E, DragWorld> for CameraController where E: SystemEvent {
+impl<E> Handler<E, DragWorld> for CameraController
+where
+    E: SystemEvent,
+{
     async fn handle(&mut self, msg: DragWorld, _ctx: &mut ActorContext<E>) -> () {
         if self.input.ask(QueryMouseButton(MouseButton::Middle)).await.unwrap() == ButtonState::Pressed {
             if self.input.ask(QueryKeyState(Key::Shift)).await.unwrap() == ButtonState::Pressed {
@@ -65,14 +70,20 @@ impl<E> Handler<E, DragWorld> for CameraController where E: SystemEvent {
 }
 
 #[async_trait]
-impl<E> Handler<E, MouseOverWorld> for CameraController where E: SystemEvent {
+impl<E> Handler<E, MouseOverWorld> for CameraController
+where
+    E: SystemEvent,
+{
     async fn handle(&mut self, msg: MouseOverWorld, _ctx: &mut ActorContext<E>) -> () {
         self.mouse_over = msg.0;
     }
 }
 
 #[async_trait]
-impl<E> Handler<E, ScrollWorld> for CameraController where E: SystemEvent {
+impl<E> Handler<E, ScrollWorld> for CameraController
+where
+    E: SystemEvent,
+{
     async fn handle(&mut self, msg: ScrollWorld, _ctx: &mut ActorContext<E>) -> () {
         if self.mouse_over {
             let vectors = self.camera.ask(QueryCameraVectors).await.unwrap();
@@ -104,4 +115,20 @@ impl InputListener for CameraScrollListener {
         };
         Ok(())
     }
+}
+
+pub fn control_camera(response: &egui::Response, actors: &RootActorSystem) {
+    // Handle drag events and send them to the camera controller
+    if response.dragged() {
+        actors
+            .camera_controller
+            .tell(DragWorld {
+                x: response.drag_delta().x,
+                y: response.drag_delta().y,
+            })
+            .unwrap();
+    }
+
+    let hover = response.hovered();
+    actors.camera_controller.tell(MouseOverWorld(hover)).unwrap();
 }

@@ -1,19 +1,23 @@
 use std::collections::HashMap;
-use phobos as ph;
 
 use anyhow::{anyhow, Result};
+use phobos::graph::pass_graph::BuiltPassGraph;
+use phobos::prelude as ph;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct FrameGraph<'e, 'q> {
-    #[derivative(Debug="ignore")]
+    #[derivative(Debug = "ignore")]
     passes: HashMap<String, ph::Pass<'e, 'q, ph::domain::All>>,
     aliases: HashMap<String, ph::VirtualResource>,
 }
 
 impl<'e, 'q> FrameGraph<'e, 'q> {
     pub fn new() -> Self {
-        Self { passes: Default::default(), aliases: Default::default() }
+        Self {
+            passes: Default::default(),
+            aliases: Default::default(),
+        }
     }
 
     /// Returns source version of swapchain resource
@@ -30,30 +34,24 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
     }
 
     pub fn aliased_resource(&self, name: &str) -> Result<ph::VirtualResource> {
-        self.aliases.get(name)
-            .ok_or(anyhow!("No such alias {:?}", name))
-            .cloned()
+        self.aliases.get(name).ok_or(anyhow!("No such alias {:?}", name)).cloned()
     }
 
     pub fn latest_version(&self, resource: ph::VirtualResource) -> Result<ph::VirtualResource> {
-        self.passes.values().flat_map(|pass| {
-            pass.output(&resource)
-        })
-        .max_by_key(|resource| {
-            resource.version()
-        })
-        .ok_or(anyhow!("No such resource {:?}", resource))
-    }
-
-    pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<ph::VirtualResource> {
-        let pass = self.passes.get(pass)
-            .ok_or(anyhow!("No such pass {:?}", pass))?;
-        pass.output(&resource)
+        self.passes
+            .values()
+            .flat_map(|pass| pass.output(&resource).cloned())
+            .max_by_key(|resource| resource.version())
             .ok_or(anyhow!("No such resource {:?}", resource))
     }
 
-    pub fn build(self) -> Result<ph::BuiltPassGraph<'e, 'q, ph::domain::All>> {
-        let mut graph = ph::PassGraph::new(Some(self.swapchain_resource()));
+    pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<&ph::VirtualResource> {
+        let pass = self.passes.get(pass).ok_or(anyhow!("No such pass {:?}", pass))?;
+        pass.output(&resource).ok_or(anyhow!("No such resource {:?}", resource))
+    }
+
+    pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All>> {
+        let mut graph = ph::PassGraph::new(Some(&self.swapchain_resource()));
         for (_, pass) in self.passes {
             graph = graph.add_pass(pass)?;
         }

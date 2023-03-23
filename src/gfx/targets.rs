@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use crate::gfx;
-
-use phobos as ph;
 
 use anyhow::{anyhow, Result};
+use phobos as ph;
 use phobos::vk;
+
+use crate::gfx;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SizeGroup {
@@ -18,8 +18,8 @@ pub enum SizeGroup {
 struct RenderTargetEntry {
     pub size_group: SizeGroup,
     pub target: gfx::PairedImageView,
-    #[derivative(Debug="ignore")]
-    pub recreate: Box<dyn Fn(u32, u32) -> Result<gfx::PairedImageView>>
+    #[derivative(Debug = "ignore")]
+    pub recreate: Box<dyn Fn(u32, u32) -> Result<gfx::PairedImageView>>,
 }
 
 #[derive(Debug)]
@@ -58,38 +58,102 @@ impl RenderTargets {
         todo!()
     }
 
-    pub fn register_simple_target(&mut self, name: impl Into<String>, size: SizeGroup, ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format, aspect: vk::ImageAspectFlags, samples: vk::SampleCountFlags) -> Result<()> {
+    pub fn register_simple_target(
+        &mut self,
+        name: impl Into<String>,
+        size: SizeGroup,
+        mut ctx: gfx::SharedContext,
+        usage: vk::ImageUsageFlags,
+        format: vk::Format,
+        aspect: vk::ImageAspectFlags,
+        samples: vk::SampleCountFlags,
+    ) -> Result<()> {
+        let mut alloc = ctx.allocator.clone();
         self.register_target(name, size, move |width, height| {
             gfx::PairedImageView::new(
-                ph::Image::new(ctx.device.clone(), (*ctx.allocator).clone(), width, height, usage, format, samples)?,
-                aspect
+                ph::Image::new(ctx.device.clone(), &mut alloc.clone(), width, height, usage, format, samples)?,
+                aspect,
             )
         })
     }
 
-    pub fn register_color_target(&mut self, name: impl Into<String>, size: SizeGroup, ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format) -> Result<()> {
-        self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::COLOR, vk::SampleCountFlags::TYPE_1)
+    pub fn register_color_target(
+        &mut self,
+        name: impl Into<String>,
+        size: SizeGroup,
+        ctx: gfx::SharedContext,
+        usage: vk::ImageUsageFlags,
+        format: vk::Format,
+    ) -> Result<()> {
+        self.register_simple_target(
+            name,
+            size,
+            ctx,
+            usage,
+            format,
+            vk::ImageAspectFlags::COLOR,
+            vk::SampleCountFlags::TYPE_1,
+        )
     }
 
-    pub fn register_depth_target(&mut self, name: impl Into<String>, size: SizeGroup, ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format) -> Result<()> {
-        self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::DEPTH, vk::SampleCountFlags::TYPE_1)
+    pub fn register_depth_target(
+        &mut self,
+        name: impl Into<String>,
+        size: SizeGroup,
+        ctx: gfx::SharedContext,
+        usage: vk::ImageUsageFlags,
+        format: vk::Format,
+    ) -> Result<()> {
+        self.register_simple_target(
+            name,
+            size,
+            ctx,
+            usage,
+            format,
+            vk::ImageAspectFlags::DEPTH,
+            vk::SampleCountFlags::TYPE_1,
+        )
     }
 
-    pub fn register_multisampled_color_target(&mut self, name: impl Into<String>, size: SizeGroup, ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format, samples: vk::SampleCountFlags) -> Result<()> {
+    pub fn register_multisampled_color_target(
+        &mut self,
+        name: impl Into<String>,
+        size: SizeGroup,
+        ctx: gfx::SharedContext,
+        usage: vk::ImageUsageFlags,
+        format: vk::Format,
+        samples: vk::SampleCountFlags,
+    ) -> Result<()> {
         self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::COLOR, samples)
     }
 
-    pub fn register_multisampled_depth_target(&mut self, name: impl Into<String>, size: SizeGroup, ctx: gfx::SharedContext, usage: vk::ImageUsageFlags, format: vk::Format, samples: vk::SampleCountFlags) -> Result<()> {
+    pub fn register_multisampled_depth_target(
+        &mut self,
+        name: impl Into<String>,
+        size: SizeGroup,
+        ctx: gfx::SharedContext,
+        usage: vk::ImageUsageFlags,
+        format: vk::Format,
+        samples: vk::SampleCountFlags,
+    ) -> Result<()> {
         self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::DEPTH, samples)
     }
 
-    pub fn register_target(&mut self, name: impl Into<String>, size: SizeGroup, recreate: impl Fn(u32, u32) -> Result<gfx::PairedImageView> + 'static) -> Result<()> {
+    pub fn register_target(
+        &mut self,
+        name: impl Into<String>,
+        size: SizeGroup,
+        recreate: impl Fn(u32, u32) -> Result<gfx::PairedImageView> + 'static,
+    ) -> Result<()> {
         let target = self.create_target(&recreate, size)?;
-        self.targets.insert(name.into(), RenderTargetEntry {
-            size_group: size,
-            target,
-            recreate: Box::new(recreate),
-        });
+        self.targets.insert(
+            name.into(),
+            RenderTargetEntry {
+                size_group: size,
+                target,
+                recreate: Box::new(recreate),
+            },
+        );
 
         Ok(())
     }
@@ -105,19 +169,27 @@ impl RenderTargets {
 
     pub fn size_group_resolution(&self, size_group: SizeGroup) -> (u32, u32) {
         match size_group {
-            SizeGroup::RenderResolution => { todo!() }
-            SizeGroup::OutputResolution => { self.output_resolution }
-            SizeGroup::Custom(w, h) => { (w, h) }
+            SizeGroup::RenderResolution => {
+                todo!()
+            }
+            SizeGroup::OutputResolution => self.output_resolution,
+            SizeGroup::Custom(w, h) => (w, h),
         }
     }
 
     pub fn get_target_view(&self, name: &str) -> Result<ph::ImageView> {
-        Ok(self.targets.get(name).ok_or(anyhow!("Target not found: {}", name))?.target.view.clone())
+        Ok(self
+            .targets
+            .get(name)
+            .ok_or(anyhow!("Target not found: {}", name))?
+            .target
+            .view
+            .clone())
     }
 
     pub fn bind_targets(&self, bindings: &mut ph::PhysicalResourceBindings) {
         for (name, target) in &self.targets {
-            bindings.bind_image(name.clone(), target.target.view.clone());
+            bindings.bind_image(name.clone(), &target.target.view);
         }
     }
 

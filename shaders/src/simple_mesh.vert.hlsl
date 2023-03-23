@@ -24,8 +24,6 @@ VSOutput main(VSInput input, uint VertexIndex : SV_VertexID) {
     VSOutput output = (VSOutput)0;
     output.UV = float2(0.0, 0.0);
     output.Position = mul(projection_view, float4(input.Position, 1.0));
-    // Invert y because Vulkan.
-    output.Position.y = 1.0 - output.Position.y;
     output.Color = colors[VertexIndex % 3];
     return output;
 }

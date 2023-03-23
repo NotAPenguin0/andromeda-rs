@@ -3,9 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use futures::executor::block_on;
-
-use phobos::{PipelineBuilder, PipelineCache, vk};
-
+use phobos::{vk, PipelineBuilder, PipelineCache};
 use tiny_tokio_actor::ActorRef;
 
 use crate::event::Event;
@@ -19,7 +17,7 @@ pub trait IntoDynamic {
 
 pub struct DynamicPipelineBuilder {
     inner: PipelineBuilder,
-    shaders: Vec<hot_reload::AddShader>
+    shaders: Vec<hot_reload::AddShader>,
 }
 
 impl DynamicPipelineBuilder {
@@ -40,10 +38,13 @@ impl DynamicPipelineBuilder {
             cache.create_named_pipeline(pci)?;
         }
 
-        let _ = self.shaders.into_iter().map(|shader| {
-            block_on(hot_reload.ask(shader)).unwrap();
-        }).collect::<Vec<_>>();
-
+        let _ = self
+            .shaders
+            .into_iter()
+            .map(|shader| {
+                block_on(hot_reload.ask(shader)).unwrap();
+            })
+            .collect::<Vec<_>>();
 
         Ok(())
     }

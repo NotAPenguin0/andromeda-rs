@@ -8,12 +8,16 @@ impl<T: Copy> Size<T> {
     pub fn new(x: T, y: T) -> Self {
         Self {
             0: x,
-            1: y
+            1: y,
         }
     }
 
-    pub fn x(&self) -> T { self.0 }
-    pub fn y(&self) -> T { self.1 }
+    pub fn x(&self) -> T {
+        self.0
+    }
+    pub fn y(&self) -> T {
+        self.1
+    }
 }
 
 impl Into<egui::Vec2> for USize {

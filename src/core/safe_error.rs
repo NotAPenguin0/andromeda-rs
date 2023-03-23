@@ -12,7 +12,7 @@ impl SafeUnwrap for Result<()> {
 
     fn safe_unwrap(self) -> Self::Output {
         match self {
-            Ok(_) => { }
+            Ok(_) => {}
             Err(error) => {
                 error!("{}", error);
             }

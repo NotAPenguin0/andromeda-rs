@@ -1,7 +1,7 @@
-use tiny_tokio_actor::*;
 use std::sync::atomic::Ordering;
 
 use atomic_enum::atomic_enum;
+use tiny_tokio_actor::*;
 
 use crate::event::Event;
 
@@ -37,11 +37,10 @@ pub struct RepaintListener {
 impl Default for RepaintListener {
     fn default() -> Self {
         Self {
-            repaint_requested: AtomicRepaintStatus::new(RepaintStatus::None)
+            repaint_requested: AtomicRepaintStatus::new(RepaintStatus::None),
         }
     }
 }
-
 
 #[async_trait]
 impl Handler<Event, RepaintAll> for RepaintListener {

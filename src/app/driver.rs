@@ -30,7 +30,10 @@ pub struct Driver {
 impl Driver {
     pub fn create_window() -> Result<(EventLoop<()>, Window)> {
         let event_loop = EventLoopBuilder::new().build();
-        let window = WindowBuilder::new().with_title("Andromeda").with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0)).build(&event_loop)?;
+        let window = WindowBuilder::new()
+            .with_title("Andromeda")
+            .with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0))
+            .build(&event_loop)?;
         Ok((event_loop, window))
     }
 

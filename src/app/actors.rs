@@ -32,7 +32,9 @@ impl RootActorSystem {
         let camera = system.create_actor("camera_state", state::Camera::default()).await?;
         let input = system.create_actor("input", core::Input::default()).await?;
 
-        let camera_controller = system.create_actor("camera_controller", CameraController::new(input.clone(), camera.clone())).await?;
+        let camera_controller = system
+            .create_actor("camera_controller", CameraController::new(input.clone(), camera.clone()))
+            .await?;
 
         input.tell(AddInputListener(CameraScrollListener::new(camera_controller.clone())))?;
 

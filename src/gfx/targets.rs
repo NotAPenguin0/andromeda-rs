@@ -178,7 +178,13 @@ impl RenderTargets {
     }
 
     pub fn get_target_view(&self, name: &str) -> Result<ph::ImageView> {
-        Ok(self.targets.get(name).ok_or(anyhow!("Target not found: {}", name))?.target.view.clone())
+        Ok(self
+            .targets
+            .get(name)
+            .ok_or(anyhow!("Target not found: {}", name))?
+            .target
+            .view
+            .clone())
     }
 
     pub fn bind_targets(&self, bindings: &mut ph::PhysicalResourceBindings) {

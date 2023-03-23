@@ -71,7 +71,9 @@ impl UpdateLoop {
         // Bind the swapchain resource.
         bindings.bind_image("swapchain", ifc.swapchain_image.as_ref().unwrap());
         // Record this frame.
-        let cmd = gfx.exec.on_domain::<ph::domain::All>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
+        let cmd = gfx
+            .exec
+            .on_domain::<ph::domain::All>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
         let cmd = graph.record(cmd, &bindings, &mut ifc, debug)?;
         cmd.finish()
     }

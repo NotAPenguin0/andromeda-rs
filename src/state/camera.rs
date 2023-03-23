@@ -96,7 +96,10 @@ impl Camera {
     fn clamp_rotation(rot: math::Rotation) -> math::Rotation {
         const MAX_ANGLE: f32 = std::f32::consts::PI / 2.0 - 0.0001;
         const UNBOUNDED: f32 = f32::MAX;
-        math::Rotation(rot.0.clamp(Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0), Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0)))
+        math::Rotation(
+            rot.0
+                .clamp(Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0), Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0)),
+        )
     }
 }
 

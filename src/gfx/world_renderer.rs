@@ -166,7 +166,9 @@ impl WorldRenderer {
         // 1. Render main geometry pass
         graph.add_pass(main_render);
         // 2. Render atmosphere
-        self.atmosphere.render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state).await?;
+        self.atmosphere
+            .render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state)
+            .await?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
             .color_attachment(&graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?

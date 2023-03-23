@@ -3,7 +3,9 @@ use futures::executor::block_on;
 use tiny_tokio_actor::{ActorRef, ActorSystem, EventBus};
 
 use crate::core::{AddInputListener, Event};
-use crate::gui::{CameraController, CameraScrollListener, TargetResizeActor};
+use crate::gui::editor::camera_controller::{CameraController, CameraScrollListener};
+use crate::gui::util::integration::UIIntegration;
+use crate::gui::TargetResizeActor;
 use crate::hot_reload::ShaderReloadActor;
 use crate::{core, gfx, gui, state};
 
@@ -17,7 +19,7 @@ pub struct RootActorSystem {
     pub shader_reload: ActorRef<Event, ShaderReloadActor>,
     pub camera: ActorRef<Event, state::Camera>,
     pub input: ActorRef<Event, core::Input>,
-    pub camera_controller: ActorRef<Event, gui::CameraController>,
+    pub camera_controller: ActorRef<Event, CameraController>,
 }
 
 impl RootActorSystem {
@@ -48,7 +50,7 @@ impl RootActorSystem {
         })
     }
 
-    pub async fn update_rt_size(&mut self, ui: &mut gui::UIIntegration, renderer: &mut gfx::WorldRenderer) -> Result<()> {
+    pub async fn update_rt_size(&mut self, ui: &mut UIIntegration, renderer: &mut gfx::WorldRenderer) -> Result<()> {
         // Query current render target size from system
         let size = self.scene_texture.ask(gui::QuerySceneTextureSize).await?;
         // If there was a resize request

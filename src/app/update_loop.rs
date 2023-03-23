@@ -11,6 +11,7 @@ use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
 use crate::gfx::world::World;
+use crate::gui::util::integration::UIIntegration;
 use crate::{gfx, gui};
 
 #[derive(Debug)]
@@ -48,7 +49,7 @@ impl UpdateLoop {
     pub async fn update(
         &mut self,
         mut ifc: ph::InFlightContext<'_>,
-        ui: &mut gui::UIIntegration,
+        ui: &mut UIIntegration,
         window: &Window,
         world: &World,
         renderer: &mut gfx::WorldRenderer,

@@ -1,6 +1,7 @@
 use glam::Vec3;
 use tiny_tokio_actor::{async_trait, Actor, ActorContext, ActorRef, Handler, Message, SystemEvent};
 
+use crate::app::RootActorSystem;
 use crate::core::{ButtonState, Event, Input, InputEvent, InputListener, Key, MouseButton, QueryKeyState, QueryMouseButton};
 use crate::math::{Position, Rotation};
 use crate::state::{Camera, QueryCameraVectors, UpdateCameraPosition, UpdateCameraRotation};
@@ -114,4 +115,20 @@ impl InputListener for CameraScrollListener {
         };
         Ok(())
     }
+}
+
+pub fn control_camera(response: &egui::Response, actors: &RootActorSystem) {
+    // Handle drag events and send them to the camera controller
+    if response.dragged() {
+        actors
+            .camera_controller
+            .tell(DragWorld {
+                x: response.drag_delta().x,
+                y: response.drag_delta().y,
+            })
+            .unwrap();
+    }
+
+    let hover = response.hovered();
+    actors.camera_controller.tell(MouseOverWorld(hover)).unwrap();
 }

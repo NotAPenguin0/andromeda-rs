@@ -1,25 +1,18 @@
-pub use camera_controller::{CameraController, CameraScrollListener};
 use egui::{Color32, Pos2, Rect, Sense};
-pub use image::Image;
-pub use integration::UIIntegration;
-pub use size::*;
 use tiny_tokio_actor::{async_trait, Actor, ActorContext, Handler, Message, SystemEvent};
 use tokio::runtime::Handle;
 
 use crate::app::RootActorSystem;
 use crate::gfx::world::World;
-use crate::gui::camera_controller::{DragWorld, MouseOverWorld};
-use crate::gui::drag::{drag, drag3, drag3_angle, drag3_precise, drag3_scaled, drag_fmt, drag_fmt_scaled};
-use crate::gui::format::{format_km, format_meters, parse_km, parse_meters};
+use crate::gui::editor::camera_controller::{control_camera, DragWorld, MouseOverWorld};
+use crate::gui::util::format::{format_km, format_meters, parse_km, parse_meters};
+use crate::gui::util::image::Image;
+use crate::gui::util::size::USize;
+use crate::gui::widgets::drag::{drag, drag3_angle, drag3_scaled, drag_fmt_scaled};
 
-pub mod image;
-pub mod integration;
-pub mod size;
-
-mod async_actor_widget;
-mod camera_controller;
-mod drag;
-mod format;
+pub mod editor;
+pub mod util;
+pub mod widgets;
 
 #[derive(Debug, Copy, Clone)]
 pub struct ResizeSceneTexture(USize);
@@ -170,46 +163,7 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem, world: &mut W
     egui::CentralPanel::default().show(&context, |ui| {
         ui.heading("Editor");
 
-        egui::Window::new("World view")
-            .resizable(true)
-            .default_size((800.0, 600.0))
-            .movable(true)
-            .show(&context, |ui| {
-                let cursor = ui.cursor();
-                let remaining_size = ui.available_size();
-                let (response, painter) = ui.allocate_painter(remaining_size, Sense::drag());
-                // Send resize event to the scene texture actor, as a result we get the texture back
-                let image = Handle::current()
-                    .block_on(
-                        actors
-                            .scene_texture
-                            .ask(ResizeSceneTexture(USize::new(remaining_size.x as u32, remaining_size.y as u32))),
-                    )
-                    .unwrap();
-                if let Some(image) = image {
-                    painter.image(
-                        image.id,
-                        Rect::from_min_size(cursor.min, remaining_size),
-                        Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
-                        Color32::WHITE,
-                    );
-                }
-
-                // Handle drag events and send them to the camera controller
-                if response.dragged() {
-                    actors
-                        .camera_controller
-                        .tell(DragWorld {
-                            x: response.drag_delta().x,
-                            y: response.drag_delta().y,
-                        })
-                        .unwrap();
-                }
-
-                let hover = response.hovered();
-                actors.camera_controller.tell(MouseOverWorld(hover)).unwrap();
-            });
-
+        editor::world_view::show(&context, &actors);
         environment_panel(context, world);
     });
 }

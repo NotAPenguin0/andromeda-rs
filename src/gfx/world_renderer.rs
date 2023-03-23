@@ -10,8 +10,11 @@ use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
 use crate::gfx::{passes, postprocess};
+use crate::gui::util::image::Image;
+use crate::gui::util::integration::UIIntegration;
+use crate::gui::util::size::USize;
 use crate::hot_reload::IntoDynamic;
-use crate::{gfx, gui, state};
+use crate::{gfx, state};
 
 #[derive(Debug, Default)]
 pub struct RenderState {
@@ -98,7 +101,7 @@ impl WorldRenderer {
         self.targets.get_target_view(Self::output_name()).unwrap()
     }
 
-    pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
+    pub fn resize_target(&mut self, size: USize, ui: &mut UIIntegration) -> Result<Image> {
         self.targets.set_output_resolution(size.x(), size.y())?;
         Ok(ui.register_texture(&self.targets.get_target_view(Self::output_name())?))
     }

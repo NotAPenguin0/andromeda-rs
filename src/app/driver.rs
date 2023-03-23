@@ -11,6 +11,7 @@ use crate::app::RootActorSystem;
 use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
 use crate::gfx::world::World;
 use crate::gfx::AtmosphereInfo;
+use crate::gui::util::integration::UIIntegration;
 use crate::math::Rotation;
 use crate::{gfx, gui};
 
@@ -20,7 +21,7 @@ use crate::{gfx, gui};
 pub struct Driver {
     pub window: Window,
     renderer: gfx::WorldRenderer,
-    ui: gui::UIIntegration,
+    ui: UIIntegration,
     update: UpdateLoop,
     pub world: World,
     pub actors: RootActorSystem,
@@ -37,8 +38,8 @@ impl Driver {
         Ok((event_loop, window))
     }
 
-    fn create_gui_integration(event_loop: &EventLoop<()>, window: &Window, gfx: &gfx::Context) -> Result<gui::UIIntegration> {
-        gui::UIIntegration::new(event_loop, &window, gfx.shared.clone())
+    fn create_gui_integration(event_loop: &EventLoop<()>, window: &Window, gfx: &gfx::Context) -> Result<UIIntegration> {
+        UIIntegration::new(event_loop, &window, gfx.shared.clone())
     }
 
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {

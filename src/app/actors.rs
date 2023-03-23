@@ -4,10 +4,10 @@ use tiny_tokio_actor::{ActorRef, ActorSystem, EventBus};
 
 use crate::core::{AddInputListener, Event};
 use crate::gui::editor::camera_controller::{CameraController, CameraScrollListener};
+use crate::gui::editor::world_view::{QueryCurrentSceneTexture, QuerySceneTextureSize, SetNewTexture, TargetResizeActor};
 use crate::gui::util::integration::UIIntegration;
-use crate::gui::TargetResizeActor;
 use crate::hot_reload::ShaderReloadActor;
-use crate::{core, gfx, gui, state};
+use crate::{core, gfx, state};
 
 /// Stores the actor system and actor refs to each 'root' actor.
 #[derive(Derivative)]
@@ -52,11 +52,11 @@ impl RootActorSystem {
 
     pub async fn update_rt_size(&mut self, ui: &mut UIIntegration, renderer: &mut gfx::WorldRenderer) -> Result<()> {
         // Query current render target size from system
-        let size = self.scene_texture.ask(gui::QuerySceneTextureSize).await?;
+        let size = self.scene_texture.ask(QuerySceneTextureSize).await?;
         // If there was a resize request
         if let Some(size) = size {
             // Grab old image and unregister it
-            let old = self.scene_texture.ask(gui::QueryCurrentSceneTexture).await?;
+            let old = self.scene_texture.ask(QueryCurrentSceneTexture).await?;
             if let Some(old) = old {
                 ui.unregister_texture(old);
             }
@@ -64,7 +64,7 @@ impl RootActorSystem {
             let image = renderer.resize_target(size, ui)?;
             // Send it to the resize handler
             self.scene_texture
-                .ask(gui::SetNewTexture {
+                .ask(SetNewTexture {
                     0: image,
                 })
                 .await?;

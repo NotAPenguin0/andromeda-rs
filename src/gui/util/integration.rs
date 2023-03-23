@@ -9,7 +9,8 @@ use winit::event_loop::EventLoop;
 use winit::window::Window;
 
 use crate::gfx;
-use crate::gui::{Image, USize};
+use crate::gui::util::image::Image;
+use crate::gui::util::size::USize;
 
 #[derive(Derivative)]
 #[derivative(Debug)]

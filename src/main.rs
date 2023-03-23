@@ -35,17 +35,31 @@ fn main() -> Result<!> {
     // Create window
     let (event_loop, window) = Driver::create_window()?;
     // Create application driver
-    let mut driver = Driver::init(&event_loop, window)?;
+    let mut driver = Some(Driver::init(&event_loop, window)?);
 
     // Run the app driver on the event loop
     event_loop.run(move |event, _, control_flow| {
         if let ControlFlow::ExitWithCode(_) = *control_flow {
             return;
         }
-        let result = process_event(&mut driver, event);
+
+        let result = match driver.as_mut() {
+            None => Ok(ControlFlow::Exit),
+            Some(driver) => process_event(driver, event),
+        };
+
         match result {
+            Ok(ControlFlow::Exit) => {
+                match driver.take() {
+                    None => {}
+                    Some(driver) => {
+                        drop(driver);
+                    }
+                };
+                *control_flow = ControlFlow::Exit;
+            }
             Ok(flow) => *control_flow = flow,
             Err(e) => Err(e).safe_unwrap(),
-        }
+        };
     })
 }

@@ -1,25 +1,25 @@
 use anyhow::Result;
-use futures::executor::block_on;
 use tiny_tokio_actor::{ActorRef, ActorSystem, EventBus};
+use tokio::runtime::Handle;
 
 use crate::core::{AddInputListener, Event};
 use crate::gui::editor::camera_controller::{CameraController, CameraScrollListener};
 use crate::gui::editor::world_view::{QueryCurrentSceneTexture, QuerySceneTextureSize, SetNewTexture, TargetResizeActor};
 use crate::gui::util::integration::UIIntegration;
 use crate::hot_reload::ShaderReloadActor;
-use crate::{core, gfx, state};
+use crate::{core, gfx, hot_reload, state};
 
 /// Stores the actor system and actor refs to each 'root' actor.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct RootActorSystem {
-    #[derivative(Debug = "ignore")]
-    pub system: ActorSystem<Event>,
     pub scene_texture: ActorRef<Event, TargetResizeActor>,
     pub shader_reload: ActorRef<Event, ShaderReloadActor>,
     pub camera: ActorRef<Event, state::Camera>,
     pub input: ActorRef<Event, core::Input>,
     pub camera_controller: ActorRef<Event, CameraController>,
+    #[derivative(Debug = "ignore")]
+    pub system: ActorSystem<Event>,
 }
 
 impl RootActorSystem {
@@ -75,11 +75,13 @@ impl RootActorSystem {
 
 impl Drop for RootActorSystem {
     fn drop(&mut self) {
-        block_on(async {
+        Handle::current().block_on(async {
+            self.shader_reload.ask(hot_reload::Kill).await.unwrap();
             self.system.stop_actor(self.shader_reload.path()).await;
             self.system.stop_actor(self.scene_texture.path()).await;
             self.system.stop_actor(self.camera.path()).await;
             self.system.stop_actor(self.input.path()).await;
+            self.system.stop_actor(self.camera_controller.path()).await;
         });
     }
 }

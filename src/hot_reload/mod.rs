@@ -48,6 +48,7 @@ where
         for task in &self.watch_tasks {
             task.abort();
         }
+        self.watch_tasks.clear();
     }
 }
 
@@ -63,6 +64,16 @@ pub struct AddShader {
     pub path: PathBuf,
     pub stage: vk::ShaderStageFlags,
     pub pipeline: String,
+}
+
+#[derive(Debug, Message)]
+pub struct Kill;
+
+#[async_trait]
+impl<E: SystemEvent> Handler<E, Kill> for ShaderReloadActor {
+    async fn handle(&mut self, _msg: Kill, ctx: &mut ActorContext<E>) -> () {
+        self.post_stop(ctx).await;
+    }
 }
 
 #[async_trait]

@@ -1,5 +1,3 @@
-use std::mem::ManuallyDrop;
-
 use anyhow::Result;
 use egui_winit_phobos::Integration;
 use phobos::prelude::traits::*;
@@ -16,7 +14,7 @@ use crate::gui::util::size::USize;
 #[derivative(Debug)]
 pub struct UIIntegration {
     #[derivative(Debug = "ignore")]
-    integration: ManuallyDrop<Integration<ph::DefaultAllocator>>,
+    integration: Integration<ph::DefaultAllocator>,
     // Deletion queue, but needs access to self so we cant put it in an actual deletion queue.
     to_unregister: Vec<(Image, u32)>,
 }
@@ -29,7 +27,7 @@ impl UIIntegration {
         style.visuals.popup_shadow = egui::epaint::Shadow::NONE;
 
         Ok(Self {
-            integration: ManuallyDrop::new(Integration::new(
+            integration: Integration::new(
                 window.width(),
                 window.height(),
                 window.scale_factor() as f32,
@@ -40,7 +38,7 @@ impl UIIntegration {
                 ctx.allocator.clone(),
                 ctx.exec.clone(),
                 ctx.pipelines.clone(),
-            )?),
+            )?,
             to_unregister: vec![],
         })
     }
@@ -97,13 +95,5 @@ impl UIIntegration {
 
     pub fn unregister_texture(&mut self, image: Image) {
         self.to_unregister.push((image, 4));
-    }
-}
-
-impl Drop for UIIntegration {
-    fn drop(&mut self) {
-        unsafe {
-            ManuallyDrop::drop(&mut self.integration);
-        }
     }
 }

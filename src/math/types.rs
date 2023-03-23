@@ -1,3 +1,5 @@
+use std::ops::{Div, Mul};
+
 use glam::Vec3;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -16,5 +18,25 @@ impl Rotation {
         let sin_yaw = self.0.y.sin();
 
         Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize()
+    }
+}
+
+impl Mul<f32> for Rotation {
+    type Output = Rotation;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            0: self.0 * rhs,
+        }
+    }
+}
+
+impl Div<f32> for Rotation {
+    type Output = Rotation;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            0: self.0 / rhs,
+        }
     }
 }

@@ -1,161 +1,100 @@
 use std::ops::{Div, Mul, RangeInclusive};
 
-use egui::emath;
+use egui::{emath, Ui};
 use glam::Vec3;
 
-// TODO: Transform these methods into builders
+use crate::math::Rotation;
 
-pub fn drag<T: emath::Numeric>(ui: &mut egui::Ui, label: impl Into<egui::WidgetText>, value: &mut T, speed: impl Into<f64>) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let speed = speed.into();
-        ui.add(egui::DragValue::new(value).speed(speed)).changed()
-    })
+pub trait Draggable: Copy + Mul<f32, Output = Self> + Div<f32, Output = Self> {
+    fn drag(&mut self, ui: &mut egui::Ui, speed: f64, digits: usize, suffix: &str);
 }
 
-pub fn drag_fmt<T: emath::Numeric>(
-    ui: &mut egui::Ui,
-    label: impl Into<egui::WidgetText>,
-    fmt: impl Fn(f64) -> String,
-    value: &mut T,
-    speed: impl Into<f64>,
-) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let speed = speed.into();
-        ui.add(egui::DragValue::new(value).speed(speed).custom_formatter(|val, _| fmt(val)))
-            .changed()
-    })
+impl Draggable for Vec3 {
+    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) {
+        self.x.drag(ui, speed, digits, suffix);
+        self.y.drag(ui, speed, digits, suffix);
+        self.z.drag(ui, speed, digits, suffix);
+    }
 }
 
-pub fn drag_fmt_scaled<T: emath::Numeric + Mul<T, Output = T> + Div<T, Output = T>>(
-    ui: &mut egui::Ui,
-    label: impl Into<egui::WidgetText>,
-    fmt: impl Fn(f64, RangeInclusive<usize>) -> String,
-    parse: impl Fn(&str) -> Option<f64>,
-    value: &mut T,
-    speed: impl Into<f64>,
-    scale: T,
-) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let speed = speed.into();
-        let scale = scale.into();
-        let mut val = *value * scale;
-        let dirty = ui
-            .add(
-                egui::DragValue::new(&mut val)
-                    .speed(speed)
-                    .custom_formatter(fmt)
-                    .custom_parser(parse),
-            )
-            .changed();
-        *value = val / scale;
-        dirty
-    })
+impl Draggable for Rotation {
+    fn drag(&mut self, ui: &mut Ui, _speed: f64, _digits: usize, _suffix: &str) {
+        // TODO: Maybe make speed and digits work with this too
+        ui.drag_angle(&mut self.0.x);
+        ui.drag_angle(&mut self.0.y);
+        ui.drag_angle(&mut self.0.z);
+    }
 }
 
-pub fn drag3(ui: &mut egui::Ui, label: impl Into<egui::WidgetText>, value: &mut Vec3, speed: impl Into<f64>) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let speed = speed.into();
-        let mut dirty = false;
-        dirty |= ui.add(egui::DragValue::new(&mut value.x).speed(speed)).changed();
-        dirty |= ui.add(egui::DragValue::new(&mut value.y).speed(speed)).changed();
-        dirty |= ui.add(egui::DragValue::new(&mut value.z).speed(speed)).changed();
-        dirty
-    })
+impl Draggable for f32 {
+    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) {
+        ui.add(
+            egui::DragValue::new(self)
+                .speed(speed)
+                .min_decimals(digits)
+                .max_decimals(digits)
+                .suffix(suffix),
+        );
+    }
 }
 
-pub fn drag3_scaled(
-    ui: &mut egui::Ui,
-    label: impl Into<egui::WidgetText>,
-    value: &mut Vec3,
-    speed: impl Into<f64>,
-    scale: impl Into<f32>,
-    decimals: usize,
-) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let speed = speed.into();
-        let scale = scale.into();
-        let mut dirty = false;
-        let mut values = *value * scale;
-        dirty |= ui
-            .add(
-                egui::DragValue::new(&mut values.x)
-                    .speed(speed)
-                    .min_decimals(decimals)
-                    .max_decimals(decimals + 2),
-            )
-            .changed();
-        dirty |= ui
-            .add(
-                egui::DragValue::new(&mut values.y)
-                    .speed(speed)
-                    .min_decimals(decimals)
-                    .max_decimals(decimals + 2),
-            )
-            .changed();
-        dirty |= ui
-            .add(
-                egui::DragValue::new(&mut values.z)
-                    .speed(speed)
-                    .min_decimals(decimals)
-                    .max_decimals(decimals + 2),
-            )
-            .changed();
-        *value = values / scale;
-        dirty
-    })
+pub struct Drag<'v, 's, T, L>
+where
+    T: Draggable,
+    L: Into<egui::WidgetText>, {
+    original_value: &'v mut T,
+    scaled_value: T,
+    scale: f32,
+    speed: f64,
+    label: L,
+    digits: usize,
+    suffix: Option<&'s str>,
 }
 
-pub fn drag3_precise(
-    ui: &mut egui::Ui,
-    label: impl Into<egui::WidgetText>,
-    value: &mut Vec3,
-    speed: impl Into<f64>,
-    decimals: usize,
-) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let speed = speed.into();
-        let mut dirty = false;
-        dirty |= ui
-            .add(
-                egui::DragValue::new(&mut value.x)
-                    .speed(speed)
-                    .min_decimals(decimals)
-                    .max_decimals(decimals + 3),
-            )
-            .changed();
-        dirty |= ui
-            .add(
-                egui::DragValue::new(&mut value.y)
-                    .speed(speed)
-                    .min_decimals(decimals)
-                    .max_decimals(decimals + 3),
-            )
-            .changed();
-        dirty |= ui
-            .add(
-                egui::DragValue::new(&mut value.z)
-                    .speed(speed)
-                    .min_decimals(decimals)
-                    .max_decimals(decimals + 3),
-            )
-            .changed();
-        dirty
-    })
-}
+impl<'v, 's, T, L> Drag<'v, 's, T, L>
+where
+    T: Draggable,
+    L: Into<egui::WidgetText>,
+{
+    pub fn new(label: L, value: &'v mut T) -> Self {
+        Self {
+            scaled_value: *value,
+            original_value: value,
+            label,
+            digits: 2,
+            suffix: None,
+            scale: 1.0,
+            speed: 1.0,
+        }
+    }
 
-pub fn drag3_angle(ui: &mut egui::Ui, label: impl Into<egui::WidgetText>, value: &mut Vec3) -> egui::InnerResponse<bool> {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let mut dirty = false;
-        dirty |= ui.drag_angle(&mut value.x).changed();
-        dirty |= ui.drag_angle(&mut value.y).changed();
-        dirty |= ui.drag_angle(&mut value.z).changed();
-        dirty
-    })
+    pub fn scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+        self.scaled_value = *self.original_value * scale;
+        self
+    }
+
+    pub fn suffix(mut self, suffix: &'s str) -> Self {
+        self.suffix = Some(suffix);
+        self
+    }
+
+    pub fn digits(mut self, digits: usize) -> Self {
+        self.digits = digits;
+        self
+    }
+
+    pub fn speed(mut self, speed: f64) -> Self {
+        self.speed = speed;
+        self
+    }
+
+    pub fn show(mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label(self.label.into());
+            self.scaled_value = *self.original_value * self.scale;
+            self.scaled_value.drag(ui, self.speed, self.digits, self.suffix.unwrap_or(""));
+            *self.original_value = self.scaled_value / self.scale;
+        });
+    }
 }

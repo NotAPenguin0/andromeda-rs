@@ -5,10 +5,9 @@ use tokio::runtime::Handle;
 use crate::app::RootActorSystem;
 use crate::gfx::world::World;
 use crate::gui::editor::camera_controller::{control_camera, DragWorld, MouseOverWorld};
-use crate::gui::util::format::{format_km, format_meters, parse_km, parse_meters};
 use crate::gui::util::image::Image;
 use crate::gui::util::size::USize;
-use crate::gui::widgets::drag::{drag, drag3_angle, drag3_scaled, drag_fmt_scaled};
+use crate::gui::widgets::drag::Drag;
 
 pub mod editor;
 pub mod util;
@@ -104,57 +103,43 @@ fn environment_panel(context: &egui::Context, world: &mut World) {
         .resizable(true)
         .movable(true)
         .show(&context, |ui| {
-            drag3_angle(ui, "Sun direction", &mut world.sun_direction.0);
+            Drag::new("Sun direction", &mut world.sun_direction).show(ui);
             egui::CollapsingHeader::new("Atmosphere").show(ui, |ui| {
-                drag_fmt_scaled(
-                    ui,
-                    "Planet radius",
-                    format_km,
-                    parse_km,
-                    &mut world.atmosphere.planet_radius,
-                    1.0,
-                    10e-4,
-                );
-                drag_fmt_scaled(
-                    ui,
-                    "Atmosphere radius",
-                    format_km,
-                    parse_km,
-                    &mut world.atmosphere.atmosphere_radius,
-                    1.0,
-                    10e-4,
-                );
-                drag(ui, "Sun intensity", &mut world.atmosphere.sun_intensity, 0.1);
-                drag3_scaled(
-                    ui,
-                    "Rayleigh scattering",
-                    &mut world.atmosphere.rayleigh_coefficients,
-                    0.1,
-                    10e5,
-                    3,
-                );
-                drag_fmt_scaled(
-                    ui,
-                    "Rayleigh scatter height",
-                    format_km,
-                    parse_km,
-                    &mut world.atmosphere.rayleigh_scatter_height,
-                    1.0,
-                    10e-4,
-                );
-                drag3_scaled(ui, "Mie scattering", &mut world.atmosphere.mie_coefficients, 0.1, 10e4, 3);
-                drag(ui, "Mie albedo", &mut world.atmosphere.mie_albedo, 0.01);
-                drag(ui, "Mie G", &mut world.atmosphere.mie_g, 0.01);
-                drag_fmt_scaled(
-                    ui,
-                    "Mie scatter height",
-                    format_meters,
-                    parse_meters,
-                    &mut world.atmosphere.mie_scatter_height,
-                    1.0,
-                    1.0,
-                );
-                drag3_scaled(ui, "Ozone scattering", &mut world.atmosphere.ozone_coefficients, 0.1, 10e7, 3);
+                Drag::new("Planet radius", &mut world.atmosphere.planet_radius)
+                    .suffix(" km")
+                    .scale(10e-4)
+                    .show(ui);
+                Drag::new("Atmosphere radius", &mut world.atmosphere.atmosphere_radius)
+                    .suffix(" km")
+                    .scale(10e-4)
+                    .show(ui);
+                Drag::new("Sun intensity", &mut world.atmosphere.sun_intensity)
+                    .speed(0.1)
+                    .show(ui);
+                Drag::new("Rayleigh scattering", &mut world.atmosphere.rayleigh_coefficients)
+                    .speed(0.1)
+                    .scale(10e5)
+                    .digits(3)
+                    .show(ui);
+                Drag::new("Rayleigh scatter height", &mut world.atmosphere.rayleigh_scatter_height)
+                    .suffix(" km")
+                    .scale(10e-4)
+                    .show(ui);
+                Drag::new("Mie scattering", &mut world.atmosphere.mie_coefficients)
+                    .speed(0.1)
+                    .scale(10e4)
+                    .digits(3)
+                    .show(ui);
+                Drag::new("Mie albedo", &mut world.atmosphere.mie_albedo).speed(0.01).show(ui);
+                Drag::new("Mie G", &mut world.atmosphere.mie_g).speed(0.01).show(ui);
+                Drag::new("Mie scatter height", &mut world.atmosphere.mie_scatter_height)
+                    .suffix(" m")
+                    .show(ui);
+                Drag::new("Ozone scattering", &mut world.atmosphere.ozone_coefficients)
+                    .speed(0.1)
+                    .scale(10e7)
+                    .digits(3)
+                    .show(ui);
             });
         });
 }

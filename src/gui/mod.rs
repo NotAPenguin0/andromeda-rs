@@ -11,6 +11,7 @@ pub use size::*;
 use crate::app::RootActorSystem;
 use crate::gfx::world::World;
 use crate::gui::camera_controller::{DragWorld, MouseOverWorld};
+use crate::gui::drag3::drag3_angle;
 
 pub mod image;
 pub mod integration;
@@ -117,6 +118,17 @@ impl<E> Handler<E, SetNewTexture> for TargetResizeActor
     }
 }
 
+fn environment_panel(context: &egui::Context, world: &mut World) {
+    egui::Window::new("Environment Settings")
+        .resizable(true)
+        .movable(true)
+        .show(&context, |ui| {
+            drag3_angle(ui, "Sun direction", &mut world.sun_direction.0);
+            egui::CollapsingHeader::new("Atmosphere")
+                .show(ui, |ui| {});
+        });
+}
+
 pub fn build_ui(context: &egui::Context, actors: &RootActorSystem, world: &mut World) {
     egui::CentralPanel::default().show(&context, |ui| {
         ui.heading("Editor");
@@ -162,5 +174,7 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem, world: &mut W
                     .tell(MouseOverWorld(hover))
                     .unwrap();
             });
+
+        environment_panel(context, world);
     });
 }

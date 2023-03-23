@@ -139,7 +139,7 @@ impl WorldRenderer {
         self.state.inverse_view_rotation =
             Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.atmosphere = world.atmosphere;
-        self.state.sun_dir = world.sun_direction;
+        self.state.sun_dir = -world.sun_direction.front_direction();
         Ok(())
     }
 

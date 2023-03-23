@@ -15,6 +15,7 @@ use crate::core::{
 };
 use crate::gfx::AtmosphereInfo;
 use crate::gfx::world::World;
+use crate::math::Rotation;
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -62,7 +63,7 @@ impl Driver {
             actors,
             update,
             world: World {
-                sun_direction: Vec3::new(0.0, -1.0, 0.0),
+                sun_direction: Rotation(Vec3::new(0.0, -1.0, 0.0)),
                 atmosphere: AtmosphereInfo::earth(),
             },
         })

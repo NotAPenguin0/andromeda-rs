@@ -82,12 +82,7 @@ impl Default for Camera {
 
 impl Camera {
     fn front(&self) -> Vec3 {
-        let cos_pitch = self.rotation.0.x.cos();
-        let cos_yaw = self.rotation.0.y.cos();
-        let sin_pitch = self.rotation.0.x.sin();
-        let sin_yaw = self.rotation.0.y.sin();
-
-        Vec3::new(cos_pitch * cos_yaw, sin_pitch, cos_pitch * sin_yaw).normalize()
+        self.rotation.front_direction()
     }
 
     fn right(&self) -> Vec3 {

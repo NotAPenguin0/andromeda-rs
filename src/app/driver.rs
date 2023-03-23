@@ -6,16 +6,13 @@ use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
-use crate::{gfx, gui};
-use crate::app::RootActorSystem;
 use crate::app::update_loop::UpdateLoop;
-use crate::core::{
-    ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
-    ScrollInfo,
-};
-use crate::gfx::AtmosphereInfo;
+use crate::app::RootActorSystem;
+use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
 use crate::gfx::world::World;
+use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;
+use crate::{gfx, gui};
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -33,18 +30,11 @@ pub struct Driver {
 impl Driver {
     pub fn create_window() -> Result<(EventLoop<()>, Window)> {
         let event_loop = EventLoopBuilder::new().build();
-        let window = WindowBuilder::new()
-            .with_title("Andromeda")
-            .with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0))
-            .build(&event_loop)?;
+        let window = WindowBuilder::new().with_title("Andromeda").with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0)).build(&event_loop)?;
         Ok((event_loop, window))
     }
 
-    fn create_gui_integration(
-        event_loop: &EventLoop<()>,
-        window: &Window,
-        gfx: &gfx::Context,
-    ) -> Result<gui::UIIntegration> {
+    fn create_gui_integration(event_loop: &EventLoop<()>, window: &Window, gfx: &gfx::Context) -> Result<gui::UIIntegration> {
         gui::UIIntegration::new(event_loop, &window, gfx.shared.clone())
     }
 
@@ -72,36 +62,29 @@ impl Driver {
     pub async fn process_frame(&mut self) -> Result<()> {
         self.gfx
             .frame
-            .new_frame(
-                self.gfx.shared.exec.clone(),
-                &self.window,
-                &self.gfx.surface,
-                |mut ifc| {
-                    // Do start of frame logic, we'll keep this here to keep things a bit easier
-                    self.ui.new_frame(&self.window);
-                    self.renderer.new_frame();
+            .new_frame(self.gfx.shared.exec.clone(), &self.window, &self.gfx.surface, |mut ifc| {
+                // Do start of frame logic, we'll keep this here to keep things a bit easier
+                self.ui.new_frame(&self.window);
+                self.renderer.new_frame();
 
-                    gui::build_ui(&self.ui.context(), &self.actors, &mut self.world);
+                gui::build_ui(&self.ui.context(), &self.actors, &mut self.world);
 
-                    Handle::current().block_on(async {
-                        self.actors
-                            .update_rt_size(&mut self.ui, &mut self.renderer)
-                            .await?;
+                Handle::current().block_on(async {
+                    self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
 
-                        self.update
-                            .update(
-                                ifc,
-                                &mut self.ui,
-                                &self.window,
-                                &self.world,
-                                &mut self.renderer,
-                                self.gfx.shared.clone(),
-                                self.gfx.debug_messenger.as_ref(),
-                            )
-                            .await
-                    })
-                },
-            )
+                    self.update
+                        .update(
+                            ifc,
+                            &mut self.ui,
+                            &self.window,
+                            &self.world,
+                            &mut self.renderer,
+                            self.gfx.shared.clone(),
+                            self.gfx.debug_messenger.as_ref(),
+                        )
+                        .await
+                })
+            })
             .await?;
 
         self.gfx.next_frame();
@@ -132,7 +115,10 @@ impl From<ElementState> for ButtonState {
 pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<ControlFlow> {
     use winit::event::Event;
     match event {
-        Event::WindowEvent { event, window_id } => {
+        Event::WindowEvent {
+            event,
+            window_id,
+        } => {
             driver.ui.process_event(&event);
             match event {
                 WindowEvent::Resized(_) => {}
@@ -149,7 +135,9 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::HoveredFileCancelled => {}
                 WindowEvent::ReceivedCharacter(_) => {}
                 WindowEvent::Focused(_) => {}
-                WindowEvent::KeyboardInput { .. } => {}
+                WindowEvent::KeyboardInput {
+                    ..
+                } => {}
                 WindowEvent::ModifiersChanged(state) => {
                     if state.shift() {
                         driver.actors.input.tell(InputEvent::Button(KeyState {
@@ -164,18 +152,25 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                     }
                 }
                 WindowEvent::Ime(_) => {}
-                WindowEvent::CursorMoved { position, .. } => {
-                    driver
-                        .actors
-                        .input
-                        .tell(InputEvent::MouseMove(MousePosition {
-                            x: position.x,
-                            y: position.y,
-                        }))?;
+                WindowEvent::CursorMoved {
+                    position,
+                    ..
+                } => {
+                    driver.actors.input.tell(InputEvent::MouseMove(MousePosition {
+                        x: position.x,
+                        y: position.y,
+                    }))?;
                 }
-                WindowEvent::CursorEntered { .. } => {}
-                WindowEvent::CursorLeft { .. } => {}
-                WindowEvent::MouseWheel { delta, .. } => {
+                WindowEvent::CursorEntered {
+                    ..
+                } => {}
+                WindowEvent::CursorLeft {
+                    ..
+                } => {}
+                WindowEvent::MouseWheel {
+                    delta,
+                    ..
+                } => {
                     match delta {
                         MouseScrollDelta::LineDelta(x, y) => {
                             driver
@@ -199,22 +194,35 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                         }
                     };
                 }
-                WindowEvent::MouseInput { state, button, .. } => {
-                    driver
-                        .actors
-                        .input
-                        .tell(InputEvent::MouseButton(MouseButtonState {
-                            state: state.into(),
-                            button: button.into(),
-                        }))?;
+                WindowEvent::MouseInput {
+                    state,
+                    button,
+                    ..
+                } => {
+                    driver.actors.input.tell(InputEvent::MouseButton(MouseButtonState {
+                        state: state.into(),
+                        button: button.into(),
+                    }))?;
                 }
-                WindowEvent::TouchpadMagnify { .. } => {}
-                WindowEvent::SmartMagnify { .. } => {}
-                WindowEvent::TouchpadRotate { .. } => {}
-                WindowEvent::TouchpadPressure { .. } => {}
-                WindowEvent::AxisMotion { .. } => {}
+                WindowEvent::TouchpadMagnify {
+                    ..
+                } => {}
+                WindowEvent::SmartMagnify {
+                    ..
+                } => {}
+                WindowEvent::TouchpadRotate {
+                    ..
+                } => {}
+                WindowEvent::TouchpadPressure {
+                    ..
+                } => {}
+                WindowEvent::AxisMotion {
+                    ..
+                } => {}
                 WindowEvent::Touch(_) => {}
-                WindowEvent::ScaleFactorChanged { .. } => {}
+                WindowEvent::ScaleFactorChanged {
+                    ..
+                } => {}
                 WindowEvent::ThemeChanged(_) => {}
                 WindowEvent::Occluded(_) => {}
             }

@@ -7,4 +7,3 @@ pub mod byte_size;
 pub mod event;
 pub mod input;
 pub mod safe_error;
-

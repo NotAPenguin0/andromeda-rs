@@ -71,15 +71,7 @@ impl RenderTargets {
         let mut alloc = ctx.allocator.clone();
         self.register_target(name, size, move |width, height| {
             gfx::PairedImageView::new(
-                ph::Image::new(
-                    ctx.device.clone(),
-                    &mut alloc.clone(),
-                    width,
-                    height,
-                    usage,
-                    format,
-                    samples,
-                )?,
+                ph::Image::new(ctx.device.clone(), &mut alloc.clone(), width, height, usage, format, samples)?,
                 aspect,
             )
         })
@@ -132,15 +124,7 @@ impl RenderTargets {
         format: vk::Format,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        self.register_simple_target(
-            name,
-            size,
-            ctx,
-            usage,
-            format,
-            vk::ImageAspectFlags::COLOR,
-            samples,
-        )
+        self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::COLOR, samples)
     }
 
     pub fn register_multisampled_depth_target(
@@ -152,15 +136,7 @@ impl RenderTargets {
         format: vk::Format,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        self.register_simple_target(
-            name,
-            size,
-            ctx,
-            usage,
-            format,
-            vk::ImageAspectFlags::DEPTH,
-            samples,
-        )
+        self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::DEPTH, samples)
     }
 
     pub fn register_target(
@@ -187,10 +163,7 @@ impl RenderTargets {
     }
 
     pub fn target_size(&self, name: &str) -> Result<(u32, u32)> {
-        let target = self
-            .targets
-            .get(name)
-            .ok_or(anyhow!("Target {} not found", name))?;
+        let target = self.targets.get(name).ok_or(anyhow!("Target {} not found", name))?;
         Ok(self.size_group_resolution(target.size_group))
     }
 
@@ -205,13 +178,7 @@ impl RenderTargets {
     }
 
     pub fn get_target_view(&self, name: &str) -> Result<ph::ImageView> {
-        Ok(self
-            .targets
-            .get(name)
-            .ok_or(anyhow!("Target not found: {}", name))?
-            .target
-            .view
-            .clone())
+        Ok(self.targets.get(name).ok_or(anyhow!("Target not found: {}", name))?.target.view.clone())
     }
 
     pub fn bind_targets(&self, bindings: &mut ph::PhysicalResourceBindings) {
@@ -220,21 +187,12 @@ impl RenderTargets {
         }
     }
 
-    fn create_target(
-        &self,
-        recreate: &impl Fn(u32, u32) -> Result<gfx::PairedImageView>,
-        size: SizeGroup,
-    ) -> Result<gfx::PairedImageView> {
+    fn create_target(&self, recreate: &impl Fn(u32, u32) -> Result<gfx::PairedImageView>, size: SizeGroup) -> Result<gfx::PairedImageView> {
         let (w, h) = self.size_group_resolution(size);
         recreate.call((w, h))
     }
 
-    fn resize_target(
-        deferred_delete: &mut ph::DeletionQueue<gfx::PairedImageView>,
-        target: &mut RenderTargetEntry,
-        width: u32,
-        height: u32,
-    ) -> Result<()> {
+    fn resize_target(deferred_delete: &mut ph::DeletionQueue<gfx::PairedImageView>, target: &mut RenderTargetEntry, width: u32, height: u32) -> Result<()> {
         // Store new size if this was a custom size group
         if let SizeGroup::Custom(_, _) = target.size_group {
             target.size_group = SizeGroup::Custom(width, height);

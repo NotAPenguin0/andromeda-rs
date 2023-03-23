@@ -1,15 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use ph::vk;
-use phobos::prelude as ph;
-use winit::window::Window;
-
 pub use graph::FrameGraph;
 pub use paired_image_view::PairedImageView;
 pub use passes::AtmosphereInfo;
-pub use targets::RenderTargets;
-pub use targets::SizeGroup;
+use ph::vk;
+use phobos::prelude as ph;
+pub use targets::{RenderTargets, SizeGroup};
+use winit::window::Window;
 pub(self) use world_renderer::RenderState;
 pub use world_renderer::WorldRenderer;
 
@@ -18,8 +16,8 @@ mod paired_image_view;
 mod passes;
 mod postprocess;
 mod targets;
-mod world_renderer;
 pub mod world;
+mod world_renderer;
 
 /// The entire graphics context.
 #[derive(Debug)]

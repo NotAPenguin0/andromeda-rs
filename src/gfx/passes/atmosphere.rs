@@ -10,16 +10,16 @@ use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct AtmosphereInfo {
-    planet_radius: f32,
-    atmosphere_radius: f32,
-    rayleigh_coefficients: Vec3,
-    rayleigh_scatter_height: f32,
-    mie_coefficients: Vec3,
-    mie_albedo: f32,
-    mie_scatter_height: f32,
-    mie_g: f32,
-    ozone_coefficients: Vec3,
-    sun_intensity: f32,
+    pub planet_radius: f32,
+    pub atmosphere_radius: f32,
+    pub rayleigh_coefficients: Vec3,
+    pub rayleigh_scatter_height: f32,
+    pub mie_coefficients: Vec3,
+    pub mie_albedo: f32,
+    pub mie_scatter_height: f32,
+    pub mie_g: f32,
+    pub ozone_coefficients: Vec3,
+    pub sun_intensity: f32,
 }
 
 impl AtmosphereInfo {
@@ -59,17 +59,13 @@ impl AtmosphereRenderer {
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
             .samples(vk::SampleCountFlags::TYPE_8) // TODO: config, sample shading
             .into_dynamic()
-            .attach_shader(
-                "shaders/src/fullscreen.vert.hlsl",
-                vk::ShaderStageFlags::VERTEX,
-            )
-            .attach_shader(
-                "shaders/src/atmosphere.frag.hlsl",
-                vk::ShaderStageFlags::FRAGMENT,
-            )
+            .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/atmosphere.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(actors.shader_reload.clone(), ctx.pipelines.clone())?;
 
-        Ok(AtmosphereRenderer { ctx })
+        Ok(AtmosphereRenderer {
+            ctx,
+        })
     }
 
     pub async fn render<'s: 'e + 'q, 'state: 'e + 'q, 'e, 'q>(
@@ -81,16 +77,8 @@ impl AtmosphereRenderer {
         state: &'state gfx::RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("atmosphere")
-            .color_attachment(
-                &graph.latest_version(color)?,
-                vk::AttachmentLoadOp::LOAD,
-                None,
-            )?
-            .depth_attachment(
-                &graph.latest_version(depth)?,
-                vk::AttachmentLoadOp::LOAD,
-                None,
-            )?
+            .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
+            .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
             .execute(|mut cmd, ifc, _bindings| {
                 #[repr(C)]
                 struct Camera {
@@ -100,8 +88,7 @@ impl AtmosphereRenderer {
                     cam_pos: Vec4,
                 }
 
-                let mut camera =
-                    ifc.allocate_scratch_ubo(std::mem::size_of::<Camera>() as vk::DeviceSize)?;
+                let mut camera = ifc.allocate_scratch_ubo(std::mem::size_of::<Camera>() as vk::DeviceSize)?;
                 let camera_data = camera.mapped_slice::<Camera>()?;
                 let mut camera_data = camera_data.get_mut(0).unwrap();
                 camera_data.pv = state.projection_view;
@@ -117,8 +104,7 @@ impl AtmosphereRenderer {
                     ozone_sun: Vec4,
                 }
                 // TODO: Macro magic to make this more convenient?
-                let mut atmosphere =
-                    ifc.allocate_scratch_ubo(std::mem::size_of::<Atmosphere>() as vk::DeviceSize)?;
+                let mut atmosphere = ifc.allocate_scratch_ubo(std::mem::size_of::<Atmosphere>() as vk::DeviceSize)?;
                 let atmosphere_data = atmosphere.mapped_slice::<Atmosphere>()?;
                 let mut atmosphere_data = atmosphere_data.get_mut(0).unwrap();
                 atmosphere_data.radii_mie_albedo_g = Vec4::new(
@@ -127,18 +113,9 @@ impl AtmosphereRenderer {
                     state.atmosphere.mie_albedo,
                     state.atmosphere.mie_g,
                 );
-                atmosphere_data.rayleigh = Vec4::from((
-                    state.atmosphere.rayleigh_coefficients,
-                    state.atmosphere.rayleigh_scatter_height,
-                ));
-                atmosphere_data.mie = Vec4::from((
-                    state.atmosphere.mie_coefficients,
-                    state.atmosphere.mie_scatter_height,
-                ));
-                atmosphere_data.ozone_sun = Vec4::from((
-                    state.atmosphere.ozone_coefficients,
-                    state.atmosphere.sun_intensity,
-                ));
+                atmosphere_data.rayleigh = Vec4::from((state.atmosphere.rayleigh_coefficients, state.atmosphere.rayleigh_scatter_height));
+                atmosphere_data.mie = Vec4::from((state.atmosphere.mie_coefficients, state.atmosphere.mie_scatter_height));
+                atmosphere_data.ozone_sun = Vec4::from((state.atmosphere.ozone_coefficients, state.atmosphere.sun_intensity));
 
                 let pc = Vec4::from((state.sun_dir, 0.0));
 

@@ -1,12 +1,13 @@
-use std::{env, fs};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::{env, fs};
 
 use anyhow::{anyhow, Result};
+pub use dynamic_pipeline_builder::*;
 use notify::EventKind;
 use phobos as ph;
 use phobos::vk;
@@ -15,8 +16,6 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::task::JoinHandle;
-
-pub use dynamic_pipeline_builder::*;
 
 use crate::safe_error::SafeUnwrap;
 
@@ -41,8 +40,8 @@ unsafe impl Sync for ShaderReloadActor {}
 
 #[async_trait]
 impl<E> Actor<E> for ShaderReloadActor
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn post_stop(&mut self, _ctx: &mut ActorContext<E>) {
         // Kill the owned file watchers
@@ -68,8 +67,8 @@ pub struct AddShader {
 
 #[async_trait]
 impl<E> Handler<E, PushJoinHandle> for ShaderReloadActor
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: PushJoinHandle, _ctx: &mut ActorContext<E>) -> () {
         self.watch_tasks.push(msg.0);
@@ -78,12 +77,16 @@ impl<E> Handler<E, PushJoinHandle> for ShaderReloadActor
 
 #[async_trait]
 impl<E> Handler<E, FileEventMessage> for ShaderReloadActor
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: FileEventMessage, _ctx: &mut ActorContext<E>) -> () {
         match msg.0 {
-            notify::Event { kind, paths, .. } => match kind {
+            notify::Event {
+                kind,
+                paths,
+                ..
+            } => match kind {
                 EventKind::Modify(_) => {
                     for path in paths {
                         if path.extension().unwrap_or(OsStr::new("")) == OsString::from("hlsl") {
@@ -99,17 +102,12 @@ impl<E> Handler<E, FileEventMessage> for ShaderReloadActor
 
 #[async_trait]
 impl<E> Handler<E, AddShader> for ShaderReloadActor
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: AddShader, _ctx: &mut ActorContext<E>) -> () {
-        info!(
-            "Pipeline {:?} added to watch for shader {:?}",
-            msg.pipeline, msg.path
-        );
-        let entry = self
-            .shaders
-            .entry(fs::canonicalize(msg.path.clone()).unwrap());
+        info!("Pipeline {:?} added to watch for shader {:?}", msg.pipeline, msg.path);
+        let entry = self.shaders.entry(fs::canonicalize(msg.path.clone()).unwrap());
         match entry {
             Entry::Occupied(entry) => {
                 entry.into_mut().pipelines.push(msg.pipeline.clone());
@@ -121,9 +119,7 @@ impl<E> Handler<E, AddShader> for ShaderReloadActor
                 });
             }
         };
-        self.reload_pipeline(msg.path.as_path(), &msg.pipeline, msg.stage)
-            .await
-            .safe_unwrap();
+        self.reload_pipeline(msg.path.as_path(), &msg.pipeline, msg.stage).await.safe_unwrap();
     }
 }
 
@@ -135,9 +131,8 @@ impl ShaderReloadActor {
         path: impl Into<PathBuf>,
         recursive: bool,
     ) -> Result<ActorRef<E, Self>>
-        where
-            E: SystemEvent,
-    {
+    where
+        E: SystemEvent, {
         let actor = system
             .create_actor(
                 name,
@@ -150,18 +145,14 @@ impl ShaderReloadActor {
             .await?;
 
         let copy = actor.clone();
-        let watcher = tokio::spawn(file_watcher::async_watch(
-            path.into(),
-            recursive,
-            move |event| {
-                actor.tell(FileEventMessage(event)).unwrap();
-            },
-        ));
+        let watcher = tokio::spawn(file_watcher::async_watch(path.into(), recursive, move |event| {
+            actor.tell(FileEventMessage(event)).unwrap();
+        }));
 
         copy.ask(PushJoinHandle {
             0: Arc::new(watcher),
         })
-            .await?;
+        .await?;
 
         Ok(copy)
     }
@@ -173,9 +164,7 @@ impl ShaderReloadActor {
     fn get_output_path(path: &Path) -> Result<PathBuf> {
         let prefix = path.parent().unwrap();
         fs::create_dir_all(prefix)?;
-        Ok(prefix
-            .join("out/")
-            .join(path.file_name().unwrap().to_str().unwrap().to_owned() + ".spv"))
+        Ok(prefix.join("out/").join(path.file_name().unwrap().to_str().unwrap().to_owned() + ".spv"))
     }
 
     fn hlsl_profile(stage: vk::ShaderStageFlags) -> Result<String> {
@@ -184,7 +173,7 @@ impl ShaderReloadActor {
             vk::ShaderStageFlags::FRAGMENT => "ps",
             _ => todo!(),
         }
-            .to_owned()
+        .to_owned()
             + "_6_7")
     }
 
@@ -234,12 +223,7 @@ impl ShaderReloadActor {
         }
     }
 
-    async fn reload_pipeline(
-        &self,
-        shader: &Path,
-        pipeline: &str,
-        stage: vk::ShaderStageFlags,
-    ) -> Result<()> {
+    async fn reload_pipeline(&self, shader: &Path, pipeline: &str, stage: vk::ShaderStageFlags) -> Result<()> {
         info!("Reloading pipeline {:?}", pipeline);
         // let mut file = File::open(shader).await?;
         // let mut source = String::new();
@@ -256,14 +240,10 @@ impl ShaderReloadActor {
         let binary = Self::compile_hlsl(shader, stage).await?;
         {
             let mut pipelines = self.pipelines.lock().unwrap();
-            let mut pci = pipelines
-                .pipeline_info(pipeline)
-                .ok_or(ph::Error::PipelineNotFound(pipeline.to_owned()))?
-                .clone();
+            let mut pci = pipelines.pipeline_info(pipeline).ok_or(ph::Error::PipelineNotFound(pipeline.to_owned()))?.clone();
             // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
             pci.shaders.retain(|shader| shader.stage() != stage);
-            pci.shaders
-                .push(ph::ShaderCreateInfo::from_spirv(stage, binary));
+            pci.shaders.push(ph::ShaderCreateInfo::from_spirv(stage, binary));
             // This fixes a validation layer message, but I have no idea why
             pci.build_inner();
             // Register as new pipeline, this will update the PCI
@@ -294,14 +274,7 @@ impl ShaderReloadActor {
         }
         info!("Reloading shader file {:?}", path.file_name().unwrap());
         // Get all involved pipelines
-        let info = self
-            .shaders
-            .get(path.as_path())
-            .ok_or(anyhow::anyhow!(
-                "Shader path not in watchlist: {:?}",
-                path.file_name().unwrap()
-            ))
-            .cloned()?;
+        let info = self.shaders.get(path.as_path()).ok_or(anyhow::anyhow!("Shader path not in watchlist: {:?}", path.file_name().unwrap())).cloned()?;
         for pipeline in &info.pipelines {
             self.reload_pipeline(&path, pipeline, info.stage).await?;
         }

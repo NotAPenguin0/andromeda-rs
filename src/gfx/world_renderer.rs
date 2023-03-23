@@ -1,17 +1,17 @@
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
-use phobos::{GraphicsCmdBuffer, vk};
+use phobos::{vk, GraphicsCmdBuffer};
 use tiny_tokio_actor::ActorRef;
 
-use crate::{gfx, gui, state};
 use crate::app::RootActorSystem;
 use crate::core::{ByteSize, Event};
-use crate::gfx::{passes, postprocess};
 use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
+use crate::gfx::{passes, postprocess};
 use crate::hot_reload::IntoDynamic;
+use crate::{gfx, gui, state};
 
 #[derive(Debug, Default)]
 pub struct RenderState {
@@ -47,14 +47,8 @@ impl WorldRenderer {
             .cull_mask(vk::CullModeFlags::NONE)
             .samples(vk::SampleCountFlags::TYPE_8) // TODO: Config, etc.
             .into_dynamic()
-            .attach_shader(
-                "shaders/src/simple_mesh.vert.hlsl",
-                vk::ShaderStageFlags::VERTEX,
-            )
-            .attach_shader(
-                "shaders/src/solid_color.frag.hlsl",
-                vk::ShaderStageFlags::FRAGMENT,
-            )
+            .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(actors.shader_reload.clone(), ctx.pipelines.clone())?;
 
         let mut targets = RenderTargets::new()?;
@@ -104,11 +98,7 @@ impl WorldRenderer {
         self.targets.get_target_view(Self::output_name()).unwrap()
     }
 
-    pub fn resize_target(
-        &mut self,
-        size: gui::USize,
-        ui: &mut gui::UIIntegration,
-    ) -> Result<gui::Image> {
+    pub fn resize_target(&mut self, size: gui::USize, ui: &mut gui::UIIntegration) -> Result<gui::Image> {
         self.targets.set_output_resolution(size.x(), size.y())?;
         Ok(ui.register_texture(&self.targets.get_target_view(Self::output_name())?))
     }
@@ -136,16 +126,13 @@ impl WorldRenderer {
         self.state.projection_view = self.state.projection * self.state.view;
         self.state.inverse_projection_view = self.state.projection_view.inverse();
         self.state.inverse_projection = self.state.projection.inverse();
-        self.state.inverse_view_rotation =
-            Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
+        self.state.inverse_view_rotation = Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.atmosphere = world.atmosphere;
         self.state.sun_dir = -world.sun_direction.front_direction();
         Ok(())
     }
 
-    pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(
-        &'s mut self, world: &World,
-    ) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
+    pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(&'s mut self, world: &World) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
@@ -173,36 +160,19 @@ impl WorldRenderer {
                     stencil: 0,
                 }),
             )?
-            .execute(|cmd, mut ifc, _| {
-                Ok(cmd)
-            })
+            .execute(|cmd, mut ifc, _| Ok(cmd))
             .build();
 
         // 1. Render main geometry pass
         graph.add_pass(main_render);
         // 2. Render atmosphere
-        self.atmosphere
-            .render(
-                &mut graph,
-                &mut bindings,
-                scene_output.clone(),
-                depth.clone(),
-                &self.state,
-            )
-            .await?;
+        self.atmosphere.render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state).await?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
-            .color_attachment(
-                &graph.latest_version(scene_output.clone())?,
-                vk::AttachmentLoadOp::LOAD,
-                None,
-            )?
+            .color_attachment(&graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?
             // We dont currently need depth resolved
             // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
-            .resolve(
-                &graph.latest_version(scene_output.clone())?,
-                &resolved_output,
-            )
+            .resolve(&graph.latest_version(scene_output.clone())?, &resolved_output)
             .build();
         graph.add_pass(resolve);
         // 4. Apply tonemapping

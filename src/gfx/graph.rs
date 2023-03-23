@@ -34,10 +34,7 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
     }
 
     pub fn aliased_resource(&self, name: &str) -> Result<ph::VirtualResource> {
-        self.aliases
-            .get(name)
-            .ok_or(anyhow!("No such alias {:?}", name))
-            .cloned()
+        self.aliases.get(name).ok_or(anyhow!("No such alias {:?}", name)).cloned()
     }
 
     pub fn latest_version(&self, resource: ph::VirtualResource) -> Result<ph::VirtualResource> {
@@ -48,17 +45,9 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
             .ok_or(anyhow!("No such resource {:?}", resource))
     }
 
-    pub fn output(
-        &self,
-        pass: &str,
-        resource: ph::VirtualResource,
-    ) -> Result<&ph::VirtualResource> {
-        let pass = self
-            .passes
-            .get(pass)
-            .ok_or(anyhow!("No such pass {:?}", pass))?;
-        pass.output(&resource)
-            .ok_or(anyhow!("No such resource {:?}", resource))
+    pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<&ph::VirtualResource> {
+        let pass = self.passes.get(pass).ok_or(anyhow!("No such pass {:?}", pass))?;
+        pass.output(&resource).ok_or(anyhow!("No such resource {:?}", resource))
     }
 
     pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All>> {

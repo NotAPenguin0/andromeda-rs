@@ -45,16 +45,14 @@ impl Default for RepaintListener {
 #[async_trait]
 impl Handler<Event, RepaintAll> for RepaintListener {
     async fn handle(&mut self, _: RepaintAll, _: &mut ActorContext<Event>) -> () {
-        self.repaint_requested
-            .store(RepaintStatus::All, Ordering::Relaxed);
+        self.repaint_requested.store(RepaintStatus::All, Ordering::Relaxed);
     }
 }
 
 #[async_trait]
 impl Handler<Event, RepaintUI> for RepaintListener {
     async fn handle(&mut self, _: RepaintUI, _: &mut ActorContext<Event>) -> () {
-        self.repaint_requested
-            .store(RepaintStatus::UIOnly, Ordering::Relaxed);
+        self.repaint_requested.store(RepaintStatus::UIOnly, Ordering::Relaxed);
     }
 }
 
@@ -68,7 +66,6 @@ impl Handler<Event, CheckRepaint> for RepaintListener {
 #[async_trait]
 impl Handler<Event, ResetRepaint> for RepaintListener {
     async fn handle(&mut self, _: ResetRepaint, _: &mut ActorContext<Event>) -> () {
-        self.repaint_requested
-            .store(RepaintStatus::None, Ordering::Relaxed);
+        self.repaint_requested.store(RepaintStatus::None, Ordering::Relaxed);
     }
 }

@@ -2,8 +2,8 @@ use std::mem::ManuallyDrop;
 
 use anyhow::Result;
 use egui_winit_phobos::Integration;
-use phobos::{prelude as ph, vk};
 use phobos::prelude::traits::*;
+use phobos::{prelude as ph, vk};
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
@@ -21,11 +21,7 @@ pub struct UIIntegration {
 }
 
 impl UIIntegration {
-    pub fn new(
-        event_loop: &EventLoop<()>,
-        window: &Window,
-        ctx: gfx::SharedContext,
-    ) -> Result<Self> {
+    pub fn new(event_loop: &EventLoop<()>, window: &Window, ctx: gfx::SharedContext) -> Result<Self> {
         let mut style = egui::Style::default();
 
         style.visuals.window_shadow = egui::epaint::Shadow::NONE;
@@ -59,12 +55,7 @@ impl UIIntegration {
         self.to_unregister.retain(|(_, ttl)| *ttl != 0);
     }
 
-    pub async fn render<'s: 'e + 'q, 'e, 'q>(
-        &'s mut self,
-        window: &Window,
-        swapchain: ph::VirtualResource,
-        graph: &mut gfx::FrameGraph<'e, 'q>,
-    ) -> Result<()> {
+    pub async fn render<'s: 'e + 'q, 'e, 'q>(&'s mut self, window: &Window, swapchain: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
         self.integration.resize(window.width(), window.height());
 
         let output = self.integration.end_frame(window);

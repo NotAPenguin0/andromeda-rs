@@ -1,5 +1,5 @@
 use glam::{Mat4, Vec3};
-use tiny_tokio_actor::{Actor, ActorContext, async_trait, Handler, Message, SystemEvent};
+use tiny_tokio_actor::{async_trait, Actor, ActorContext, Handler, Message, SystemEvent};
 
 use crate::math;
 
@@ -96,23 +96,16 @@ impl Camera {
     fn clamp_rotation(rot: math::Rotation) -> math::Rotation {
         const MAX_ANGLE: f32 = std::f32::consts::PI / 2.0 - 0.0001;
         const UNBOUNDED: f32 = f32::MAX;
-        math::Rotation(rot.0.clamp(
-            Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0),
-            Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0),
-        ))
+        math::Rotation(rot.0.clamp(Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0), Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0)))
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, QueryCameraMatrix> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
-    async fn handle(
-        &mut self,
-        _msg: QueryCameraMatrix,
-        _ctx: &mut ActorContext<E>,
-    ) -> CameraMatrix {
+    async fn handle(&mut self, _msg: QueryCameraMatrix, _ctx: &mut ActorContext<E>) -> CameraMatrix {
         let front = self.front();
         let up = self.up();
 
@@ -124,14 +117,10 @@ impl<E> Handler<E, QueryCameraMatrix> for Camera
 
 #[async_trait]
 impl<E> Handler<E, QueryCameraVectors> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
-    async fn handle(
-        &mut self,
-        _msg: QueryCameraVectors,
-        _ctx: &mut ActorContext<E>,
-    ) -> CameraVectors {
+    async fn handle(&mut self, _msg: QueryCameraVectors, _ctx: &mut ActorContext<E>) -> CameraVectors {
         CameraVectors {
             front: self.front(),
             right: self.right(),
@@ -142,36 +131,28 @@ impl<E> Handler<E, QueryCameraVectors> for Camera
 
 #[async_trait]
 impl<E> Handler<E, QueryCameraPosition> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
-    async fn handle(
-        &mut self,
-        _msg: QueryCameraPosition,
-        _ctx: &mut ActorContext<E>,
-    ) -> math::Position {
+    async fn handle(&mut self, _msg: QueryCameraPosition, _ctx: &mut ActorContext<E>) -> math::Position {
         self.position
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, QueryCameraRotation> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
-    async fn handle(
-        &mut self,
-        _msg: QueryCameraRotation,
-        _ctx: &mut ActorContext<E>,
-    ) -> math::Rotation {
+    async fn handle(&mut self, _msg: QueryCameraRotation, _ctx: &mut ActorContext<E>) -> math::Rotation {
         self.rotation
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, QueryCameraFOV> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, _msg: QueryCameraFOV, _ctx: &mut ActorContext<E>) -> f32 {
         self.fov
@@ -180,8 +161,8 @@ impl<E> Handler<E, QueryCameraFOV> for Camera
 
 #[async_trait]
 impl<E> Handler<E, SetCameraPosition> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: SetCameraPosition, _ctx: &mut ActorContext<E>) -> () {
         self.position = msg.0;
@@ -190,8 +171,8 @@ impl<E> Handler<E, SetCameraPosition> for Camera
 
 #[async_trait]
 impl<E> Handler<E, SetCameraRotation> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: SetCameraRotation, _ctx: &mut ActorContext<E>) -> () {
         self.rotation = Self::clamp_rotation(msg.0);
@@ -200,29 +181,29 @@ impl<E> Handler<E, SetCameraRotation> for Camera
 
 #[async_trait]
 impl<E> Handler<E, UpdateCameraPosition> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: UpdateCameraPosition, _ctx: &mut ActorContext<E>) -> () {
-        self.position.0 += msg.0.0;
+        self.position.0 += msg.0 .0;
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, UpdateCameraRotation> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: UpdateCameraRotation, _ctx: &mut ActorContext<E>) -> () {
-        self.rotation.0 += msg.0.0;
+        self.rotation.0 += msg.0 .0;
         self.rotation = Self::clamp_rotation(self.rotation);
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, UpdateCameraFOV> for Camera
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: UpdateCameraFOV, _ctx: &mut ActorContext<E>) -> () {
         self.fov += msg.0;

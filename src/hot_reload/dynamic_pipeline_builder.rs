@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use futures::executor::block_on;
-use phobos::{PipelineBuilder, PipelineCache, vk};
+use phobos::{vk, PipelineBuilder, PipelineCache};
 use tiny_tokio_actor::ActorRef;
 
 use crate::event::Event;
@@ -31,11 +31,7 @@ impl DynamicPipelineBuilder {
     }
 
     /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
-    pub fn build(
-        self,
-        hot_reload: ActorRef<Event, hot_reload::ShaderReloadActor>,
-        cache: Arc<Mutex<PipelineCache>>,
-    ) -> Result<()> {
+    pub fn build(self, hot_reload: ActorRef<Event, hot_reload::ShaderReloadActor>, cache: Arc<Mutex<PipelineCache>>) -> Result<()> {
         let pci = self.inner.build();
         {
             let mut cache = cache.lock().unwrap();

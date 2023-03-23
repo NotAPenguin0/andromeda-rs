@@ -10,16 +10,15 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
-use crate::{gfx, gui};
 use crate::gfx::world::World;
+use crate::{gfx, gui};
 
 #[derive(Debug)]
 pub struct UpdateLoop {}
 
 async fn save_dotfile<G>(graph: &G, path: &str)
-    where
-        G: GraphViz,
-{
+where
+    G: GraphViz, {
     let dot = graph.dot().unwrap();
     let dot = format!("{}", dot);
     let mut parser = gv::DotParser::new(&dot);
@@ -72,10 +71,7 @@ impl UpdateLoop {
         // Bind the swapchain resource.
         bindings.bind_image("swapchain", ifc.swapchain_image.as_ref().unwrap());
         // Record this frame.
-        let cmd = gfx.exec.on_domain::<ph::domain::All>(
-            Some(gfx.pipelines.clone()),
-            Some(gfx.descriptors.clone()),
-        )?;
+        let cmd = gfx.exec.on_domain::<ph::domain::All>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
         let cmd = graph.record(cmd, &bindings, &mut ifc, debug)?;
         cmd.finish()
     }

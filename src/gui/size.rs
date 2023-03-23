@@ -6,7 +6,10 @@ pub type FSize = Size<f32>;
 
 impl<T: Copy> Size<T> {
     pub fn new(x: T, y: T) -> Self {
-        Self { 0: x, 1: y }
+        Self {
+            0: x,
+            1: y,
+        }
     }
 
     pub fn x(&self) -> T {

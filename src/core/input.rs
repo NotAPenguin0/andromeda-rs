@@ -71,12 +71,12 @@ pub trait InputListener: Send {
 }
 
 pub struct AddInputListener<L>(pub L)
-    where
-        L: InputListener;
+where
+    L: InputListener;
 
 impl<L> Message for AddInputListener<L>
-    where
-        L: InputListener + 'static,
+where
+    L: InputListener + 'static,
 {
     type Response = ();
 }
@@ -107,8 +107,8 @@ impl Input {
 
 #[async_trait]
 impl<E> Handler<E, InputEvent> for Input
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: InputEvent, _ctx: &mut ActorContext<E>) -> () {
         match msg {
@@ -129,35 +129,29 @@ impl<E> Handler<E, InputEvent> for Input
 
 #[async_trait]
 impl<E> Handler<E, QueryMouseButton> for Input
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: QueryMouseButton, _ctx: &mut ActorContext<E>) -> ButtonState {
-        self.mouse_buttons
-            .get(&msg.0)
-            .cloned()
-            .unwrap_or(ButtonState::Released)
+        self.mouse_buttons.get(&msg.0).cloned().unwrap_or(ButtonState::Released)
     }
 }
 
 #[async_trait]
 impl<E> Handler<E, QueryKeyState> for Input
-    where
-        E: SystemEvent,
+where
+    E: SystemEvent,
 {
     async fn handle(&mut self, msg: QueryKeyState, _ctx: &mut ActorContext<E>) -> ButtonState {
-        self.kb_buttons
-            .get(&msg.0)
-            .cloned()
-            .unwrap_or(ButtonState::Released)
+        self.kb_buttons.get(&msg.0).cloned().unwrap_or(ButtonState::Released)
     }
 }
 
 #[async_trait]
 impl<E, L> Handler<E, AddInputListener<L>> for Input
-    where
-        E: SystemEvent,
-        L: InputListener + Debug + 'static,
+where
+    E: SystemEvent,
+    L: InputListener + Debug + 'static,
 {
     async fn handle(&mut self, msg: AddInputListener<L>, _ctx: &mut ActorContext<E>) -> () {
         debug!("Added input listener '{:#?}'", msg.0);

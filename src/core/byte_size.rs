@@ -5,8 +5,8 @@ pub trait ByteSize {
 }
 
 impl<T, const N: usize> ByteSize for [T; N]
-    where
-        T: Sized,
+where
+    T: Sized,
 {
     fn byte_size(&self) -> usize {
         N * std::mem::size_of::<T>()

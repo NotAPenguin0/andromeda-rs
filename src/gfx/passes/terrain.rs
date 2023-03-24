@@ -5,12 +5,26 @@ use phobos::prelude::traits::*;
 
 use crate::app::RootActorSystem;
 use crate::gfx;
+use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug)]
 pub struct TerrainRenderer {}
 
 impl TerrainRenderer {
     pub fn new(ctx: gfx::SharedContext, actors: &RootActorSystem) -> Result<Self> {
+        ph::PipelineBuilder::new("terrain")
+            .samples(vk::SampleCountFlags::TYPE_8)
+            .depth(true, true, false, vk::CompareOp::LESS)
+            .cull_mask(vk::CullModeFlags::BACK)
+            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
+            .dynamic_states(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT, vk::DynamicState::POLYGON_MODE_EXT])
+            .vertex_input(0, vk::VertexInputRate::VERTEX)
+            .vertex_attribute(0, 0, vk::Format::R32G32_SFLOAT)?
+            .blend_attachment_none()
+            .into_dynamic()
+            .attach_shader("shaders/src/terrain.vert.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/terrain.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
+            .build(actors.shader_reload.clone(), ctx.pipelines)?;
         Ok(Self {})
     }
 

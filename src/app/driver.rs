@@ -13,7 +13,8 @@ use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gfx::AtmosphereInfo;
 use crate::gui::util::integration::UIIntegration;
-use crate::math::Rotation;
+use crate::math::{Position, Rotation};
+use crate::state::SetCameraPosition;
 use crate::{gfx, gui};
 
 /// Main application driver. Hosts the event loop.
@@ -51,6 +52,13 @@ impl Driver {
         let renderer = gfx::WorldRenderer::new(&actors, gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
+        let mut world = World::default();
+        // Initially generate a mesh already
+        let future = FutureWorld {
+            terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone())),
+        };
+        actors.camera.tell(SetCameraPosition(Position(Vec3::new(0.0, 10.0, 0.0))))?;
+
         Ok(Driver {
             window,
             gfx,
@@ -58,14 +66,8 @@ impl Driver {
             renderer,
             actors,
             update,
-            world: World {
-                sun_direction: Rotation(Vec3::new(0.0, -1.0, 0.0)),
-                atmosphere: AtmosphereInfo::earth(),
-                terrain_mesh: None,
-            },
-            future: FutureWorld {
-                terrain_mesh: None,
-            },
+            world,
+            future,
         })
     }
 

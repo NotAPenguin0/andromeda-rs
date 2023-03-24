@@ -1,4 +1,5 @@
 use anyhow::Result;
+use glam::Mat4;
 use ph::vk;
 use phobos::prelude as ph;
 use phobos::prelude::traits::*;
@@ -15,9 +16,7 @@ impl TerrainRenderer {
         ph::PipelineBuilder::new("terrain")
             .samples(vk::SampleCountFlags::TYPE_8)
             .depth(true, true, false, vk::CompareOp::LESS)
-            .cull_mask(vk::CullModeFlags::BACK)
-            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
-            .dynamic_states(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT, vk::DynamicState::POLYGON_MODE_EXT])
+            .dynamic_states(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT])
             .vertex_input(0, vk::VertexInputRate::VERTEX)
             .vertex_attribute(0, 0, vk::Format::R32G32_SFLOAT)?
             .blend_attachment_none()
@@ -52,7 +51,21 @@ impl TerrainRenderer {
                     stencil: 0,
                 }),
             )?
-            .execute(|cmd, _ifc, _bindings| Ok(cmd))
+            .execute(|cmd, ifc, _bindings| {
+                if let Some(terrain) = state.terrain_mesh.clone() {
+                    let mut cam_ubo = ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
+                    cam_ubo
+                        .mapped_slice()?
+                        .copy_from_slice(std::slice::from_ref(&state.projection_view));
+                    cmd.bind_graphics_pipeline("terrain")?
+                        .full_viewport_scissor()
+                        .bind_uniform_buffer(0, 0, &cam_ubo)?
+                        .bind_vertex_buffer(0, &terrain.vertices_view)
+                        .draw(6, 1, 0, 0)
+                } else {
+                    Ok(cmd)
+                }
+            })
             .build();
         graph.add_pass(pass);
         Ok(())

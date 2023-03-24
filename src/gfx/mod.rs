@@ -15,6 +15,7 @@ mod graph;
 mod paired_image_view;
 mod passes;
 mod postprocess;
+pub mod resource;
 mod targets;
 pub mod world;
 mod world_renderer;
@@ -41,6 +42,10 @@ pub struct SharedContext {
 
 impl Context {
     pub fn new(window: &Window) -> Result<Self> {
+        let mut features = vk::PhysicalDeviceFeatures::default();
+        // Allows wireframe display mode
+        features.fill_mode_non_solid = vk::TRUE;
+
         let settings = ph::AppBuilder::new()
             .version((0, 0, 1))
             .name("Andromeda".to_owned())
@@ -66,6 +71,7 @@ impl Context {
                         queue_type: ph::QueueType::Compute,
                     },
                 ],
+                features,
                 ..Default::default()
             })
             .build();

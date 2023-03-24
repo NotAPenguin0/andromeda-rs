@@ -73,8 +73,8 @@ impl AtmosphereRenderer {
         &'s mut self,
         graph: &mut gfx::FrameGraph<'e, 'q>,
         _bindings: &mut ph::PhysicalResourceBindings,
-        color: ph::VirtualResource,
-        depth: ph::VirtualResource,
+        color: &ph::VirtualResource,
+        depth: &ph::VirtualResource,
         state: &'state gfx::RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("atmosphere")

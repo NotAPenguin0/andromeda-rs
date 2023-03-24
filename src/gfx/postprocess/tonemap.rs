@@ -43,7 +43,7 @@ impl Tonemap {
         "tonemap_output"
     }
 
-    pub fn render<'s: 'e + 'q, 'q, 'e>(&'s self, input: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
+    pub fn render<'s: 'e + 'q, 'q, 'e>(&'s self, input: &ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
         let input = graph.latest_version(input)?;
         let output = ph::VirtualResource::image(Self::output_name());
         let pass = ph::PassBuilder::render("tonemap")

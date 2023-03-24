@@ -59,7 +59,7 @@ impl UIIntegration {
 
         let output = self.integration.end_frame(window);
         let clipped_meshes = self.integration.context().tessellate(output.shapes);
-        let scene_output = graph.latest_version(graph.aliased_resource("renderer_output")?)?;
+        let scene_output = graph.latest_version(&graph.aliased_resource("renderer_output")?)?;
         graph.add_pass(
             self.integration
                 .paint(

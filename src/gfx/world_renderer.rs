@@ -1,3 +1,6 @@
+use std::rc::Rc;
+use std::sync::Arc;
+
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
@@ -7,6 +10,7 @@ use tiny_tokio_actor::ActorRef;
 use crate::app::RootActorSystem;
 use crate::core::Event;
 use crate::gfx::passes::AtmosphereInfo;
+use crate::gfx::resource::TerrainPlane;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
 use crate::gfx::{passes, postprocess};
@@ -27,6 +31,7 @@ pub struct RenderState {
     pub position: Vec3,
     pub atmosphere: AtmosphereInfo,
     pub sun_dir: Vec3,
+    pub terrain_mesh: Option<Rc<TerrainPlane>>,
 }
 
 #[allow(dead_code)]
@@ -38,6 +43,7 @@ pub struct WorldRenderer {
     targets: RenderTargets,
     tonemap: postprocess::Tonemap,
     atmosphere: passes::AtmosphereRenderer,
+    terrain: passes::TerrainRenderer,
 }
 
 impl WorldRenderer {
@@ -90,6 +96,7 @@ impl WorldRenderer {
             state: RenderState::default(),
             tonemap: postprocess::Tonemap::new(ctx.clone(), &actors, &mut targets)?,
             atmosphere: passes::AtmosphereRenderer::new(ctx.clone(), &actors)?,
+            terrain: passes::TerrainRenderer::new(ctx.clone(), &actors)?,
             targets,
         })
     }
@@ -133,6 +140,7 @@ impl WorldRenderer {
         self.state.inverse_view_rotation = Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.atmosphere = world.atmosphere;
         self.state.sun_dir = -world.sun_direction.front_direction();
+        self.state.terrain_mesh = world.terrain_mesh.clone();
         Ok(())
     }
 
@@ -148,41 +156,24 @@ impl WorldRenderer {
         let resolved_output = ph::VirtualResource::image("resolved_output");
         let tonemapped_output = ph::VirtualResource::image(postprocess::Tonemap::output_name());
 
-        let main_render = ph::PassBuilder::render("final_output")
-            .color_attachment(
-                &scene_output,
-                vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 0.0],
-                }),
-            )?
-            .depth_attachment(
-                &depth,
-                vk::AttachmentLoadOp::CLEAR,
-                Some(vk::ClearDepthStencilValue {
-                    depth: 1.0,
-                    stencil: 0,
-                }),
-            )?
-            .execute(|cmd, _ifc, _bindings| Ok(cmd))
-            .build();
-
-        // 1. Render main geometry pass
-        graph.add_pass(main_render);
+        // 1. Render terrain
+        self.terrain
+            .render(&mut graph, &mut bindings, &scene_output, &depth, &self.state)
+            .await?;
         // 2. Render atmosphere
         self.atmosphere
-            .render(&mut graph, &mut bindings, scene_output.clone(), depth.clone(), &self.state)
+            .render(&mut graph, &mut bindings, &scene_output, &depth, &self.state)
             .await?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
-            .color_attachment(&graph.latest_version(scene_output.clone())?, vk::AttachmentLoadOp::LOAD, None)?
+            .color_attachment(&graph.latest_version(&scene_output)?, vk::AttachmentLoadOp::LOAD, None)?
             // We dont currently need depth resolved
             // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
-            .resolve(&graph.latest_version(scene_output.clone())?, &resolved_output)
+            .resolve(&graph.latest_version(&scene_output)?, &resolved_output)
             .build();
         graph.add_pass(resolve);
         // 4. Apply tonemapping
-        self.tonemap.render(resolved_output, &mut graph)?;
+        self.tonemap.render(&resolved_output, &mut graph)?;
         // 5. Alias our final result to the expected name
         graph.alias("renderer_output", tonemapped_output);
 

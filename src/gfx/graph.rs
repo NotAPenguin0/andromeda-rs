@@ -37,7 +37,7 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
         self.aliases.get(name).ok_or(anyhow!("No such alias {:?}", name)).cloned()
     }
 
-    pub fn latest_version(&self, resource: ph::VirtualResource) -> Result<ph::VirtualResource> {
+    pub fn latest_version(&self, resource: &ph::VirtualResource) -> Result<ph::VirtualResource> {
         self.passes
             .values()
             .flat_map(|pass| pass.output(&resource).cloned())
@@ -46,9 +46,9 @@ impl<'e, 'q> FrameGraph<'e, 'q> {
     }
 
     #[allow(dead_code)]
-    pub fn output(&self, pass: &str, resource: ph::VirtualResource) -> Result<&ph::VirtualResource> {
+    pub fn output(&self, pass: &str, resource: &ph::VirtualResource) -> Result<&ph::VirtualResource> {
         let pass = self.passes.get(pass).ok_or(anyhow!("No such pass {:?}", pass))?;
-        pass.output(&resource).ok_or(anyhow!("No such resource {:?}", resource))
+        pass.output(resource).ok_or(anyhow!("No such resource {:?}", resource))
     }
 
     pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All>> {

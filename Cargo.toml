@@ -17,6 +17,7 @@ layout-rs = "0.1.1"
 log = { version = "0.4.17", features = ["std"] }
 notify = "5.1.0"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", branch = "develop", features = ["hlsl"] }
+poll-promise = { version = "0.2.0", features = ["tokio"] }
 pretty_env_logger = "0.4.0"
 raw-window-handle = "0.5.0"
 shaderc = "0.8.2"

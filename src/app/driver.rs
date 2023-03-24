@@ -2,14 +2,15 @@ use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
 use tokio::runtime::Handle;
-use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, MouseScrollDelta, ScanCode, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
 use crate::app::update_loop::UpdateLoop;
 use crate::app::RootActorSystem;
 use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
-use crate::gfx::world::World;
+use crate::gfx::resource::TerrainPlane;
+use crate::gfx::world::{FutureWorld, World};
 use crate::gfx::AtmosphereInfo;
 use crate::gui::util::integration::UIIntegration;
 use crate::math::Rotation;
@@ -24,6 +25,7 @@ pub struct Driver {
     ui: UIIntegration,
     update: UpdateLoop,
     pub world: World,
+    pub future: FutureWorld,
     pub actors: RootActorSystem,
     pub gfx: gfx::Context,
 }
@@ -59,6 +61,10 @@ impl Driver {
             world: World {
                 sun_direction: Rotation(Vec3::new(0.0, -1.0, 0.0)),
                 atmosphere: AtmosphereInfo::earth(),
+                terrain_mesh: None,
+            },
+            future: FutureWorld {
+                terrain_mesh: None,
             },
         })
     }
@@ -81,7 +87,8 @@ impl Driver {
                             ifc,
                             &mut self.ui,
                             &self.window,
-                            &self.world,
+                            &mut self.world,
+                            &mut self.future,
                             &mut self.renderer,
                             self.gfx.shared.clone(),
                             self.gfx.debug_messenger.as_ref(),
@@ -140,8 +147,19 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 WindowEvent::ReceivedCharacter(_) => {}
                 WindowEvent::Focused(_) => {}
                 WindowEvent::KeyboardInput {
+                    input,
                     ..
-                } => {}
+                } => {
+                    if input.state == ElementState::Pressed {
+                        match input.virtual_keycode {
+                            None => {}
+                            Some(keycode) => match keycode {
+                                VirtualKeyCode::R => driver.future.terrain_mesh = Some(TerrainPlane::generate(driver.gfx.shared.clone())),
+                                _ => {}
+                            },
+                        }
+                    }
+                }
                 WindowEvent::ModifiersChanged(state) => {
                     if state.shift() {
                         driver.actors.input.tell(InputEvent::Button(KeyState {

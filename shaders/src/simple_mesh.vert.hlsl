@@ -14,7 +14,6 @@ cbuffer Camera {
 };
 
 VSOutput main(VSInput input, uint VertexIndex : SV_VertexID) {
-
     float3 colors[] = {
         float3(1.0, 0.0, 0.0),
         float3(0.0, 1.0, 0.0),

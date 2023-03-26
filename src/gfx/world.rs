@@ -5,6 +5,7 @@ use glam::Vec3;
 use poll_promise::Promise;
 
 use crate::gfx::resource::TerrainPlane;
+use crate::gfx::world_renderer::RenderOptions;
 use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;
 
@@ -21,6 +22,7 @@ pub struct World {
     pub sun_direction: Rotation,
     pub atmosphere: AtmosphereInfo,
     pub terrain_mesh: Option<Rc<TerrainPlane>>,
+    pub options: RenderOptions,
 }
 
 impl Default for World {
@@ -29,6 +31,7 @@ impl Default for World {
             sun_direction: Rotation(Vec3::new(45f32.to_radians(), 0.0, 0.0)),
             atmosphere: AtmosphereInfo::earth(),
             terrain_mesh: None,
+            options: Default::default(),
         }
     }
 }

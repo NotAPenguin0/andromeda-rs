@@ -186,6 +186,10 @@ impl ShaderReloadActor {
         Ok(match stage {
             vk::ShaderStageFlags::VERTEX => "vs",
             vk::ShaderStageFlags::FRAGMENT => "ps",
+            // Tessellation control in HLSL is a Hull Shader
+            vk::ShaderStageFlags::TESSELLATION_CONTROL => "hs",
+            // Tessellation evaluation in HLSL is a Domain Shader
+            vk::ShaderStageFlags::TESSELLATION_EVALUATION => "ds",
             _ => todo!(),
         }
         .to_owned()

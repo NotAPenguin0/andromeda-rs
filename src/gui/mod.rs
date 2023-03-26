@@ -11,5 +11,6 @@ pub fn build_ui(context: &egui::Context, actors: &RootActorSystem, world: &mut W
 
         editor::world_view::show(&context, &actors);
         editor::environment::show(&context, world);
+        editor::render_options::show(&context, world);
     });
 }

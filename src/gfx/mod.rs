@@ -45,6 +45,7 @@ impl Context {
         let mut features = vk::PhysicalDeviceFeatures::default();
         // Allows wireframe display mode
         features.fill_mode_non_solid = vk::TRUE;
+        features.tessellation_shader = vk::TRUE;
 
         let settings = ph::AppBuilder::new()
             .version((0, 0, 1))

@@ -20,6 +20,19 @@ use crate::gui::util::size::USize;
 use crate::hot_reload::IntoDynamic;
 use crate::{gfx, state};
 
+#[derive(Debug)]
+pub struct RenderOptions {
+    pub tessellation_level: u32,
+}
+
+impl Default for RenderOptions {
+    fn default() -> Self {
+        Self {
+            tessellation_level: 8,
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct RenderState {
     pub view: Mat4,
@@ -144,7 +157,10 @@ impl WorldRenderer {
         Ok(())
     }
 
-    pub async fn redraw_world<'s: 'e + 'q, 'q, 'e>(&'s mut self, world: &World) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
+    pub async fn redraw_world<'s: 'e + 'q, 'world: 'e + 'q, 'q, 'e>(
+        &'s mut self,
+        world: &'world World,
+    ) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
@@ -158,7 +174,7 @@ impl WorldRenderer {
 
         // 1. Render terrain
         self.terrain
-            .render(&mut graph, &mut bindings, &scene_output, &depth, &self.state)
+            .render(&world.options, &mut graph, &mut bindings, &scene_output, &depth, &self.state)
             .await?;
         // 2. Render atmosphere
         self.atmosphere

@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use crate::app::RootActorSystem;
 use crate::gfx;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::editor::camera_controller::CameraController;

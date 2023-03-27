@@ -4,9 +4,8 @@ use ph::vk;
 use phobos as ph;
 use phobos::GraphicsCmdBuffer;
 
-use crate::app::RootActorSystem;
 use crate::gfx;
-use crate::hot_reload::IntoDynamic;
+use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct AtmosphereInfo {
@@ -47,7 +46,7 @@ pub struct AtmosphereRenderer {
 }
 
 impl AtmosphereRenderer {
-    pub fn new(ctx: gfx::SharedContext, actors: &RootActorSystem) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext, shader_reload: &SyncShaderReload) -> Result<Self> {
         ph::PipelineBuilder::new("atmosphere")
             .depth(true, false, false, vk::CompareOp::LESS_OR_EQUAL)
             .cull_mask(vk::CullModeFlags::NONE)
@@ -62,7 +61,7 @@ impl AtmosphereRenderer {
             .into_dynamic()
             .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/atmosphere.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .build(actors.shader_reload.clone(), ctx.pipelines.clone())?;
+            .build(shader_reload.clone(), ctx.pipelines.clone())?;
 
         Ok(AtmosphereRenderer {
             ctx,

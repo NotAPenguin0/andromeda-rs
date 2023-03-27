@@ -4,16 +4,15 @@ use ph::vk;
 use phobos::prelude as ph;
 use phobos::prelude::traits::*;
 
-use crate::app::RootActorSystem;
 use crate::gfx;
 use crate::gfx::world_renderer::RenderOptions;
-use crate::hot_reload::IntoDynamic;
+use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 
 #[derive(Debug)]
 pub struct TerrainRenderer {}
 
 impl TerrainRenderer {
-    pub fn new(ctx: gfx::SharedContext, actors: &RootActorSystem) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext, shader_reload: &SyncShaderReload) -> Result<Self> {
         ph::PipelineBuilder::new("terrain")
             .samples(vk::SampleCountFlags::TYPE_8)
             .depth(true, true, false, vk::CompareOp::LESS)
@@ -28,7 +27,7 @@ impl TerrainRenderer {
             .attach_shader("shaders/src/terrain.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .attach_shader("shaders/src/terrain.hull.hlsl", vk::ShaderStageFlags::TESSELLATION_CONTROL)
             .attach_shader("shaders/src/terrain.dom.hlsl", vk::ShaderStageFlags::TESSELLATION_EVALUATION)
-            .build(actors.shader_reload.clone(), ctx.pipelines)?;
+            .build(shader_reload.clone(), ctx.pipelines)?;
         Ok(Self {})
     }
 

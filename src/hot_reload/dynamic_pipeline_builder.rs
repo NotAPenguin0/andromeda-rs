@@ -8,6 +8,7 @@ use tiny_tokio_actor::ActorRef;
 
 use crate::event::Event;
 use crate::hot_reload;
+use crate::hot_reload::SyncShaderReload;
 
 pub trait IntoDynamic {
     type Target;
@@ -15,14 +16,22 @@ pub trait IntoDynamic {
     fn into_dynamic(self) -> Self::Target;
 }
 
+#[derive(Debug)]
+struct ShaderInfo {
+    path: PathBuf,
+    stage: vk::ShaderStageFlags,
+    pipeline: String,
+}
+
+#[derive(Debug)]
 pub struct DynamicPipelineBuilder {
     inner: PipelineBuilder,
-    shaders: Vec<hot_reload::AddShader>,
+    shaders: Vec<ShaderInfo>,
 }
 
 impl DynamicPipelineBuilder {
     pub fn attach_shader(mut self, path: impl Into<PathBuf>, stage: vk::ShaderStageFlags) -> Self {
-        self.shaders.push(hot_reload::AddShader {
+        self.shaders.push(ShaderInfo {
             path: path.into(),
             stage,
             pipeline: self.inner.get_name().into(),
@@ -31,18 +40,19 @@ impl DynamicPipelineBuilder {
     }
 
     /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
-    pub fn build(self, hot_reload: ActorRef<Event, hot_reload::ShaderReloadActor>, cache: Arc<Mutex<PipelineCache>>) -> Result<()> {
+    pub fn build(self, hot_reload: SyncShaderReload, cache: Arc<Mutex<PipelineCache>>) -> Result<()> {
         let pci = self.inner.build();
         {
             let mut cache = cache.lock().unwrap();
             cache.create_named_pipeline(pci)?;
         }
 
+        let mut reload = hot_reload.write().unwrap();
         let _ = self
             .shaders
             .into_iter()
             .map(|shader| {
-                block_on(hot_reload.ask(shader)).unwrap();
+                reload.add_shader(shader.path, shader.stage, shader.pipeline);
             })
             .collect::<Vec<_>>();
 

@@ -2,9 +2,8 @@ use anyhow::Result;
 use phobos as ph;
 use phobos::{vk, GraphicsCmdBuffer};
 
-use crate::app::RootActorSystem;
 use crate::gfx;
-use crate::hot_reload::IntoDynamic;
+use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -14,7 +13,7 @@ pub struct Tonemap {
 }
 
 impl Tonemap {
-    pub fn new(ctx: gfx::SharedContext, actors: &RootActorSystem, targets: &mut gfx::RenderTargets) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext, shader_reload: &SyncShaderReload, targets: &mut gfx::RenderTargets) -> Result<Self> {
         ph::PipelineBuilder::new("tonemap")
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
             .cull_mask(vk::CullModeFlags::NONE)
@@ -23,7 +22,7 @@ impl Tonemap {
             .into_dynamic()
             .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/tonemap.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .build(actors.shader_reload.clone(), ctx.pipelines.clone())?;
+            .build(shader_reload.clone(), ctx.pipelines.clone())?;
 
         targets.register_color_target(
             Self::output_name(),

@@ -4,7 +4,6 @@ use egui::{Response, Vec2};
 use tiny_tokio_actor::*;
 use tokio::runtime::Handle;
 
-use crate::app::RootActorSystem;
 use crate::gfx;
 use crate::gui::editor::camera_controller::{enable_camera_over, CameraController};
 use crate::gui::util::image::Image;

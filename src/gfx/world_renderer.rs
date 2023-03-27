@@ -6,7 +6,6 @@ use phobos as ph;
 use phobos::vk;
 use tiny_tokio_actor::ActorRef;
 
-use crate::app::RootActorSystem;
 use crate::core::Event;
 use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::resource::TerrainPlane;
@@ -16,7 +15,7 @@ use crate::gfx::{passes, postprocess};
 use crate::gui::util::image::Image;
 use crate::gui::util::integration::UIIntegration;
 use crate::gui::util::size::USize;
-use crate::hot_reload::IntoDynamic;
+use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 use crate::{gfx, state};
 
 #[derive(Debug)]
@@ -58,7 +57,7 @@ pub struct WorldRenderer {
 }
 
 impl WorldRenderer {
-    pub fn new(actors: &RootActorSystem, ctx: gfx::SharedContext) -> Result<Self> {
+    pub fn new(reload: SyncShaderReload, ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("flat_draw")
             .vertex_input(0, vk::VertexInputRate::VERTEX)
             .vertex_attribute(0, 0, vk::Format::R32G32B32_SFLOAT)?
@@ -70,7 +69,7 @@ impl WorldRenderer {
             .into_dynamic()
             .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .build(actors.shader_reload.clone(), ctx.pipelines.clone())?;
+            .build(reload.clone(), ctx.pipelines.clone())?;
 
         let mut targets = RenderTargets::new()?;
         targets.set_output_resolution(1, 1)?;
@@ -104,9 +103,9 @@ impl WorldRenderer {
         Ok(Self {
             ctx: ctx.clone(),
             state: RenderState::default(),
-            tonemap: postprocess::Tonemap::new(ctx.clone(), &actors, &mut targets)?,
-            atmosphere: passes::AtmosphereRenderer::new(ctx.clone(), &actors)?,
-            terrain: passes::TerrainRenderer::new(ctx.clone(), &actors)?,
+            tonemap: postprocess::Tonemap::new(ctx.clone(), &reload, &mut targets)?,
+            atmosphere: passes::AtmosphereRenderer::new(ctx.clone(), &reload)?,
+            terrain: passes::TerrainRenderer::new(ctx.clone(), &reload)?,
             targets,
         })
     }
@@ -127,7 +126,7 @@ impl WorldRenderer {
         self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
-    async fn update_render_state(&mut self, world: &World) -> Result<()> {
+    fn update_render_state(&mut self, world: &World) -> Result<()> {
         let camera = world.camera.read().unwrap();
         self.state.view = camera.matrix();
         self.state.projection = Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 100.0);
@@ -153,7 +152,7 @@ impl WorldRenderer {
         let mut graph = gfx::FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
 
-        self.update_render_state(world).await?;
+        self.update_render_state(world)?;
 
         let scene_output = ph::VirtualResource::image("scene_output");
         let depth = ph::VirtualResource::image("depth");

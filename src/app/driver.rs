@@ -9,12 +9,12 @@ use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
 use crate::app::update_loop::UpdateLoop;
-use crate::app::RootActorSystem;
 use crate::core::{ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MouseDelta, MousePosition, ScrollInfo};
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::util::integration::UIIntegration;
+use crate::hot_reload::{ShaderReload, SyncShaderReload};
 use crate::math::Position;
 use crate::state::Camera;
 use crate::{gfx, gui};
@@ -29,10 +29,10 @@ pub struct Driver {
     update: UpdateLoop,
     pub world: World,
     pub future: FutureWorld,
-    pub actors: RootActorSystem,
     pub gfx: gfx::Context,
     pub input: Arc<RwLock<Input>>,
     pub camera_controller: Arc<RwLock<CameraController>>,
+    pub shader_reload: SyncShaderReload,
 }
 
 impl Driver {
@@ -51,9 +51,9 @@ impl Driver {
 
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
         let gfx = gfx::Context::new(&window)?;
-        let actors = block_on(RootActorSystem::new(&gfx.shared))?;
         let ui = Self::create_gui_integration(event_loop, &window, &gfx)?;
-        let renderer = gfx::WorldRenderer::new(&actors, gfx.shared.clone())?;
+        let shader_reload = ShaderReload::new(gfx.shared.pipelines.clone(), "shaders/", true)?;
+        let renderer = gfx::WorldRenderer::new(shader_reload.clone(), gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
         let input = Arc::new(RwLock::new(Input::default()));
@@ -65,7 +65,6 @@ impl Driver {
             .write()
             .unwrap()
             .add_listener(CameraInputListener::new(camera_controller.clone()));
-
         let world = World::new(camera);
         // Initially generate a mesh already
         let future = FutureWorld {
@@ -76,12 +75,12 @@ impl Driver {
             gfx,
             ui,
             renderer,
-            actors,
             update,
             world,
             future,
             input,
             camera_controller,
+            shader_reload,
         })
     }
 

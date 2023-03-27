@@ -95,16 +95,15 @@ impl Driver {
 
                 gui::build_ui(
                     &self.ui.context(),
+                    &mut self.ui,
                     self.gfx.shared.clone(),
+                    &mut self.renderer.targets,
                     &self.camera_controller,
-                    &self.actors,
                     &mut self.future,
                     &mut self.world,
                 );
 
                 Handle::current().block_on(async {
-                    self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
-
                     self.update
                         .update(
                             ifc,

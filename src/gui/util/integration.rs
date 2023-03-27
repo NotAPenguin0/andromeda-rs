@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
+use egui::TextureId;
 use egui_winit_phobos::Integration;
 use phobos::prelude::traits::*;
 use phobos::{prelude as ph, vk};
@@ -16,7 +19,7 @@ pub struct UIIntegration {
     #[derivative(Debug = "ignore")]
     integration: Integration<ph::DefaultAllocator>,
     // Deletion queue, but needs access to self so we cant put it in an actual deletion queue.
-    to_unregister: Vec<(Image, u32)>,
+    to_unregister: HashMap<TextureId, u32>,
 }
 
 impl UIIntegration {
@@ -39,19 +42,19 @@ impl UIIntegration {
                 ctx.exec.clone(),
                 ctx.pipelines.clone(),
             )?,
-            to_unregister: vec![],
+            to_unregister: HashMap::new(),
         })
     }
 
     pub fn new_frame(&mut self, window: &Window) {
         self.integration.begin_frame(window);
-        self.to_unregister.iter_mut().for_each(|(image, ttl)| {
+        self.to_unregister.iter_mut().for_each(|(id, ttl)| {
             *ttl = *ttl - 1;
             if *ttl == 0 {
-                self.integration.unregister_user_texture(image.id);
+                self.integration.unregister_user_texture(*id);
             }
         });
-        self.to_unregister.retain(|(_, ttl)| *ttl != 0);
+        self.to_unregister.retain(|_, ttl| *ttl != 0);
     }
 
     pub async fn render<'s: 'e + 'q, 'e, 'q>(&'s mut self, window: &Window, swapchain: ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
@@ -87,13 +90,11 @@ impl UIIntegration {
 
     pub fn register_texture(&mut self, image: &ph::ImageView) -> Image {
         let id = self.integration.register_user_texture(image);
+        // 8 frames to live, then it needs to be registered again (our application always does this every frame anyway)
+        self.to_unregister.insert(id, 8);
         Image {
             id,
             size: USize::new(image.width(), image.height()),
         }
-    }
-
-    pub fn unregister_texture(&mut self, image: Image) {
-        self.to_unregister.push((image, 4));
     }
 }

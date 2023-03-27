@@ -5,8 +5,8 @@ use crate::gui::util::image::Image;
 pub fn resizable_image_window(
     context: &egui::Context,
     title: impl Into<egui::WidgetText>,
-    get_image: impl Fn(Vec2) -> Option<Image>,
-    behaviour: impl Fn(Response) -> (),
+    get_image: impl FnOnce(Vec2) -> Option<Image>,
+    behaviour: impl FnOnce(Response) -> (),
     default_size: Vec2,
 ) {
     egui::Window::new(title)
@@ -17,7 +17,7 @@ pub fn resizable_image_window(
             let cursor = ui.cursor();
             let remaining_size = ui.available_size();
             let (response, painter) = ui.allocate_painter(remaining_size, Sense::drag());
-            // Send resize event to the scene texture actor, as a result we get the texture back
+            // Get the image of the correct size
             let image = get_image(remaining_size);
             if let Some(image) = image {
                 painter.image(

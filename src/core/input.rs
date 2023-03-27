@@ -68,10 +68,6 @@ pub trait InputListener {
     fn handle(&self, event: InputEvent, input: &Input) -> Result<()>;
 }
 
-pub struct AddInputListener<L>(pub L)
-where
-    L: InputListener;
-
 #[derive(Default, Derivative)]
 #[derivative(Debug)]
 pub struct Input {

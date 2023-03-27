@@ -49,9 +49,9 @@ pub struct RenderState {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorldRenderer {
+    pub targets: RenderTargets,
     ctx: gfx::SharedContext,
     state: RenderState,
-    targets: RenderTargets,
     tonemap: postprocess::Tonemap,
     atmosphere: passes::AtmosphereRenderer,
     terrain: passes::TerrainRenderer,
@@ -117,11 +117,6 @@ impl WorldRenderer {
 
     pub fn output_image(&self) -> ph::ImageView {
         self.targets.get_target_view(Self::output_name()).unwrap()
-    }
-
-    pub fn resize_target(&mut self, size: USize, ui: &mut UIIntegration) -> Result<Image> {
-        self.targets.set_output_resolution(size.x(), size.y())?;
-        Ok(ui.register_texture(&self.targets.get_target_view(Self::output_name())?))
     }
 
     pub fn new_frame(&mut self) {

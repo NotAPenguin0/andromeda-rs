@@ -23,6 +23,7 @@ mod gui;
 mod hot_reload;
 mod math;
 mod state;
+mod thread;
 
 fn main() -> Result<!> {
     std::env::set_var("RUST_LOG", "trace");

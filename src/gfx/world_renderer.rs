@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use std::sync::Arc;
 
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};

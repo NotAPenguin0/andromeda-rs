@@ -19,7 +19,7 @@ pub struct FutureWorld {
 #[derive(Debug, Copy, Clone)]
 pub struct TerrainOptions {
     /// Width and height of the terrain plane, in meters
-    pub size: f32,
+    pub scale: f32,
     /// Number of patches the terrain mesh will be divided in in each direction.
     pub patch_resolution: u32,
 }
@@ -42,7 +42,7 @@ impl Default for World {
             terrain_mesh: None,
             options: Default::default(),
             terrain_options: TerrainOptions {
-                size: 25.0,
+                scale: 25.0,
                 patch_resolution: 5,
             },
         }

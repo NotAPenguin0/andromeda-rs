@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Sub};
 
-use egui::{Align, Ui};
+use egui::Ui;
 use glam::Vec3;
 
 use crate::gui::widgets::aligned_label::aligned_label_with;

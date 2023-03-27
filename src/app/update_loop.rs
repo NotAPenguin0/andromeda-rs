@@ -7,13 +7,11 @@ use layout::gv;
 use layout::gv::GraphBuilder;
 use phobos::prelude as ph;
 use phobos::prelude::traits::*;
-use poll_promise::Promise;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
 use crate::gfx;
-use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::util::integration::UIIntegration;
 

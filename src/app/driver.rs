@@ -2,7 +2,7 @@ use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
 use tokio::runtime::Handle;
-use winit::event::{ElementState, MouseScrollDelta, ScanCode, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
@@ -11,9 +11,8 @@ use crate::app::RootActorSystem;
 use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
-use crate::gfx::AtmosphereInfo;
 use crate::gui::util::integration::UIIntegration;
-use crate::math::{Position, Rotation};
+use crate::math::Position;
 use crate::state::SetCameraPosition;
 use crate::{gfx, gui};
 
@@ -52,7 +51,7 @@ impl Driver {
         let renderer = gfx::WorldRenderer::new(&actors, gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
-        let mut world = World::default();
+        let world = World::default();
         // Initially generate a mesh already
         let future = FutureWorld {
             terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone(), world.terrain_options)),

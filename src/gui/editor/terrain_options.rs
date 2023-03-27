@@ -11,7 +11,7 @@ pub fn show(context: &egui::Context, gfx: gfx::SharedContext, future: &mut Futur
         .resizable(true)
         .movable(true)
         .show(&context, |ui| {
-            let mut dirty = Drag::new("Terrain size", &mut world.terrain_options.size)
+            let mut dirty = Drag::new("Terrain scale", &mut world.terrain_options.scale)
                 .speed(0.1)
                 .suffix(" m")
                 .show(ui);

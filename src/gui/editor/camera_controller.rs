@@ -71,11 +71,10 @@ impl CameraController {
                     }
                 }
             }
-            InputEvent::MouseButton(_) => {}
-            InputEvent::Button(_) => {}
             InputEvent::Scroll(scroll) => {
                 self.handle_scroll(scroll)?;
             }
+            _ => {}
         }
 
         Ok(())

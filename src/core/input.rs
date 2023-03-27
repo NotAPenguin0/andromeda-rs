@@ -57,6 +57,7 @@ pub struct ScrollInfo {
 
 #[derive(Debug, Clone, Copy)]
 pub enum InputEvent {
+    MousePosition(MousePosition),
     MouseMove(MouseDelta),
     MouseButton(MouseButtonState),
     Button(KeyState),
@@ -90,9 +91,12 @@ impl Input {
 
     pub fn process_event(&mut self, event: InputEvent) {
         match event {
-            InputEvent::MouseMove(delta) => {
-                self.mouse.x += delta.x;
-                self.mouse.y += delta.y;
+            InputEvent::MousePosition(pos) => {
+                self.process_event(InputEvent::MouseMove(MouseDelta {
+                    x: pos.x - self.mouse.x,
+                    y: pos.y - self.mouse.y,
+                }));
+                self.mouse = pos;
             }
             InputEvent::MouseButton(state) => {
                 self.mouse_buttons.insert(state.button, state.state);
@@ -101,6 +105,7 @@ impl Input {
                 self.kb_buttons.insert(state.button, state.state);
             }
             InputEvent::Scroll(_) => {}
+            InputEvent::MouseMove(_) => {}
         }
         self.fire_event_listeners(event);
     }

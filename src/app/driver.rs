@@ -204,8 +204,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                     position,
                     ..
                 } => {
-                    input.process_event(InputEvent::MouseMove(MouseDelta {
-                        // FIXME
+                    input.process_event(InputEvent::MousePosition(MousePosition {
                         x: position.x,
                         y: position.y,
                     }));

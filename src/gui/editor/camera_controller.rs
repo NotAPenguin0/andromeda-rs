@@ -9,7 +9,6 @@ use crate::state::Camera;
 
 #[derive(Debug)]
 pub struct CameraController {
-    input: Arc<RwLock<Input>>,
     camera: Arc<RwLock<Camera>>,
     enabled: bool,
 }
@@ -20,9 +19,8 @@ pub struct CameraInputListener {
 }
 
 impl CameraController {
-    pub fn new(input: Arc<RwLock<Input>>, camera: Arc<RwLock<Camera>>) -> Self {
+    pub fn new(camera: Arc<RwLock<Camera>>) -> Self {
         Self {
-            input,
             camera,
             enabled: false,
         }

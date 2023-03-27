@@ -60,7 +60,7 @@ impl Driver {
         let mut camera = Camera::default();
         camera.set_position(Position(Vec3::new(0.0, 10.0, 0.0)));
         let camera = Arc::new(RwLock::new(camera));
-        let camera_controller = Arc::new(RwLock::new(CameraController::new(input.clone(), camera.clone())));
+        let camera_controller = Arc::new(RwLock::new(CameraController::new(camera.clone())));
         input
             .write()
             .unwrap()

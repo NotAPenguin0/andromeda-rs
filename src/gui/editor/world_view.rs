@@ -1,9 +1,11 @@
+use std::sync::{Arc, RwLock};
+
 use egui::{Response, Vec2};
 use tiny_tokio_actor::*;
 use tokio::runtime::Handle;
 
 use crate::app::RootActorSystem;
-use crate::gui::editor::camera_controller::control_camera;
+use crate::gui::editor::camera_controller::{enable_camera_over, CameraController};
 use crate::gui::util::image::Image;
 use crate::gui::util::size::USize;
 use crate::gui::widgets::resizable_image::resizable_image_window;
@@ -88,16 +90,16 @@ fn get_image(size: Vec2, actors: &RootActorSystem) -> Option<Image> {
         .unwrap()
 }
 
-fn behaviour(response: &Response, actors: &RootActorSystem) {
-    control_camera(response, actors);
+fn behaviour(response: &Response, camera_controller: &Arc<RwLock<CameraController>>) {
+    enable_camera_over(response, camera_controller);
 }
 
-pub fn show(context: &egui::Context, actors: &RootActorSystem) {
+pub fn show(context: &egui::Context, actors: &RootActorSystem, camera_controller: &Arc<RwLock<CameraController>>) {
     resizable_image_window(
         context,
         "World view",
         |size| get_image(size, &actors),
-        |response| behaviour(&response, &actors),
+        |response| behaviour(&response, &camera_controller),
         (800.0, 600.0).into(),
     );
 }

@@ -50,7 +50,6 @@ pub struct RenderState {
 #[derive(Debug)]
 pub struct WorldRenderer {
     ctx: gfx::SharedContext,
-    camera: ActorRef<Event, state::Camera>,
     state: RenderState,
     targets: RenderTargets,
     tonemap: postprocess::Tonemap,
@@ -104,7 +103,6 @@ impl WorldRenderer {
 
         Ok(Self {
             ctx: ctx.clone(),
-            camera: actors.camera.clone(),
             state: RenderState::default(),
             tonemap: postprocess::Tonemap::new(ctx.clone(), &actors, &mut targets)?,
             atmosphere: passes::AtmosphereRenderer::new(ctx.clone(), &actors)?,
@@ -135,17 +133,13 @@ impl WorldRenderer {
     }
 
     async fn update_render_state(&mut self, world: &World) -> Result<()> {
-        self.state.view = self.camera.ask(state::QueryCameraMatrix).await?.0;
-        self.state.projection = Mat4::perspective_rh(
-            self.camera.ask(state::QueryCameraFOV).await?.to_radians(),
-            self.aspect_ratio(),
-            0.1,
-            100.0,
-        );
+        let camera = world.camera.read().unwrap();
+        self.state.view = camera.matrix();
+        self.state.projection = Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 100.0);
         // Flip y because Vulkan
         let v = self.state.projection.col_mut(1).y;
         self.state.projection.col_mut(1).y = v * -1.0;
-        self.state.position = self.camera.ask(state::QueryCameraPosition).await?.0;
+        self.state.position = camera.position().0;
         self.state.projection_view = self.state.projection * self.state.view;
         self.state.inverse_projection_view = self.state.projection_view.inverse();
         self.state.inverse_projection = self.state.projection.inverse();

@@ -1,134 +1,106 @@
+use std::sync::{Arc, RwLock};
+
+use anyhow::Result;
 use glam::Vec3;
-use tiny_tokio_actor::{async_trait, Actor, ActorContext, ActorRef, Handler, Message, SystemEvent};
 
-use crate::app::RootActorSystem;
-use crate::core::{ButtonState, Event, Input, InputEvent, InputListener, Key, MouseButton, QueryKeyState, QueryMouseButton};
+use crate::core::{ButtonState, Event, Input, InputEvent, InputListener, Key, MouseButton, MouseDelta, ScrollInfo};
 use crate::math::{Position, Rotation};
-use crate::state::{Camera, QueryCameraVectors, UpdateCameraPosition, UpdateCameraRotation};
+use crate::state::Camera;
 
-#[derive(Message)]
-pub struct DragWorld {
-    pub x: f32,
-    pub y: f32,
-}
-
-#[derive(Message)]
-pub struct MouseOverWorld(pub bool);
-
-#[derive(Message, Debug)]
-pub struct ScrollWorld(pub f32);
-
-#[derive(Actor)]
+#[derive(Debug)]
 pub struct CameraController {
-    input: ActorRef<Event, Input>,
-    camera: ActorRef<Event, Camera>,
-    mouse_over: bool,
+    input: Arc<RwLock<Input>>,
+    camera: Arc<RwLock<Camera>>,
+    enabled: bool,
 }
 
 #[derive(Debug)]
-pub struct CameraScrollListener {
-    camera: ActorRef<Event, CameraController>,
+pub struct CameraInputListener {
+    controller: Arc<RwLock<CameraController>>,
 }
 
 impl CameraController {
-    pub fn new(input: ActorRef<Event, Input>, camera: ActorRef<Event, Camera>) -> Self {
+    pub fn new(input: Arc<RwLock<Input>>, camera: Arc<RwLock<Camera>>) -> Self {
         Self {
             input,
             camera,
-            mouse_over: false,
+            enabled: false,
         }
     }
 
-    async fn handle_move(&self, drag: DragWorld) {
-        let vectors = self.camera.ask(QueryCameraVectors).await.unwrap();
-        let delta = vectors.up * drag.y + vectors.right * (-drag.x);
+    pub fn set_enabled(&mut self, enable: bool) {
+        self.enabled = enable;
+    }
+
+    fn handle_move(&self, mouse: MouseDelta) -> Result<()> {
+        let mut camera = self.camera.write().unwrap();
+        let delta = camera.up() * (mouse.y as f32) + camera.right() * (-mouse.x as f32);
         const SPEED: f32 = 0.02;
-        self.camera.tell(UpdateCameraPosition(Position(delta * SPEED))).unwrap();
+        camera.update_position(Position(delta * SPEED));
+        Ok(())
     }
 
-    async fn handle_rotate(&self, drag: DragWorld) {
-        let delta = Vec3::new(-drag.y, drag.x, 0.0);
+    fn handle_rotate(&self, mouse: MouseDelta) -> Result<()> {
+        let delta = Vec3::new(-mouse.y as f32, mouse.x as f32, 0.0);
         const SPEED: f32 = 0.01;
-        self.camera.tell(UpdateCameraRotation(Rotation(delta * SPEED))).unwrap();
+        let mut camera = self.camera.write().unwrap();
+        camera.update_rotation(Rotation(delta * SPEED));
+        Ok(())
     }
-}
 
-#[async_trait]
-impl<E> Handler<E, DragWorld> for CameraController
-where
-    E: SystemEvent,
-{
-    async fn handle(&mut self, msg: DragWorld, _ctx: &mut ActorContext<E>) -> () {
-        if self.input.ask(QueryMouseButton(MouseButton::Middle)).await.unwrap() == ButtonState::Pressed {
-            if self.input.ask(QueryKeyState(Key::Shift)).await.unwrap() == ButtonState::Pressed {
-                self.handle_move(msg).await;
-            } else {
-                self.handle_rotate(msg).await;
-            }
+    fn handle_scroll(&self, scroll: ScrollInfo) -> Result<()> {
+        let mut camera = self.camera.write().unwrap();
+        let delta = camera.front() * scroll.delta_y;
+        const SPEED: f32 = 0.5;
+        camera.update_position(Position(delta * SPEED));
+        Ok(())
+    }
+
+    pub fn handle_event(&mut self, event: InputEvent, input: &Input) -> Result<()> {
+        if !self.enabled {
+            return Ok(());
         }
-    }
-}
 
-#[async_trait]
-impl<E> Handler<E, MouseOverWorld> for CameraController
-where
-    E: SystemEvent,
-{
-    async fn handle(&mut self, msg: MouseOverWorld, _ctx: &mut ActorContext<E>) -> () {
-        self.mouse_over = msg.0;
-    }
-}
-
-#[async_trait]
-impl<E> Handler<E, ScrollWorld> for CameraController
-where
-    E: SystemEvent,
-{
-    async fn handle(&mut self, msg: ScrollWorld, _ctx: &mut ActorContext<E>) -> () {
-        if self.mouse_over {
-            let vectors = self.camera.ask(QueryCameraVectors).await.unwrap();
-            let delta = vectors.front * msg.0;
-            const SPEED: f32 = 0.5;
-            self.camera.tell(UpdateCameraPosition(Position(delta * SPEED))).unwrap();
-        }
-    }
-}
-
-impl CameraScrollListener {
-    pub fn new(camera: ActorRef<Event, CameraController>) -> Self {
-        Self {
-            camera,
-        }
-    }
-}
-
-#[async_trait]
-impl InputListener for CameraScrollListener {
-    async fn handle(&mut self, event: InputEvent) -> anyhow::Result<()> {
         match event {
-            InputEvent::MouseMove(_) => {}
+            InputEvent::MouseMove(delta) => {
+                if input.get_mouse_key(MouseButton::Middle) == ButtonState::Pressed {
+                    if input.get_key(Key::Shift) == ButtonState::Pressed {
+                        self.handle_move(delta)?;
+                    } else {
+                        self.handle_rotate(delta)?;
+                    }
+                }
+            }
             InputEvent::MouseButton(_) => {}
             InputEvent::Button(_) => {}
-            InputEvent::Scroll(delta) => {
-                self.camera.tell(ScrollWorld(delta.delta_y)).unwrap();
+            InputEvent::Scroll(scroll) => {
+                self.handle_scroll(scroll)?;
             }
-        };
+        }
+
         Ok(())
     }
 }
 
-pub fn control_camera(response: &egui::Response, actors: &RootActorSystem) {
-    // Handle drag events and send them to the camera controller
-    if response.dragged() {
-        actors
-            .camera_controller
-            .tell(DragWorld {
-                x: response.drag_delta().x,
-                y: response.drag_delta().y,
-            })
-            .unwrap();
+impl CameraInputListener {
+    pub fn new(camera: Arc<RwLock<CameraController>>) -> Self {
+        Self {
+            controller: camera,
+        }
     }
+}
 
+impl InputListener for CameraInputListener {
+    fn handle(&self, event: InputEvent, input: &Input) -> Result<()> {
+        let mut controller = self.controller.write().unwrap();
+        controller.handle_event(event, input)?;
+        Ok(())
+    }
+}
+
+/// Enable the camera controls when this widget is hovered
+pub fn enable_camera_over(response: &egui::Response, controller: &Arc<RwLock<CameraController>>) {
     let hover = response.hovered();
-    actors.camera_controller.tell(MouseOverWorld(hover)).unwrap();
+    let mut controller = controller.write().unwrap();
+    controller.set_enabled(hover);
 }

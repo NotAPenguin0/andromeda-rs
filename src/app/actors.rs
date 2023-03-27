@@ -2,8 +2,7 @@ use anyhow::Result;
 use tiny_tokio_actor::{ActorRef, ActorSystem, EventBus};
 use tokio::runtime::Handle;
 
-use crate::core::{AddInputListener, Event};
-use crate::gui::editor::camera_controller::{CameraController, CameraScrollListener};
+use crate::core::Event;
 use crate::gui::editor::world_view::{QueryCurrentSceneTexture, QuerySceneTextureSize, SetNewTexture, TargetResizeActor};
 use crate::gui::util::integration::UIIntegration;
 use crate::hot_reload::ShaderReloadActor;
@@ -15,9 +14,6 @@ use crate::{core, gfx, hot_reload, state};
 pub struct RootActorSystem {
     pub scene_texture: ActorRef<Event, TargetResizeActor>,
     pub shader_reload: ActorRef<Event, ShaderReloadActor>,
-    pub camera: ActorRef<Event, state::Camera>,
-    pub input: ActorRef<Event, core::Input>,
-    pub camera_controller: ActorRef<Event, CameraController>,
     #[derivative(Debug = "ignore")]
     pub system: ActorSystem<Event>,
 }
@@ -31,22 +27,10 @@ impl RootActorSystem {
         // Register the output image with the UI integration
         let scene_texture = system.create_actor("target_resize", TargetResizeActor::default()).await?;
 
-        let camera = system.create_actor("camera_state", state::Camera::default()).await?;
-        let input = system.create_actor("input", core::Input::default()).await?;
-
-        let camera_controller = system
-            .create_actor("camera_controller", CameraController::new(input.clone(), camera.clone()))
-            .await?;
-
-        input.tell(AddInputListener(CameraScrollListener::new(camera_controller.clone())))?;
-
         Ok(Self {
             system,
             scene_texture,
             shader_reload,
-            camera,
-            input,
-            camera_controller,
         })
     }
 
@@ -79,9 +63,6 @@ impl Drop for RootActorSystem {
             self.shader_reload.ask(hot_reload::Kill).await.unwrap();
             self.system.stop_actor(self.shader_reload.path()).await;
             self.system.stop_actor(self.scene_texture.path()).await;
-            self.system.stop_actor(self.camera.path()).await;
-            self.system.stop_actor(self.input.path()).await;
-            self.system.stop_actor(self.camera_controller.path()).await;
         });
     }
 }

@@ -31,6 +31,12 @@ pub struct MousePosition {
     pub y: f64,
 }
 
+#[derive(Default, Debug, Clone, Copy)]
+pub struct MouseDelta {
+    pub x: f64,
+    pub y: f64,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct MouseButtonState {
     pub state: ButtonState,
@@ -49,42 +55,23 @@ pub struct ScrollInfo {
     pub delta_y: f32,
 }
 
-#[derive(Debug, Clone, Copy, Message)]
+#[derive(Debug, Clone, Copy)]
 pub enum InputEvent {
-    MouseMove(MousePosition),
+    MouseMove(MouseDelta),
     MouseButton(MouseButtonState),
     Button(KeyState),
     Scroll(ScrollInfo),
 }
 
-#[derive(Debug, Copy, Clone, Message)]
-#[response(ButtonState)]
-pub struct QueryMouseButton(pub MouseButton);
-
-#[derive(Debug, Copy, Clone, Message)]
-#[response(ButtonState)]
-pub struct QueryKeyState(pub Key);
-
-#[async_trait]
-pub trait InputListener: Send {
-    async fn handle(&mut self, event: InputEvent) -> Result<()>;
+pub trait InputListener {
+    fn handle(&self, event: InputEvent, input: &Input) -> Result<()>;
 }
 
 pub struct AddInputListener<L>(pub L)
 where
     L: InputListener;
 
-impl<L> Message for AddInputListener<L>
-where
-    L: InputListener + 'static,
-{
-    type Response = ();
-}
-
-unsafe impl<L> Send for AddInputListener<L> where L: InputListener {}
-unsafe impl<L> Sync for AddInputListener<L> where L: InputListener {}
-
-#[derive(Default, Derivative, Actor)]
+#[derive(Default, Derivative)]
 #[derivative(Debug)]
 pub struct Input {
     mouse: MousePosition,
@@ -94,26 +81,18 @@ pub struct Input {
     listeners: Vec<Box<dyn InputListener>>,
 }
 
-unsafe impl Send for Input {}
-unsafe impl Sync for Input {}
-
 impl Input {
-    async fn process_event(&mut self, event: InputEvent) {
-        for listener in &mut self.listeners {
-            listener.handle(event).await.safe_unwrap();
+    fn fire_event_listeners(&self, event: InputEvent) {
+        for listener in &self.listeners {
+            listener.handle(event, &self).safe_unwrap();
         }
     }
-}
 
-#[async_trait]
-impl<E> Handler<E, InputEvent> for Input
-where
-    E: SystemEvent,
-{
-    async fn handle(&mut self, msg: InputEvent, _ctx: &mut ActorContext<E>) -> () {
-        match msg {
-            InputEvent::MouseMove(pos) => {
-                self.mouse = pos;
+    pub fn process_event(&mut self, event: InputEvent) {
+        match event {
+            InputEvent::MouseMove(delta) => {
+                self.mouse.x += delta.x;
+                self.mouse.y += delta.y;
             }
             InputEvent::MouseButton(state) => {
                 self.mouse_buttons.insert(state.button, state.state);
@@ -123,38 +102,19 @@ where
             }
             InputEvent::Scroll(_) => {}
         }
-        self.process_event(msg).await;
+        self.fire_event_listeners(event);
     }
-}
 
-#[async_trait]
-impl<E> Handler<E, QueryMouseButton> for Input
-where
-    E: SystemEvent,
-{
-    async fn handle(&mut self, msg: QueryMouseButton, _ctx: &mut ActorContext<E>) -> ButtonState {
-        self.mouse_buttons.get(&msg.0).cloned().unwrap_or(ButtonState::Released)
+    pub fn add_listener<L: InputListener + Debug + 'static>(&mut self, listener: L) {
+        debug!("Added input listener '{:#?}'", listener);
+        self.listeners.push(Box::new(listener));
     }
-}
 
-#[async_trait]
-impl<E> Handler<E, QueryKeyState> for Input
-where
-    E: SystemEvent,
-{
-    async fn handle(&mut self, msg: QueryKeyState, _ctx: &mut ActorContext<E>) -> ButtonState {
-        self.kb_buttons.get(&msg.0).cloned().unwrap_or(ButtonState::Released)
+    pub fn get_key(&self, key: Key) -> ButtonState {
+        self.kb_buttons.get(&key).cloned().unwrap_or(ButtonState::Released)
     }
-}
 
-#[async_trait]
-impl<E, L> Handler<E, AddInputListener<L>> for Input
-where
-    E: SystemEvent,
-    L: InputListener + Debug + 'static,
-{
-    async fn handle(&mut self, msg: AddInputListener<L>, _ctx: &mut ActorContext<E>) -> () {
-        debug!("Added input listener '{:#?}'", msg.0);
-        self.listeners.push(Box::new(msg.0));
+    pub fn get_mouse_key(&self, key: MouseButton) -> ButtonState {
+        self.mouse_buttons.get(&key).cloned().unwrap_or(ButtonState::Released)
     }
 }

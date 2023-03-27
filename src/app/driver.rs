@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
@@ -8,12 +10,13 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::app::update_loop::UpdateLoop;
 use crate::app::RootActorSystem;
-use crate::core::{ButtonState, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
+use crate::core::{ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MouseDelta, MousePosition, ScrollInfo};
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
+use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::util::integration::UIIntegration;
 use crate::math::Position;
-use crate::state::SetCameraPosition;
+use crate::state::Camera;
 use crate::{gfx, gui};
 
 /// Main application driver. Hosts the event loop.
@@ -28,6 +31,8 @@ pub struct Driver {
     pub future: FutureWorld,
     pub actors: RootActorSystem,
     pub gfx: gfx::Context,
+    pub input: Arc<RwLock<Input>>,
+    pub camera_controller: Arc<RwLock<CameraController>>,
 }
 
 impl Driver {
@@ -51,13 +56,21 @@ impl Driver {
         let renderer = gfx::WorldRenderer::new(&actors, gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
-        let world = World::default();
+        let input = Arc::new(RwLock::new(Input::default()));
+        let mut camera = Camera::default();
+        camera.set_position(Position(Vec3::new(0.0, 10.0, 0.0)));
+        let camera = Arc::new(RwLock::new(camera));
+        let camera_controller = Arc::new(RwLock::new(CameraController::new(input.clone(), camera.clone())));
+        input
+            .write()
+            .unwrap()
+            .add_listener(CameraInputListener::new(camera_controller.clone()));
+
+        let world = World::new(camera);
         // Initially generate a mesh already
         let future = FutureWorld {
             terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone(), world.terrain_options)),
         };
-        actors.camera.tell(SetCameraPosition(Position(Vec3::new(0.0, 10.0, 0.0))))?;
-
         Ok(Driver {
             window,
             gfx,
@@ -67,6 +80,8 @@ impl Driver {
             update,
             world,
             future,
+            input,
+            camera_controller,
         })
     }
 
@@ -81,6 +96,7 @@ impl Driver {
                 gui::build_ui(
                     &self.ui.context(),
                     self.gfx.shared.clone(),
+                    &self.camera_controller,
                     &self.actors,
                     &mut self.future,
                     &mut self.world,
@@ -138,6 +154,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
             window_id,
         } => {
             driver.ui.process_event(&event);
+            let mut input = driver.input.write().unwrap();
             match event {
                 WindowEvent::Resized(_) => {}
                 WindowEvent::Moved(_) => {}
@@ -171,15 +188,15 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 }
                 WindowEvent::ModifiersChanged(state) => {
                     if state.shift() {
-                        driver.actors.input.tell(InputEvent::Button(KeyState {
+                        input.process_event(InputEvent::Button(KeyState {
                             state: ButtonState::Pressed,
                             button: Key::Shift,
-                        }))?;
+                        }));
                     } else {
-                        driver.actors.input.tell(InputEvent::Button(KeyState {
+                        input.process_event(InputEvent::Button(KeyState {
                             state: ButtonState::Released,
                             button: Key::Shift,
-                        }))?;
+                        }));
                     }
                 }
                 WindowEvent::Ime(_) => {}
@@ -187,10 +204,11 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                     position,
                     ..
                 } => {
-                    driver.actors.input.tell(InputEvent::MouseMove(MousePosition {
+                    input.process_event(InputEvent::MouseMove(MouseDelta {
+                        // FIXME
                         x: position.x,
                         y: position.y,
-                    }))?;
+                    }));
                 }
                 WindowEvent::CursorEntered {
                     ..
@@ -204,24 +222,16 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                 } => {
                     match delta {
                         MouseScrollDelta::LineDelta(x, y) => {
-                            driver
-                                .actors
-                                .input
-                                .tell(InputEvent::Scroll(ScrollInfo {
-                                    delta_x: x,
-                                    delta_y: y,
-                                }))
-                                .unwrap();
+                            input.process_event(InputEvent::Scroll(ScrollInfo {
+                                delta_x: x,
+                                delta_y: y,
+                            }));
                         }
                         MouseScrollDelta::PixelDelta(px) => {
-                            driver
-                                .actors
-                                .input
-                                .tell(InputEvent::Scroll(ScrollInfo {
-                                    delta_x: px.x as f32,
-                                    delta_y: px.y as f32,
-                                }))
-                                .unwrap();
+                            input.process_event(InputEvent::Scroll(ScrollInfo {
+                                delta_x: px.x as f32,
+                                delta_y: px.y as f32,
+                            }));
                         }
                     };
                 }
@@ -230,10 +240,10 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                     button,
                     ..
                 } => {
-                    driver.actors.input.tell(InputEvent::MouseButton(MouseButtonState {
+                    input.process_event(InputEvent::MouseButton(MouseButtonState {
                         state: state.into(),
                         button: button.into(),
-                    }))?;
+                    }));
                 }
                 WindowEvent::TouchpadMagnify {
                     ..

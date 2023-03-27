@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use glam::Vec3;
@@ -8,6 +9,7 @@ use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world_renderer::RenderOptions;
 use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;
+use crate::state::Camera;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -32,10 +34,11 @@ pub struct World {
     pub terrain_mesh: Option<Rc<TerrainPlane>>,
     pub options: RenderOptions,
     pub terrain_options: TerrainOptions,
+    pub camera: Arc<RwLock<Camera>>,
 }
 
-impl Default for World {
-    fn default() -> Self {
+impl World {
+    pub fn new(camera: Arc<RwLock<Camera>>) -> Self {
         World {
             sun_direction: Rotation(Vec3::new(45f32.to_radians(), 0.0, 0.0)),
             atmosphere: AtmosphereInfo::earth(),
@@ -45,6 +48,7 @@ impl Default for World {
                 scale: 25.0,
                 patch_resolution: 5,
             },
+            camera,
         }
     }
 }

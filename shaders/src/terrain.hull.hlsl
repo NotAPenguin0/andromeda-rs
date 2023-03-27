@@ -35,7 +35,7 @@ ConstantsHSOutput HSConstants(InputPatch<VSOutput, 4> patch, uint InvocationID :
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(4)]
 [patchconstantfunc("HSConstants")]
-[maxtessfactor(20.0f)]
+[maxtessfactor(32.0f)]
 HSOutput main(InputPatch<VSOutput, 4> patch, uint InvocationID : SV_OutputControlPointID) {
     HSOutput output = (HSOutput) 0;
     output.Position = patch[InvocationID].Position;

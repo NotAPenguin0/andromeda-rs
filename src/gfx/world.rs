@@ -16,6 +16,14 @@ pub struct FutureWorld {
     pub terrain_mesh: Option<Promise<Result<TerrainPlane>>>,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct TerrainOptions {
+    /// Width and height of the terrain plane, in meters
+    pub size: f32,
+    /// Number of patches the terrain mesh will be divided in in each direction.
+    pub patch_resolution: u32,
+}
+
 #[derive(Debug)]
 pub struct World {
     /// Direction for the sun. This is represented as a rotation for easy editing.
@@ -23,6 +31,7 @@ pub struct World {
     pub atmosphere: AtmosphereInfo,
     pub terrain_mesh: Option<Rc<TerrainPlane>>,
     pub options: RenderOptions,
+    pub terrain_options: TerrainOptions,
 }
 
 impl Default for World {
@@ -32,6 +41,10 @@ impl Default for World {
             atmosphere: AtmosphereInfo::earth(),
             terrain_mesh: None,
             options: Default::default(),
+            terrain_options: TerrainOptions {
+                size: 25.0,
+                patch_resolution: 5,
+            },
         }
     }
 }

@@ -1,16 +1,18 @@
 use crate::app::RootActorSystem;
-use crate::gfx::world::World;
+use crate::gfx;
+use crate::gfx::world::{FutureWorld, World};
 
 pub mod editor;
 pub mod util;
 pub mod widgets;
 
-pub fn build_ui(context: &egui::Context, actors: &RootActorSystem, world: &mut World) {
+pub fn build_ui(context: &egui::Context, gfx: gfx::SharedContext, actors: &RootActorSystem, future: &mut FutureWorld, world: &mut World) {
     egui::CentralPanel::default().show(&context, |ui| {
         ui.heading("Editor");
 
         editor::world_view::show(&context, &actors);
         editor::environment::show(&context, world);
         editor::render_options::show(&context, world);
+        editor::terrain_options::show(&context, gfx, future, world);
     });
 }

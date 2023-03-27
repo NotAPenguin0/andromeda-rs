@@ -1,40 +1,48 @@
 use std::ops::{Add, Div, Mul, Sub};
 
-use egui::Ui;
+use egui::{Align, Ui};
 use glam::Vec3;
 
+use crate::gui::widgets::aligned_label::aligned_label_with;
 use crate::math::Rotation;
 
 pub trait Draggable: Copy + Default + Sub<Self, Output = Self> + Add<Self, Output = Self> + Mul<f32, Output = Self> + Div<f32, Output = Self> {
-    fn drag(&mut self, ui: &mut egui::Ui, speed: f64, digits: usize, suffix: &str);
+    fn drag(&mut self, ui: &mut egui::Ui, speed: f64, digits: usize, suffix: &str) -> bool;
 }
 
 impl Draggable for Vec3 {
-    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) {
-        self.x.drag(ui, speed, digits, suffix);
-        self.y.drag(ui, speed, digits, suffix);
-        self.z.drag(ui, speed, digits, suffix);
+    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) -> bool {
+        // The reason this is inverted is because of the right_to_left layout used when showing this.
+        let mut dirty = false;
+        dirty |= self.z.drag(ui, speed, digits, suffix);
+        dirty |= self.y.drag(ui, speed, digits, suffix);
+        dirty |= self.x.drag(ui, speed, digits, suffix);
+        dirty
     }
 }
 
 impl Draggable for Rotation {
-    fn drag(&mut self, ui: &mut Ui, _speed: f64, _digits: usize, _suffix: &str) {
+    fn drag(&mut self, ui: &mut Ui, _speed: f64, _digits: usize, _suffix: &str) -> bool {
         // TODO: Maybe make speed and digits work with this too
-        ui.drag_angle(&mut self.0.x);
-        ui.drag_angle(&mut self.0.y);
-        ui.drag_angle(&mut self.0.z);
+        // The reason this is inverted is because of the right_to_left layout used when showing this.
+        let mut dirty = false;
+        dirty |= ui.drag_angle(&mut self.0.z).changed();
+        dirty |= ui.drag_angle(&mut self.0.y).changed();
+        dirty |= ui.drag_angle(&mut self.0.x).changed();
+        dirty
     }
 }
 
 impl Draggable for f32 {
-    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) {
+    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) -> bool {
         ui.add(
             egui::DragValue::new(self)
                 .speed(speed)
                 .min_decimals(digits)
                 .max_decimals(digits)
                 .suffix(suffix),
-        );
+        )
+        .changed()
     }
 }
 
@@ -97,12 +105,14 @@ where
         self
     }
 
-    pub fn show(mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label(self.label.into());
+    /// Returns true if the value changed
+    pub fn show(mut self, ui: &mut egui::Ui) -> bool {
+        aligned_label_with(ui, self.label, |ui| {
             self.scaled_value = (*self.original_value - self.base) * self.scale;
-            self.scaled_value.drag(ui, self.speed, self.digits, self.suffix.unwrap_or(""));
+            let response = self.scaled_value.drag(ui, self.speed, self.digits, self.suffix.unwrap_or(""));
             *self.original_value = (self.scaled_value / self.scale) + self.base;
-        });
+            response
+        })
+        .inner
     }
 }

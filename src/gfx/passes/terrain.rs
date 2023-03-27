@@ -17,9 +17,10 @@ impl TerrainRenderer {
         ph::PipelineBuilder::new("terrain")
             .samples(vk::SampleCountFlags::TYPE_8)
             .depth(true, true, false, vk::CompareOp::LESS)
-            .dynamic_states(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT, vk::DynamicState::POLYGON_MODE_EXT])
+            .dynamic_states(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT])
             .vertex_input(0, vk::VertexInputRate::VERTEX)
             .vertex_attribute(0, 0, vk::Format::R32G32_SFLOAT)?
+            .polygon_mode(vk::PolygonMode::LINE)
             .blend_attachment_none()
             .tessellation(4, vk::PipelineTessellationStateCreateFlags::empty())
             .into_dynamic()
@@ -65,7 +66,7 @@ impl TerrainRenderer {
                     let tess_factor: u32 = options.tessellation_level;
                     cmd.bind_graphics_pipeline("terrain")?
                         .full_viewport_scissor()
-                        .set_polygon_mode(vk::PolygonMode::LINE)?
+                        // .set_polygon_mode(vk::PolygonMode::LINE)?
                         .push_constants(
                             vk::ShaderStageFlags::TESSELLATION_CONTROL,
                             0,
@@ -73,7 +74,7 @@ impl TerrainRenderer {
                         )
                         .bind_uniform_buffer(0, 0, &cam_ubo)?
                         .bind_vertex_buffer(0, &terrain.vertices_view)
-                        .draw(4, 1, 0, 0)
+                        .draw(terrain.vertex_count, 1, 0, 0)
                 } else {
                     Ok(cmd)
                 }

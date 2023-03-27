@@ -55,7 +55,7 @@ impl Driver {
         let mut world = World::default();
         // Initially generate a mesh already
         let future = FutureWorld {
-            terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone())),
+            terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone(), world.terrain_options)),
         };
         actors.camera.tell(SetCameraPosition(Position(Vec3::new(0.0, 10.0, 0.0))))?;
 
@@ -79,7 +79,13 @@ impl Driver {
                 self.ui.new_frame(&self.window);
                 self.renderer.new_frame();
 
-                gui::build_ui(&self.ui.context(), &self.actors, &mut self.world);
+                gui::build_ui(
+                    &self.ui.context(),
+                    self.gfx.shared.clone(),
+                    &self.actors,
+                    &mut self.future,
+                    &mut self.world,
+                );
 
                 Handle::current().block_on(async {
                     self.actors.update_rt_size(&mut self.ui, &mut self.renderer).await?;
@@ -156,7 +162,9 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                         match input.virtual_keycode {
                             None => {}
                             Some(keycode) => match keycode {
-                                VirtualKeyCode::R => driver.future.terrain_mesh = Some(TerrainPlane::generate(driver.gfx.shared.clone())),
+                                VirtualKeyCode::R => {
+                                    driver.future.terrain_mesh = Some(TerrainPlane::generate(driver.gfx.shared.clone(), driver.world.terrain_options))
+                                }
                                 _ => {}
                             },
                         }

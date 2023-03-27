@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use phobos as ph;
 use phobos::vk;
 
-use crate::{gfx, gui};
+use crate::gfx;
 
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

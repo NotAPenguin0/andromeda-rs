@@ -14,7 +14,6 @@ use anyhow::{anyhow, Result};
 pub use dynamic_pipeline_builder::*;
 use notify::EventKind;
 use phobos::{prelude as ph, vk};
-use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
 use crate::safe_error::SafeUnwrap;
@@ -48,7 +47,7 @@ impl Deref for SyncShaderReload {
 
 impl ShaderReload {
     pub fn new(pipelines: Arc<Mutex<ph::PipelineCache>>, path: impl Into<PathBuf>, recursive: bool) -> Result<SyncShaderReload> {
-        let mut this = SyncShaderReload {
+        let this = SyncShaderReload {
             0: Arc::new(RwLock::new(Self {
                 pipelines,
                 shaders: Default::default(),

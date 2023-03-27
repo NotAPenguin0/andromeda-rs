@@ -1,14 +1,11 @@
 use std::sync::{Arc, RwLock};
 
 use egui::{Response, Vec2};
-use tiny_tokio_actor::*;
-use tokio::runtime::Handle;
 
 use crate::gfx;
 use crate::gui::editor::camera_controller::{enable_camera_over, CameraController};
 use crate::gui::util::image::Image;
 use crate::gui::util::integration::UIIntegration;
-use crate::gui::util::size::USize;
 use crate::gui::widgets::resizable_image::resizable_image_window;
 
 fn get_image(size: Vec2, targets: &mut gfx::RenderTargets, integration: &mut UIIntegration) -> Option<Image> {

@@ -1,6 +1,5 @@
 use glam::{Mat4, Vec3};
 
-use crate::math;
 use crate::math::{Position, Rotation};
 
 #[derive(Debug)]

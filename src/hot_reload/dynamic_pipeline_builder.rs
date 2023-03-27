@@ -2,12 +2,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use futures::executor::block_on;
 use phobos::{vk, PipelineBuilder, PipelineCache};
-use tiny_tokio_actor::ActorRef;
 
-use crate::event::Event;
-use crate::hot_reload;
 use crate::hot_reload::SyncShaderReload;
 
 pub trait IntoDynamic {

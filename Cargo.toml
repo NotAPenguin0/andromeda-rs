@@ -22,7 +22,6 @@ pretty_env_logger = "0.4.0"
 raw-window-handle = "0.5.0"
 rayon = "1.7.0"
 shaderc = "0.8.2"
-tiny-tokio-actor = { git = "https://github.com/NotAPenguin0/tiny-tokio-actor" }
 tokio = { version = "1.25.0", features = ["full"] }
 winit = "0.28.1"
 

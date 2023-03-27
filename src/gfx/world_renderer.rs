@@ -4,19 +4,14 @@ use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
 use phobos::vk;
-use tiny_tokio_actor::ActorRef;
 
-use crate::core::Event;
+use crate::gfx;
 use crate::gfx::passes::AtmosphereInfo;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
 use crate::gfx::{passes, postprocess};
-use crate::gui::util::image::Image;
-use crate::gui::util::integration::UIIntegration;
-use crate::gui::util::size::USize;
 use crate::hot_reload::{IntoDynamic, SyncShaderReload};
-use crate::{gfx, state};
 
 #[derive(Debug)]
 pub struct RenderOptions {

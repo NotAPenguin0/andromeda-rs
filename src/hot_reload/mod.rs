@@ -110,7 +110,7 @@ impl ShaderReload {
     }
 
     fn get_dxc_path() -> Result<PathBuf> {
-        if cfg!(linux) {
+        if cfg!(target_os = "linux") {
             Ok(PathBuf::from("/usr/bin/dxc"))
         } else {
             Ok(env::var("VULKAN_SDK").map(|sdk| PathBuf::from(&sdk).join("Bin/dxc"))?)

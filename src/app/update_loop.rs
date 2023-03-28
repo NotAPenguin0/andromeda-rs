@@ -5,14 +5,15 @@ use anyhow::Result;
 use layout::backends::svg::SVGWriter;
 use layout::gv;
 use layout::gv::GraphBuilder;
-use phobos::prelude as ph;
 use phobos::prelude::traits::*;
+use phobos::{prelude as ph, DebugMessenger};
 use poll_promise::Promise;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use winit::window::Window;
 
 use crate::gfx;
+use crate::gfx::resource::deferred_delete::{DeferredDelete, DeleteDeferred};
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::util::integration::UIIntegration;
 
@@ -49,15 +50,23 @@ impl UpdateLoop {
         Ok(Self {})
     }
 
-    fn try_take_promise<T: Send>(promise: &mut Option<Promise<Result<T>>>, dst: &mut Option<Rc<T>>) {
+    fn try_take_promise<T: Send + DeleteDeferred>(promise: &mut Option<Promise<Result<T>>>, dst: &mut Option<T>, deferred_delete: &mut DeferredDelete) {
         if let Some(_) = &promise {
             if let Some(_) = promise.as_ref().unwrap().ready() {
                 // Unwrap safety: We just verified that this Option contains a value, and that
                 // it is ready.
                 let promise = promise.take().unwrap();
+                // Defer deletion of old value
+                let old_value = dst.take();
+                match old_value {
+                    None => {}
+                    Some(value) => {
+                        deferred_delete.defer_deletion(value);
+                    }
+                }
                 *dst = match promise.try_take() {
                     Ok(result) => match result {
-                        Ok(value) => Some(Rc::new(value)),
+                        Ok(value) => Some(value),
                         Err(err) => {
                             error!("Error inside promise: {}", err);
                             None
@@ -69,9 +78,9 @@ impl UpdateLoop {
         }
     }
 
-    pub fn poll_future(&self, world: &mut World, future: &mut FutureWorld) {
-        Self::try_take_promise(&mut future.terrain_mesh, &mut world.terrain_mesh);
-        Self::try_take_promise(&mut future.heightmap, &mut world.height_map);
+    pub fn poll_future(&self, world: &mut World, future: &mut FutureWorld, deferred_delete: &mut DeferredDelete) {
+        Self::try_take_promise(&mut future.terrain_mesh, &mut world.terrain_mesh, deferred_delete);
+        Self::try_take_promise(&mut future.heightmap, &mut world.height_map, deferred_delete);
     }
 
     pub async fn update(
@@ -83,9 +92,10 @@ impl UpdateLoop {
         future: &mut FutureWorld,
         renderer: &mut gfx::WorldRenderer,
         gfx: gfx::SharedContext,
-        debug: Option<&ph::DebugMessenger>,
+        deferred_delete: &mut DeferredDelete,
+        debug_messenger: Option<&DebugMessenger>,
     ) -> Result<ph::CommandBuffer<ph::domain::All>> {
-        self.poll_future(world, future);
+        self.poll_future(world, future, deferred_delete);
         let (mut graph, mut bindings) = renderer.redraw_world(world).await?;
 
         let swapchain = graph.swapchain_resource();
@@ -104,7 +114,7 @@ impl UpdateLoop {
         let cmd = gfx
             .exec
             .on_domain::<ph::domain::All>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
-        let cmd = graph.record(cmd, &bindings, &mut ifc, debug)?;
+        let cmd = graph.record(cmd, &bindings, &mut ifc, debug_messenger)?;
         cmd.finish()
     }
 }

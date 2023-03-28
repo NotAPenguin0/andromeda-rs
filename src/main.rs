@@ -1,6 +1,7 @@
 #![feature(async_closure)]
 #![feature(never_type)]
 #![feature(fn_traits)]
+#![feature(specialization)]
 
 #[allow(dead_code)]
 #[macro_use]

@@ -38,8 +38,6 @@ pub struct RenderState {
     pub position: Vec3,
     pub atmosphere: AtmosphereInfo,
     pub sun_dir: Vec3,
-    pub terrain_mesh: Option<Rc<TerrainPlane>>,
-    pub height_map: Option<Rc<HeightMap>>,
 }
 
 #[allow(dead_code)]
@@ -137,8 +135,6 @@ impl WorldRenderer {
         self.state.inverse_view_rotation = Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.atmosphere = world.atmosphere;
         self.state.sun_dir = -world.sun_direction.front_direction();
-        self.state.terrain_mesh = world.terrain_mesh.clone();
-        self.state.height_map = world.height_map.clone();
         Ok(())
     }
 
@@ -159,7 +155,7 @@ impl WorldRenderer {
 
         // 1. Render terrain
         self.terrain
-            .render(&world.options, &mut graph, &mut bindings, &scene_output, &depth, &self.state)
+            .render(&world, &mut graph, &mut bindings, &scene_output, &depth, &self.state)
             .await?;
         // 2. Render atmosphere
         self.atmosphere

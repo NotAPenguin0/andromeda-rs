@@ -14,6 +14,7 @@ use poll_promise::Promise;
 use rayon::prelude::*;
 
 use crate::gfx;
+use crate::gfx::resource::deferred_delete::{DeferredDelete, DeleteDeferred};
 use crate::gfx::PairedImageView;
 use crate::thread::{spawn_promise, SendSyncPtr};
 
@@ -123,6 +124,7 @@ impl HeightMap {
         top.par_chunks_mut(width)
             .zip(bottom.par_chunks_mut(width).rev())
             .for_each(|(top_row, bottom_row)| {
+                // TODO: yeet this temp vec
                 let mut temp = Vec::new();
                 temp.resize(width, 0);
                 temp.copy_from_slice(top_row);
@@ -168,3 +170,5 @@ impl HeightMap {
         })
     }
 }
+
+impl DeleteDeferred for HeightMap {}

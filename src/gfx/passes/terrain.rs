@@ -5,6 +5,7 @@ use phobos::prelude as ph;
 use phobos::prelude::traits::*;
 
 use crate::gfx;
+use crate::gfx::world::World;
 use crate::gfx::world_renderer::RenderOptions;
 use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 
@@ -58,9 +59,9 @@ impl TerrainRenderer {
         })
     }
 
-    pub async fn render<'s: 'e + 'q, 'state: 'e + 'q, 'options: 'e + 'q, 'e, 'q>(
+    pub async fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q>(
         &'s mut self,
-        options: &'options RenderOptions,
+        world: &'world World,
         graph: &mut gfx::FrameGraph<'e, 'q>,
         _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
@@ -84,13 +85,13 @@ impl TerrainRenderer {
                 }),
             )?
             .execute(|cmd, ifc, _bindings| {
-                if let Some(terrain) = state.terrain_mesh.clone() {
-                    if let Some(heightmap) = state.height_map.clone() {
+                if let Some(terrain) = &world.terrain_mesh {
+                    if let Some(heightmap) = &world.height_map {
                         let mut cam_ubo = ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
                         cam_ubo
                             .mapped_slice()?
                             .copy_from_slice(std::slice::from_ref(&state.projection_view));
-                        let tess_factor: u32 = options.tessellation_level;
+                        let tess_factor: u32 = world.options.tessellation_level;
                         cmd.bind_graphics_pipeline("terrain")?
                             .full_viewport_scissor()
                             // .set_polygon_mode(vk::PolygonMode::LINE)?

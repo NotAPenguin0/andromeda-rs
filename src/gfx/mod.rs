@@ -11,6 +11,8 @@ use winit::window::Window;
 pub(self) use world_renderer::RenderState;
 pub use world_renderer::WorldRenderer;
 
+use crate::gfx::resource::deferred_delete::DeferredDelete;
+
 mod graph;
 mod paired_image_view;
 mod passes;
@@ -28,6 +30,7 @@ pub struct Context {
     pub surface: ph::Surface,
     pub shared: SharedContext,
     pub instance: ph::VkInstance,
+    pub deferred_delete: DeferredDelete,
 }
 
 /// All shared graphics objects, these are safely refcounted using `Arc` and `Arc<Mutex>` where necessary, so cloning this struct is acceptable.
@@ -112,6 +115,7 @@ impl Context {
                 device,
             },
             instance,
+            deferred_delete: DeferredDelete::new(),
         })
     }
 

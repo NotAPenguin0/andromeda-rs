@@ -114,6 +114,7 @@ impl Driver {
                             &mut self.future,
                             &mut self.renderer,
                             self.gfx.shared.clone(),
+                            &mut self.gfx.deferred_delete,
                             self.gfx.debug_messenger.as_ref(),
                         )
                         .await

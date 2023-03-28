@@ -1,10 +1,11 @@
 use anyhow::Result;
-use phobos::prelude as ph;
 use phobos::traits::*;
+use phobos::{prelude as ph, Buffer};
 use poll_promise::Promise;
 use rayon::prelude::*;
 
 use crate::gfx;
+use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::world::TerrainOptions;
 use crate::thread::spawn_promise;
 
@@ -15,7 +16,7 @@ pub struct TerrainPlane {
     /// - Interleaved
     /// - Attribute 0: float2 Pos
     /// - Attribute 1: float2 UV
-    pub vertices: ph::Buffer,
+    pub vertices: Buffer,
     pub vertices_view: ph::BufferView,
     pub vertex_count: u32,
 }
@@ -66,3 +67,5 @@ impl TerrainPlane {
         })
     }
 }
+
+impl DeleteDeferred for TerrainPlane {}

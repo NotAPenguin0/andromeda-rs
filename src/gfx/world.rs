@@ -31,11 +31,11 @@ pub struct TerrainOptions {
 
 #[derive(Debug)]
 pub struct World {
-    /// Direction for the sun. This is represented as a rotation for easy editing.
+    /// Direction of the sun. This is represented as a rotation for easy editing.
     pub sun_direction: Rotation,
     pub atmosphere: AtmosphereInfo,
-    pub terrain_mesh: Option<Rc<TerrainPlane>>,
-    pub height_map: Option<Rc<HeightMap>>,
+    pub terrain_mesh: Option<TerrainPlane>,
+    pub height_map: Option<HeightMap>,
     pub options: RenderOptions,
     pub terrain_options: TerrainOptions,
     pub camera: Arc<RwLock<Camera>>,

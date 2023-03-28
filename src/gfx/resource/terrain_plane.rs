@@ -25,8 +25,8 @@ impl TerrainPlane {
     pub fn generate(gfx: gfx::SharedContext, options: TerrainOptions) -> Promise<Result<Self>> {
         spawn_promise(move || {
             trace!("Regenerating terrain mesh");
-            let width = options.scale;
-            let height = options.scale;
+            let width = options.horizontal_scale;
+            let height = options.horizontal_scale;
             let resolution = options.patch_resolution as f32;
             let verts: Vec<f32> = (0..options.patch_resolution)
                 .into_par_iter()

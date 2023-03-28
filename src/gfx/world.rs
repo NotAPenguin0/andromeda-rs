@@ -2,6 +2,7 @@ use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
+use egui::Vec2;
 use glam::Vec3;
 use poll_promise::Promise;
 
@@ -23,8 +24,10 @@ pub struct FutureWorld {
 
 #[derive(Debug, Copy, Clone)]
 pub struct TerrainOptions {
-    /// Width and height of the terrain plane, in meters
-    pub scale: f32,
+    /// Width and height of the terrain plane in meters.
+    pub horizontal_scale: f32,
+    /// Vertical scaling. The most extreme point of the terrain will have this as its height.
+    pub vertical_scale: f32,
     /// Number of patches the terrain mesh will be divided in in each direction.
     pub patch_resolution: u32,
 }
@@ -50,7 +53,8 @@ impl World {
             height_map: None,
             options: Default::default(),
             terrain_options: TerrainOptions {
-                scale: 10000.0,
+                horizontal_scale: 10000.0,
+                vertical_scale: 1.0,
                 patch_resolution: 5,
             },
             camera,

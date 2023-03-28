@@ -11,8 +11,12 @@ pub fn show(context: &egui::Context, gfx: gfx::SharedContext, future: &mut Futur
         .resizable(true)
         .movable(true)
         .show(&context, |ui| {
-            let mut dirty = Drag::new("Terrain scale", &mut world.terrain_options.scale)
-                .speed(0.1)
+            let mut dirty = Drag::new("Terrain horizontal scale", &mut world.terrain_options.horizontal_scale)
+                .speed(1.0)
+                .suffix(" m")
+                .show(ui);
+            Drag::new("Terrain vertical scale", &mut world.terrain_options.vertical_scale)
+                .speed(1.0)
                 .suffix(" m")
                 .show(ui);
             dirty |= aligned_label_with(ui, "Patch resolution", |ui| {

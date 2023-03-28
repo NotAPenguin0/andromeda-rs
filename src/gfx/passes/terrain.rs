@@ -100,6 +100,11 @@ impl TerrainRenderer {
                                 0,
                                 std::slice::from_ref(&tess_factor),
                             )
+                            .push_constants(
+                                vk::ShaderStageFlags::TESSELLATION_EVALUATION,
+                                4,
+                                std::slice::from_ref(&world.terrain_options.vertical_scale),
+                            )
                             .bind_uniform_buffer(0, 0, &cam_ubo)?
                             .bind_sampled_image(0, 1, &heightmap.image.view, &self.heightmap_sampler)?
                             .bind_vertex_buffer(0, &terrain.vertices_view)

@@ -18,6 +18,14 @@ struct DSOutput {
     float2 UV : UV0;
 };
 
+[[vk::push_constant]]
+struct PC
+{
+    uint tessellation_factor;
+    float height_scaling;
+} pc;
+
+
 [[vk::combinedImageSampler, vk::binding(1, 0)]]
 Texture2D<half> heightmap;
 
@@ -36,7 +44,7 @@ DSOutput main(ConstantsHSOutput input, float2 TessCoord : SV_DomainLocation, con
     float2 uv0 = lerp(patch[0].UV, patch[1].UV, TessCoord.x);
     float2 uv1 = lerp(patch[3].UV, patch[2].UV, TessCoord.x);
     float2 uv = lerp(uv0, uv1, TessCoord.y);
-    position.y = heightmap.SampleLevel(smp, uv, 0.0);
+    position.y = heightmap.SampleLevel(smp, uv, 0.0) * pc.height_scaling;
     output.Position = mul(projection_view, position);
     output.UV = uv;
     return output;

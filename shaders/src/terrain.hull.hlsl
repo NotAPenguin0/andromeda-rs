@@ -16,6 +16,7 @@ struct ConstantsHSOutput {
 [[vk::push_constant]]
 struct PC {
     uint tessellation_factor;
+    float height_scaling;
 } pc;
 
 // TODO: Tessellation factor based on screen size? 

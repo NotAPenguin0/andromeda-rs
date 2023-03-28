@@ -75,6 +75,21 @@ impl HeightMap {
         Ok(image)
     }
 
+    // Normalizes height values in the height map to [-1, 1] based on the most extreme value
+    fn normalize_height(data: &mut [f16]) {
+        // Find the largest absolute value in the dataset, and take the absolute value of it.
+        let extreme_val = data
+            .par_iter()
+            .max_by(|lhs, rhs| lhs.to_f32().abs().total_cmp(&rhs.to_f32().abs()))
+            .unwrap();
+        let extreme_val = f16::from_f32(extreme_val.to_f32().abs());
+        let extreme_val_inverse = f16::ONE / extreme_val;
+        // Now divide every height value by this extreme value
+        data.par_iter_mut().for_each(|value| {
+            *value = *value * extreme_val_inverse;
+        });
+    }
+
     fn load_png<P: AsRef<Path> + Debug>(path: P, mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
         let image = image::io::Reader::open(&path)?.decode()?;
         let width = image.width();
@@ -91,6 +106,7 @@ impl HeightMap {
             .for_each(|(dst, src)| {
                 *dst = f16::from_f32(*src as f32);
             });
+        Self::normalize_height(data_slice);
         let image = Self::upload(ctx, &staging_view, width, height)?;
         info!("Heightmap {:?} loaded successfully", path);
         Ok(image)
@@ -146,6 +162,8 @@ impl HeightMap {
                 // As for safety of the get() call, see the comment above
                 *as_f16 = f16::from_f32(unsafe { *src_ptr.get().offset(idx as isize) } as f32);
             });
+        // Normalize all height values to [-1, 1]
+        Self::normalize_height(f16_slice);
         let image = Self::upload(ctx, &staging_view, width as u32, height as u32)?;
         info!("Heightmap {:?} loaded successfully", path);
         // Cleanup is performed already, we're done.

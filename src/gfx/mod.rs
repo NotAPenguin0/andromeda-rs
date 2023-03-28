@@ -55,7 +55,7 @@ impl Context {
             .present_mode(vk::PresentModeKHR::MAILBOX)
             .scratch_size(8 * 1024 * 1024u64)
             .gpu(ph::GPURequirements {
-                dedicated: true,
+                dedicated: false,
                 min_video_memory: 1 * 1024 * 1024 * 1024,
                 min_dedicated_video_memory: 0,
                 queues: vec![

@@ -7,6 +7,7 @@ use phobos::vk;
 
 use crate::gfx;
 use crate::gfx::passes::AtmosphereInfo;
+use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
@@ -38,6 +39,7 @@ pub struct RenderState {
     pub atmosphere: AtmosphereInfo,
     pub sun_dir: Vec3,
     pub terrain_mesh: Option<Rc<TerrainPlane>>,
+    pub height_map: Option<Rc<HeightMap>>,
 }
 
 #[allow(dead_code)]
@@ -124,7 +126,7 @@ impl WorldRenderer {
     fn update_render_state(&mut self, world: &World) -> Result<()> {
         let camera = world.camera.read().unwrap();
         self.state.view = camera.matrix();
-        self.state.projection = Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 100.0);
+        self.state.projection = Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 10000000.0);
         // Flip y because Vulkan
         let v = self.state.projection.col_mut(1).y;
         self.state.projection.col_mut(1).y = v * -1.0;
@@ -136,6 +138,7 @@ impl WorldRenderer {
         self.state.atmosphere = world.atmosphere;
         self.state.sun_dir = -world.sun_direction.front_direction();
         self.state.terrain_mesh = world.terrain_mesh.clone();
+        self.state.height_map = world.height_map.clone();
         Ok(())
     }
 

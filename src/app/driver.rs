@@ -10,6 +10,7 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::app::update_loop::UpdateLoop;
 use crate::core::{ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
+use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
@@ -58,7 +59,7 @@ impl Driver {
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
-        camera.set_position(Position(Vec3::new(0.0, 10.0, 0.0)));
+        camera.set_position(Position(Vec3::new(0.0, 2000.0, 0.0)));
         let camera = Arc::new(RwLock::new(camera));
         let camera_controller = Arc::new(RwLock::new(CameraController::new(camera.clone())));
         input
@@ -69,6 +70,7 @@ impl Driver {
         // Initially generate a mesh already
         let future = FutureWorld {
             terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone(), world.terrain_options)),
+            heightmap: Some(HeightMap::from_file("data/heightmaps/iceland.nc", gfx.shared.clone())),
         };
         Ok(Driver {
             window,

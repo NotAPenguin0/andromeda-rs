@@ -13,8 +13,12 @@ egui = "0.21.0"
 egui-winit-phobos = { git = "https://github.com/NotAPenguin0/egui-winit-phobos" }
 futures = "0.3.26"
 glam = "0.23.0"
+half = "2.2.1"
+image = "0.24.6"
 layout-rs = "0.1.1"
 log = { version = "0.4.17", features = ["std"] }
+ndarray = { version = "0.15.6", features = ["rayon"] }
+netcdf = { version = "0.8.0", features = ["static", "ndarray"] }
 notify = "5.1.0"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", branch = "develop", features = ["hlsl", "rayon"] }
 poll-promise = { version = "0.2.0" }

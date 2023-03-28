@@ -33,7 +33,7 @@ impl CameraController {
     fn handle_move(&self, mouse: MouseDelta) -> Result<()> {
         let mut camera = self.camera.write().unwrap();
         let delta = camera.up() * (mouse.y as f32) + camera.right() * (-mouse.x as f32);
-        const SPEED: f32 = 0.02;
+        const SPEED: f32 = 5.0;
         camera.update_position(Position(delta * SPEED));
         Ok(())
     }
@@ -49,7 +49,7 @@ impl CameraController {
     fn handle_scroll(&self, scroll: ScrollInfo) -> Result<()> {
         let mut camera = self.camera.write().unwrap();
         let delta = camera.front() * scroll.delta_y;
-        const SPEED: f32 = 0.5;
+        const SPEED: f32 = 40.0;
         camera.update_position(Position(delta * SPEED));
         Ok(())
     }

@@ -13,7 +13,8 @@ use crate::thread::spawn_promise;
 pub struct TerrainPlane {
     /// Vertex buffer layout:
     /// - Interleaved
-    /// - Attribute 0: vec2 Pos
+    /// - Attribute 0: float2 Pos
+    /// - Attribute 1: float2 UV
     pub vertices: ph::Buffer,
     pub vertices_view: ph::BufferView,
     pub vertex_count: u32,
@@ -26,9 +27,6 @@ impl TerrainPlane {
             let width = options.scale;
             let height = options.scale;
             let resolution = options.patch_resolution as f32;
-            let mut verts = Vec::new();
-            // We make res * res quads, and each quad has 4 vertices
-            verts.resize(options.patch_resolution as usize * options.patch_resolution as usize * 4, 0.0);
             let verts: Vec<f32> = (0..options.patch_resolution)
                 .into_par_iter()
                 .flat_map(|x| {
@@ -40,12 +38,20 @@ impl TerrainPlane {
                             [
                                 -width / 2.0 + width * x / resolution,
                                 -height / 2.0 + height * y / resolution,
+                                x / resolution,
+                                y / resolution,
                                 -width / 2.0 + width * (x + 1.0) / resolution,
                                 -height / 2.0 + height * y / resolution,
+                                (x + 1.0) / resolution,
+                                y / resolution,
                                 -width / 2.0 + width * (x + 1.0) / resolution,
                                 -height / 2.0 + height * (y + 1.0) / resolution,
+                                (x + 1.0) / resolution,
+                                (y + 1.0) / resolution,
                                 -width / 2.0 + width * x / resolution,
                                 -height / 2.0 + height * (y + 1.0) / resolution,
+                                x / resolution,
+                                (y + 1.0) / resolution,
                             ]
                         })
                         .collect::<Vec<f32>>()

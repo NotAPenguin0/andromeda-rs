@@ -1,9 +1,11 @@
 struct VSOutput {
     float4 Position : SV_POSITION;
+    float2 UV : UV0;
 };
 
 struct HSOutput {
     float4 Position : SV_POSITION;
+    float2 UV : UV0;
 };
 
 struct ConstantsHSOutput {
@@ -39,5 +41,6 @@ ConstantsHSOutput HSConstants(InputPatch<VSOutput, 4> patch, uint InvocationID :
 HSOutput main(InputPatch<VSOutput, 4> patch, uint InvocationID : SV_OutputControlPointID) {
     HSOutput output = (HSOutput) 0;
     output.Position = patch[InvocationID].Position;
+    output.UV = patch[InvocationID].UV;
     return output;
 }

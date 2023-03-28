@@ -7,6 +7,7 @@ use layout::gv;
 use layout::gv::GraphBuilder;
 use phobos::prelude as ph;
 use phobos::prelude::traits::*;
+use poll_promise::Promise;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use winit::window::Window;
@@ -48,19 +49,17 @@ impl UpdateLoop {
         Ok(Self {})
     }
 
-    pub fn poll_future(&self, world: &mut World, future: &mut FutureWorld) {
-        // If we have a promise we are polling. Note that we are not creating any bindings
-        // to make sure we can move out of the promise by swapping it with None
-        if let Some(_) = &future.terrain_mesh {
-            if let Some(_) = future.terrain_mesh.as_ref().unwrap().ready() {
+    fn try_take_promise<T: Send>(promise: &mut Option<Promise<Result<T>>>, dst: &mut Option<Rc<T>>) {
+        if let Some(_) = &promise {
+            if let Some(_) = promise.as_ref().unwrap().ready() {
                 // Unwrap safety: We just verified that this Option contains a value, and that
                 // it is ready.
-                let promise = future.terrain_mesh.take().unwrap();
-                world.terrain_mesh = match promise.try_take() {
+                let promise = promise.take().unwrap();
+                *dst = match promise.try_take() {
                     Ok(result) => match result {
-                        Ok(terrain) => Some(Rc::new(terrain)),
+                        Ok(value) => Some(Rc::new(value)),
                         Err(err) => {
-                            error!("Error generating terrain mesh: {}", err);
+                            error!("Error inside promise: {}", err);
                             None
                         }
                     },
@@ -68,6 +67,11 @@ impl UpdateLoop {
                 }
             }
         }
+    }
+
+    pub fn poll_future(&self, world: &mut World, future: &mut FutureWorld) {
+        Self::try_take_promise(&mut future.terrain_mesh, &mut world.terrain_mesh);
+        Self::try_take_promise(&mut future.heightmap, &mut world.height_map);
     }
 
     pub async fn update(

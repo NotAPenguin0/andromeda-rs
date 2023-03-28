@@ -30,7 +30,9 @@ fn main() -> Result<!> {
     pretty_env_logger::init_timed();
 
     // Initialize tokio runtime
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
     let _guard = runtime.enter();
 
     // Create window

@@ -122,5 +122,6 @@ impl Context {
     pub fn next_frame(&mut self) {
         self.shared.pipelines.lock().unwrap().next_frame(); // TODO: figure out how to properly implement '?' for this
         self.shared.descriptors.lock().unwrap().next_frame();
+        self.deferred_delete.next_frame();
     }
 }

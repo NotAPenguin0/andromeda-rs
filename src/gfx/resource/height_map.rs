@@ -20,12 +20,17 @@ use rayon::prelude::*;
 use crate::gfx;
 use crate::gfx::resource::deferred_delete::{DeferredDelete, DeleteDeferred};
 use crate::gfx::PairedImageView;
-use crate::thread::promise::spawn_promise;
 use crate::thread::SendSyncPtr;
 
 #[derive(Debug)]
 pub struct HeightMap {
     pub image: PairedImageView,
+}
+
+pub enum FileType {
+    Png,
+    NetCDF,
+    Unknown,
 }
 
 impl HeightMap {
@@ -49,6 +54,7 @@ impl HeightMap {
         width: u32,
         height: u32,
     ) -> Result<PairedImageView> {
+        trace!("Uploading heightmap data");
         let image = ph::Image::new(
             ctx.device.clone(),
             &mut ctx.allocator,
@@ -91,6 +97,7 @@ impl HeightMap {
 
     // Normalizes height values in the height map to [-1, 1] based on the most extreme value
     fn normalize_height(data: &mut [f16]) {
+        trace!("Normalizing heightmap data");
         // Find the largest absolute value in the dataset, and take the absolute value of it.
         let extreme_val = data
             .par_iter()
@@ -104,11 +111,10 @@ impl HeightMap {
         });
     }
 
-    fn load_png<P: AsRef<Path> + Debug>(
-        path: P,
-        mut ctx: gfx::SharedContext,
-    ) -> Result<PairedImageView> {
-        let image = image::io::Reader::open(&path)?.decode()?;
+    fn load_png(buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
+        let mut reader = image::io::Reader::new(Cursor::new(buffer));
+        reader.set_format(ImageFormat::Png);
+        let image = reader.decode()?;
         let width = image.width();
         let height = image.height();
         trace!("png: heightmap size is {}x{}", width, height);
@@ -125,15 +131,15 @@ impl HeightMap {
             });
         Self::normalize_height(data_slice);
         let image = Self::upload(ctx, &staging_view, width, height)?;
-        info!("Heightmap {:?} loaded successfully", path);
         Ok(image)
     }
 
-    fn load_netcdf<P: AsRef<Path> + Debug>(
+    pub fn load_netcdf<P: AsRef<Path> + Debug>(
         path: P,
         mut ctx: gfx::SharedContext,
     ) -> Result<PairedImageView> {
         let file = netcdf::open(&path)?;
+        trace!("netcdf: opened file {:?}", path);
         // Identify the variable name used for heightmap data. We'll just pick the first 2D variable
         let var = file
             .variables()
@@ -158,22 +164,23 @@ impl HeightMap {
         let (top, bottom) = data_slice.split_at_mut(data_slice.len() / 2);
         // Each chunk returned by this iterator is one row, we zip both halves together and swap each element.
         // Note that for the second iterator to go bottom to top we have to reverse it.
+        trace!("netcdf: flipping image vertically");
         top.par_chunks_mut(width)
             .zip(bottom.par_chunks_mut(width).rev())
             .for_each(|(top_row, bottom_row)| {
-                // TODO: yeet this temp vec
-                let mut temp = Vec::new();
-                temp.resize(width, 0);
-                temp.copy_from_slice(top_row);
-                top_row.copy_from_slice(bottom_row);
-                bottom_row.copy_from_slice(temp.as_slice());
+                top_row
+                    .par_iter_mut()
+                    .zip(bottom_row.par_iter_mut())
+                    .for_each(|(top, bottom)| {
+                        std::mem::swap(top, bottom);
+                    });
             });
 
         // SAFETY: Each invocation of for_each accesses a different offset of this pointer, so
         // we can safely iterate over it in parallel.
         let src_ptr = unsafe { SendSyncPtr::new(data_slice.as_ptr()) };
         let f16_slice = staging_view.mapped_slice::<f16>()?;
-
+        trace!("netcdf: converting data to floating point");
         f16_slice
             .par_iter_mut()
             .enumerate()
@@ -186,51 +193,20 @@ impl HeightMap {
         // Normalize all height values to [-1, 1]
         Self::normalize_height(f16_slice);
         let image = Self::upload(ctx, &staging_view, width as u32, height as u32)?;
-        info!("Heightmap {:?} loaded successfully", path);
         // Cleanup is performed already, we're done.
         Ok(image)
     }
 
-    // TODO: Cleanup
-    pub fn from_buffer(buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<Arc<Self>> {
-        let mut reader = image::io::Reader::new(Cursor::new(buffer));
-        reader.set_format(ImageFormat::Png);
-        trace!("png: decoding file");
-        let image = reader.decode()?;
-        let width = image.width();
-        let height = image.height();
-        trace!("png: heightmap size is {}x{}", width, height);
-        trace!("png: heightmap color type is {:?}", image.color());
-        let image = image.into_luma16();
-        let staging_buffer = Self::alloc_staging_buffer(&mut ctx, width as usize, height as usize)?;
-        let mut staging_view = staging_buffer.view_full();
-        let data_slice = staging_view.mapped_slice::<f16>()?;
-        data_slice
-            .par_iter_mut()
-            .zip(image.as_raw().as_slice().par_iter())
-            .for_each(|(dst, src)| {
-                *dst = f16::from_f32(*src as f32);
-            });
-        Self::normalize_height(data_slice);
-        let image = Self::upload(ctx, &staging_view, width, height)?;
-        Ok(Arc::new(Self {
-            image,
-        }))
-    }
-
-    pub fn from_file<P: AsRef<Path> + Debug>(
-        path: P,
-        ctx: gfx::SharedContext,
+    pub fn from_buffer(
+        ty: FileType,
+        buffer: &[u8],
+        mut ctx: gfx::SharedContext,
     ) -> Result<Arc<Self>> {
-        info!("Loading heightmap from file: {:?}", path);
-        let extension = path.as_ref().extension().unwrap_or(OsStr::new(""));
-        let image = if extension == OsStr::new("nc") {
-            Self::load_netcdf(path, ctx)?
-        } else if extension == OsStr::new("png") {
-            Self::load_png(path, ctx)?
-        } else {
-            todo!("Unsupported heightmap format")
-        };
+        let image = match ty {
+            FileType::Png => Self::load_png(buffer, ctx),
+            FileType::NetCDF => Err(anyhow!("netcdf: cannot load from in-memory buffer")),
+            FileType::Unknown => Err(anyhow!("Unrecognized file type.")),
+        }?;
 
         Ok(Arc::new(Self {
             image,
@@ -239,5 +215,4 @@ impl HeightMap {
 }
 
 impl DeleteDeferred for HeightMap {}
-
 impl DeleteDeferred for Arc<HeightMap> {}

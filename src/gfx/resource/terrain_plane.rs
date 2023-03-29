@@ -16,7 +16,6 @@ use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::world::TerrainOptions;
 use crate::hot_reload::{IntoDynamic, SyncShaderReload};
-use crate::thread::promise::spawn_promise;
 
 /// A plane terrain mesh, used as a base for tesselation and rendering the terrain.
 #[derive(Debug)]
@@ -76,6 +75,11 @@ impl TerrainPlane {
         options: TerrainOptions,
         heightmap: Arc<HeightMap>,
     ) -> Result<Self> {
+        trace!(
+            "Generating terrain mesh with patch resolution {}x{}",
+            options.patch_resolution,
+            options.patch_resolution
+        );
         let resolution = options.patch_resolution as f32;
         let patch_size = options.horizontal_scale / resolution;
         let verts: Vec<f32> = (0..options.patch_resolution)
@@ -112,6 +116,7 @@ impl TerrainPlane {
             })
             .collect();
 
+        trace!("Uploading terrain mesh to GPU and generating normals.");
         let cmd = gfx
             .exec
             .on_domain::<Compute>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;

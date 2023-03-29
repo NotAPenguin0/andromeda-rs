@@ -1,17 +1,18 @@
+use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use poll_promise::Promise;
 
 use crate::gfx;
 use crate::gfx::resource::deferred_delete::DeleteDeferred;
-use crate::gfx::resource::height_map::HeightMap;
+use crate::gfx::resource::height_map::{FileType, HeightMap};
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::TerrainOptions;
-use crate::thread::io::read_file;
-use crate::thread::promise::{spawn_promise, MapPromise, ThenTry, TryMapPromise};
+use crate::thread::io::{read_file, read_file_async};
+use crate::thread::promise::{SpawnPromise, ThenMap, ThenTry, ThenTryInto, ThenTryMap};
 
 #[derive(Debug)]
 pub struct Terrain {
@@ -20,21 +21,55 @@ pub struct Terrain {
 }
 
 impl Terrain {
+    pub fn detect_filetype<P: AsRef<Path>>(path: P) -> FileType {
+        let path = path.as_ref();
+        let extension = path.extension().unwrap_or(OsStr::new(""));
+        if extension == OsStr::new("png") {
+            FileType::Png
+        } else if extension == OsStr::new("nc") {
+            FileType::NetCDF
+        } else {
+            FileType::Unknown
+        }
+    }
+
     /// Loads a terrain from a new heightmap and creates a mesh associated with it.
-    pub fn from_new_heightmap<P: Into<PathBuf> + Debug + Send + 'static>(
+    pub fn from_new_heightmap<P: AsRef<Path> + Copy + Debug + Send + 'static>(
         heightmap_path: P,
         options: TerrainOptions,
         ctx: gfx::SharedContext,
     ) -> Promise<Result<Terrain>> {
         let ctx2 = ctx.clone();
-        trace!("Reading new heightmap from file: {:?}", &heightmap_path);
-        read_file(heightmap_path)
-            .then_try_map(move |buffer| {
-                trace!("File I/O for heightmap complete");
-                HeightMap::from_buffer(buffer.as_slice(), ctx)
-            })
-            .then_try(move |heightmap| TerrainPlane::generate(ctx2, options, heightmap.clone()))
-            .then_map(move |result| Ok(result?.into()))
+        trace!("Loading new heightmap from file: {:?}", heightmap_path);
+        let filetype = Self::detect_filetype(heightmap_path);
+        // netcdf cannot be loaded from an in-memory buffer because the library is ass,
+        // so we need this ugly match.
+        match filetype {
+            FileType::Unknown => Promise::spawn(move || {
+                Err(anyhow!("Heightmap {:?} has unsupported file type", heightmap_path))
+            }),
+            FileType::NetCDF => Promise::spawn(move || {
+                let image = HeightMap::load_netcdf(heightmap_path, ctx)?;
+                info!("Heightmap {:?} loaded successfully", heightmap_path);
+                Ok(Arc::new(HeightMap {
+                    image,
+                }))
+            }),
+            _ => {
+                read_file_async(heightmap_path.as_ref().to_path_buf()).then_try_map(move |buffer| {
+                    trace!("Heightmap file {:?} loaded from disk ... decoding", heightmap_path);
+                    let height = HeightMap::from_buffer(filetype, buffer.as_slice(), ctx)?;
+                    info!("Heightmap {:?} loaded successfully", heightmap_path);
+                    Ok(height)
+                })
+            }
+        }
+        .then_try(move |heightmap| {
+            let mesh = TerrainPlane::generate(ctx2, options, heightmap.clone())?;
+            info!("Terrain from heightmap {:?} generated successfully", heightmap_path);
+            Ok(mesh)
+        })
+        .then_try_into()
     }
 
     /// Loads a terrain from an existing heightmap but generates a new mesh.
@@ -43,11 +78,12 @@ impl Terrain {
         options: TerrainOptions,
         ctx: gfx::SharedContext,
     ) -> Promise<Result<Terrain>> {
-        spawn_promise(move || {
+        Promise::spawn(move || {
             let mesh = TerrainPlane::generate(ctx, options, height_map.clone())?;
-            Ok::<_, anyhow::Error>((height_map, mesh))
+            info!("Terrain mesh regenerated successfully");
+            Ok((height_map, mesh))
         })
-        .then_map(move |result| Ok(result?.into()))
+        .then_try_into()
     }
 }
 

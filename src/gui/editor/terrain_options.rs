@@ -6,7 +6,6 @@ use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::widgets::aligned_label::aligned_label_with;
 use crate::gui::widgets::drag::Drag;
-use crate::thread::promise::spawn_promise;
 
 pub fn show(
     context: &egui::Context,

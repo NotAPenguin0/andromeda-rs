@@ -22,7 +22,6 @@ use crate::gui::util::integration::UIIntegration;
 use crate::hot_reload::{ShaderReload, SyncShaderReload};
 use crate::math::Position;
 use crate::state::Camera;
-use crate::thread::promise::{spawn_promise, MapPromise, ThenPromise, ThenTry, WaitAndYield};
 use crate::{gfx, gui};
 
 /// Main application driver. Hosts the event loop.

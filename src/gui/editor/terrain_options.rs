@@ -1,6 +1,7 @@
 use egui::Slider;
 
 use crate::gfx;
+use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::widgets::aligned_label::aligned_label_with;
@@ -36,11 +37,7 @@ pub fn show(
             if dirty {
                 let options = world.terrain_options.clone();
                 future.terrain = world.terrain.as_ref().map(|terrain| {
-                    let height_map = terrain.height_map.clone();
-                    spawn_promise(move || {
-                        let mesh = TerrainPlane::generate(gfx, options, height_map.clone())?;
-                        Ok((height_map, mesh))
-                    })
+                    Terrain::from_new_mesh(terrain.height_map.clone(), options, gfx)
                 });
             }
         });

@@ -1,6 +1,7 @@
 use poll_promise::Promise;
 use rayon::Yield;
 
+pub mod io;
 pub mod promise;
 
 pub struct SendSyncPtr<T> {

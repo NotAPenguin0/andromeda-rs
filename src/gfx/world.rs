@@ -18,7 +18,7 @@ use crate::state::Camera;
 #[derivative(Debug)]
 pub struct FutureWorld {
     #[derivative(Debug = "ignore")]
-    pub terrain: Option<Promise<Result<(Arc<HeightMap>, TerrainPlane)>>>,
+    pub terrain: Option<Promise<Result<Terrain>>>,
 }
 
 #[derive(Debug, Copy, Clone)]

@@ -79,15 +79,12 @@ impl Driver {
             .add_listener(CameraInputListener::new(camera_controller.clone()));
         let world = World::new(camera);
 
-        let ctx = gfx.shared.clone();
-        let ctx2 = ctx.clone();
-        let terrain =
-            spawn_promise(move || HeightMap::from_file("data/heightmaps/iceland.nc", ctx))
-                .then_try(move |heightmap| {
-                    TerrainPlane::generate(ctx2, world.terrain_options, heightmap.clone())
-                });
         let future = FutureWorld {
-            terrain: Some(terrain),
+            terrain: Some(Terrain::from_new_heightmap(
+                "data/heightmaps/mountain.png",
+                world.terrain_options,
+                gfx.shared.clone(),
+            )),
         };
         Ok(Driver {
             window,

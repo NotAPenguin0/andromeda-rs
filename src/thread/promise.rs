@@ -85,7 +85,7 @@ impl<T: Send + 'static> ThenTry for Promise<Result<T>> {
 pub trait MapPromise {
     type Output: Send;
 
-    fn map<U: Send + 'static, F: FnOnce(Self::Output) -> U + Send + 'static>(
+    fn then_map<U: Send + 'static, F: FnOnce(Self::Output) -> U + Send + 'static>(
         self,
         func: F,
     ) -> Promise<U>;
@@ -94,9 +94,35 @@ pub trait MapPromise {
 impl<T: Send + 'static> MapPromise for Promise<T> {
     type Output = T;
 
-    fn map<U: Send + 'static, F: FnOnce(T) -> U + Send + 'static>(self, func: F) -> Promise<U> {
+    fn then_map<U: Send + 'static, F: FnOnce(T) -> U + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<U> {
         spawn_promise(move || {
             let value = self.wait_and_yield();
+            func(value)
+        })
+    }
+}
+
+pub trait TryMapPromise {
+    type Output: Send;
+
+    fn then_try_map<U: Send + 'static, F: FnOnce(Self::Output) -> Result<U> + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<Result<U>>;
+}
+
+impl<T: Send + 'static> TryMapPromise for Promise<Result<T>> {
+    type Output = T;
+
+    fn then_try_map<U: Send + 'static, F: FnOnce(T) -> Result<U> + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<Result<U>> {
+        spawn_promise(move || {
+            let value = self.wait_and_yield()?;
             func(value)
         })
     }

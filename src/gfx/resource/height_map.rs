@@ -1,11 +1,13 @@
 use std::ffi::OsStr;
 use std::fmt::Debug;
+use std::io::Cursor;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use half::f16;
+use image::ImageFormat;
 use ndarray::Ix2;
 use ph::traits::*;
 use ph::vk;
@@ -187,6 +189,33 @@ impl HeightMap {
         info!("Heightmap {:?} loaded successfully", path);
         // Cleanup is performed already, we're done.
         Ok(image)
+    }
+
+    // TODO: Cleanup
+    pub fn from_buffer(buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<Arc<Self>> {
+        let mut reader = image::io::Reader::new(Cursor::new(buffer));
+        reader.set_format(ImageFormat::Png);
+        trace!("png: decoding file");
+        let image = reader.decode()?;
+        let width = image.width();
+        let height = image.height();
+        trace!("png: heightmap size is {}x{}", width, height);
+        trace!("png: heightmap color type is {:?}", image.color());
+        let image = image.into_luma16();
+        let staging_buffer = Self::alloc_staging_buffer(&mut ctx, width as usize, height as usize)?;
+        let mut staging_view = staging_buffer.view_full();
+        let data_slice = staging_view.mapped_slice::<f16>()?;
+        data_slice
+            .par_iter_mut()
+            .zip(image.as_raw().as_slice().par_iter())
+            .for_each(|(dst, src)| {
+                *dst = f16::from_f32(*src as f32);
+            });
+        Self::normalize_height(data_slice);
+        let image = Self::upload(ctx, &staging_view, width, height)?;
+        Ok(Arc::new(Self {
+            image,
+        }))
     }
 
     pub fn from_file<P: AsRef<Path> + Debug>(

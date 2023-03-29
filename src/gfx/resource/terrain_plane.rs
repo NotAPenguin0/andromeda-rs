@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use anyhow::Result;
-use phobos::domain::Compute;
+use phobos::domain::{Compute, ExecutionDomain, Transfer};
 use phobos::traits::*;
 use phobos::{
     domain, prelude as ph, vk, Buffer, BufferView, ComputePipelineBuilder, IncompleteCommandBuffer,
@@ -26,29 +26,19 @@ pub struct TerrainPlane {
     /// - Attribute 1: float2 UV
     pub vertices: Buffer,
     pub vertices_view: BufferView,
-    pub normals: Buffer,
-    pub normals_view: BufferView,
     pub indices: Buffer,
     pub indices_view: BufferView,
     pub index_count: u32,
 }
 
 impl TerrainPlane {
-    pub fn init_pipelines(ctx: gfx::SharedContext, hot_reload: SyncShaderReload) -> Result<()> {
-        ComputePipelineBuilder::new("terrain_normals")
-            .persistent()
-            .into_dynamic()
-            .set_shader("shaders/src/terrain_normals.comp.hlsl")
-            .build(hot_reload, ctx.pipelines)
-    }
-
     // First buffer in return value is the resulting buffer, the second is the staging buffer used.
-    fn copy_buffer<'a, T: Copy>(
+    fn copy_buffer<'a, T: Copy, D: ExecutionDomain + TransferSupport>(
         mut gfx: gfx::SharedContext,
-        cmd: IncompleteCommandBuffer<'a, Compute>,
+        cmd: IncompleteCommandBuffer<'a, D>,
         src: &[T],
         usage: vk::BufferUsageFlags,
-    ) -> Result<(IncompleteCommandBuffer<'a, Compute>, Buffer, Buffer)> {
+    ) -> Result<(IncompleteCommandBuffer<'a, D>, Buffer, Buffer)> {
         let staging = Buffer::new(
             gfx.device.clone(),
             &mut gfx.allocator,
@@ -70,11 +60,7 @@ impl TerrainPlane {
         Ok((cmd, result, staging))
     }
 
-    pub fn generate(
-        mut gfx: gfx::SharedContext,
-        options: TerrainOptions,
-        heightmap: Arc<HeightMap>,
-    ) -> Result<Self> {
+    pub fn generate(mut gfx: gfx::SharedContext, options: TerrainOptions) -> Result<Self> {
         trace!(
             "Generating terrain mesh with patch resolution {}x{}",
             options.patch_resolution,
@@ -116,10 +102,10 @@ impl TerrainPlane {
             })
             .collect();
 
-        trace!("Uploading terrain mesh to GPU and generating normals.");
+        trace!("Uploading terrain mesh to GPU");
         let cmd = gfx
             .exec
-            .on_domain::<Compute>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
+            .on_domain::<Transfer>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
 
         let (cmd, vertices, _vert_staging) = Self::copy_buffer(
             gfx.clone(),
@@ -136,48 +122,14 @@ impl TerrainPlane {
             vk::BufferUsageFlags::INDEX_BUFFER,
         )?;
 
-        let normals = Buffer::new_device_local(
-            gfx.device.clone(),
-            &mut gfx.allocator,
-            (options.patch_resolution
-                * options.patch_resolution
-                * 3
-                * std::mem::size_of::<f32>() as u32) as u64,
-            vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
-        )?;
-        let normals_view = normals.view_full();
-
-        let sampler = Sampler::default(gfx.device.clone())?;
-        let dispatches = (resolution / 16.0).ceil() as u32;
-
-        let cmd = cmd
-            .memory_barrier(
-                PipelineStage::TRANSFER,
-                vk::AccessFlags2::TRANSFER_WRITE,
-                PipelineStage::COMPUTE_SHADER,
-                vk::AccessFlags2::SHADER_STORAGE_READ,
-            )
-            .bind_compute_pipeline("terrain_normals")?
-            .bind_storage_buffer(0, 0, &vertices_view)?
-            .bind_storage_buffer(0, 1, &normals_view)?
-            .bind_sampled_image(0, 2, &heightmap.image.view, &sampler)?
-            .push_constants(
-                vk::ShaderStageFlags::COMPUTE,
-                0,
-                std::slice::from_ref(&options.patch_resolution),
-            )
-            .dispatch(dispatches, dispatches, 1)?;
-
         gfx.exec.submit(cmd.finish()?)?.wait_and_yield()?;
 
         Ok(Self {
             vertices_view,
-            normals,
             indices_view: indices.view_full(),
             vertices,
             indices,
             index_count: w * w * 4,
-            normals_view,
         })
     }
 }

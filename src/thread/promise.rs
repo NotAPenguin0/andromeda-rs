@@ -196,3 +196,59 @@ impl<T: Send + 'static> ThenTryInto for Promise<Result<T>> {
         })
     }
 }
+
+pub trait JoinPromise {
+    type Output: Send;
+
+    /// Return a new promise that completes with `(value, func())`, where `value` is the value
+    /// `self` completes with. Both promises run concurrently.
+    fn join<U: Send + 'static, F: FnOnce() -> U + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<(Self::Output, U)>;
+}
+
+impl<T: Send + 'static> JoinPromise for Promise<T> {
+    type Output = T;
+
+    fn join<U: Send + 'static, F: FnOnce() -> U + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<(Self::Output, U)> {
+        Promise::spawn_blocking(move || {
+            // This looks counter-intuitive, why would we block?
+            // The reason is that the `self` promise is still running in the background while the computation for
+            // `func()` runs. This means that these promises are in fact running concurrently.
+            // As a result, this promise will return when both promises have finished.
+            let value = func();
+            (self.block_and_take(), value)
+        })
+    }
+}
+
+pub trait TryJoinPromise {
+    type Output: Send;
+
+    /// Return a new promise that completes with
+    /// - `Err(e)` if `self` completed with `Err(e)`
+    /// - `Err(e)` if `func()` returned `Err(e)`
+    /// - `Ok(first, second)` if `self` completed with `Ok(first)` and `func()` returned `Ok(second)`
+    fn try_join<U: Send + 'static, F: FnOnce() -> Result<U> + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<Result<(Self::Output, U)>>;
+}
+
+impl<T: Send + 'static> TryJoinPromise for Promise<Result<T>> {
+    type Output = T;
+
+    fn try_join<U: Send + 'static, F: FnOnce() -> Result<U> + Send + 'static>(
+        self,
+        func: F,
+    ) -> Promise<Result<(Self::Output, U)>> {
+        Promise::spawn_blocking(move || {
+            let value = func()?;
+            Ok((self.block_and_take()?, value))
+        })
+    }
+}

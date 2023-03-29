@@ -32,3 +32,7 @@ winit = "0.28.1"
 [profile.release-with-debug]
 inherits = "release"
 debug = true
+
+# image is slow as fuck lol
+[profile.dev.package.image]
+opt-level = 3

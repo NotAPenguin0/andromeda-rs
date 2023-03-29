@@ -10,7 +10,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex, RwLock};
 use std::{env, fs};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 pub use dynamic_pipeline_builder::*;
 use notify::EventKind;
 use phobos::{prelude as ph, vk, PipelineType};
@@ -183,11 +183,10 @@ impl ShaderReload {
             .output()?;
         match output.status.success() {
             true => Self::load_spirv_file(&out),
-            false => Err(anyhow!(
-                "Error compiling shader {:?}: {}",
-                path,
+            false => bail!(
+                "Error compiling shader {path:?}: {}",
                 String::from_utf8(output.stderr).unwrap()
-            )),
+            ),
         }
     }
 
@@ -197,7 +196,7 @@ impl ShaderReload {
         pipeline: &str,
         stage: vk::ShaderStageFlags,
     ) -> Result<()> {
-        info!("Reloading pipeline {:?}", pipeline);
+        info!("Reloading pipeline {pipeline:?}");
         // let mut file = File::open(shader).await?;
         // let mut source = String::new();
         // file.read_to_string(&mut source).await?;

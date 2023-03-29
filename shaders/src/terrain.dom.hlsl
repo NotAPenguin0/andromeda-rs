@@ -6,7 +6,6 @@ cbuffer Camera {
 struct HSOutput {
     float4 Position : SV_POSITION;
     float2 UV : UV0;
-    float3 Normal : NORMAL0;
 };
 
 struct ConstantsHSOutput {
@@ -17,7 +16,6 @@ struct ConstantsHSOutput {
 struct DSOutput {
     float4 Position : SV_POSITION;
     float2 UV : UV0;
-    float3 Normal : NORMAL0;
 };
 
 [[vk::push_constant]]
@@ -47,13 +45,8 @@ DSOutput main(ConstantsHSOutput input, float2 TessCoord : SV_DomainLocation, con
     float2 uv1 = lerp(patch[3].UV, patch[2].UV, TessCoord.x);
     float2 uv = lerp(uv0, uv1, TessCoord.y);
     
-    float3 norm1 = lerp(patch[0].Normal, patch[1].Normal, TessCoord.x);
-    float3 norm2 = lerp(patch[3].Normal, patch[2].Normal, TessCoord.x);
-    float3 normal = lerp(norm1, norm2, TessCoord.y);
-    
     position.y = heightmap.SampleLevel(smp, uv, 0.0) * pc.height_scaling;
     output.Position = mul(projection_view, position);
     output.UV = uv;
-    output.Normal = normal;
     return output;
 }

@@ -5,7 +5,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use half::f16;
 use image::ImageFormat;
 use ndarray::Ix2;
@@ -117,7 +117,7 @@ impl HeightMap {
         let image = reader.decode()?;
         let width = image.width();
         let height = image.height();
-        trace!("png: heightmap size is {}x{}", width, height);
+        trace!("png: heightmap size is {width}x{height}");
         trace!("png: heightmap color type is {:?}", image.color());
         let image = image.into_luma16();
         let staging_buffer = Self::alloc_staging_buffer(&mut ctx, width as usize, height as usize)?;
@@ -139,14 +139,14 @@ impl HeightMap {
         mut ctx: gfx::SharedContext,
     ) -> Result<PairedImageView> {
         let file = netcdf::open(&path)?;
-        trace!("netcdf: opened file {:?}", path);
+        trace!("netcdf: opened file {path:?}");
         // Identify the variable name used for heightmap data. We'll just pick the first 2D variable
         let var = file
             .variables()
             .filter(|var| var.dimensions().len() == 2)
             .next();
         let var =
-            var.ok_or(anyhow!("netcdf file {:?} does not appear to contain any 2D data", path))?;
+            var.ok_or(anyhow!("netcdf file {path:?} does not appear to contain any 2D data"))?;
         trace!("netcdf: identified heightmap variable: {}", var.name());
         trace!("netcdf: heightmap variable type is {:?}", var.vartype());
         // netcdf data has width and height switched, cool.
@@ -197,22 +197,17 @@ impl HeightMap {
         Ok(image)
     }
 
-    pub fn from_buffer(
-        ty: FileType,
-        buffer: &[u8],
-        mut ctx: gfx::SharedContext,
-    ) -> Result<Arc<Self>> {
+    pub fn from_buffer(ty: FileType, buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<Self> {
         let image = match ty {
             FileType::Png => Self::load_png(buffer, ctx),
-            FileType::NetCDF => Err(anyhow!("netcdf: cannot load from in-memory buffer")),
-            FileType::Unknown => Err(anyhow!("Unrecognized file type.")),
+            FileType::NetCDF => bail!("netcdf: cannot load from in-memory buffer"),
+            FileType::Unknown => bail!("Unrecognized file type."),
         }?;
 
-        Ok(Arc::new(Self {
+        Ok(Self {
             image,
-        }))
+        })
     }
 }
 
 impl DeleteDeferred for HeightMap {}
-impl DeleteDeferred for Arc<HeightMap> {}

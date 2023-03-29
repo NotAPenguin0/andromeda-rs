@@ -1,13 +1,11 @@
 struct VSInput {
     [[vk::location(0)]] float2 Position : POSITION0;
     [[vk::location(1)]] float2 UV : UV0;
-    [[vk::location(2)]] float3 Normal : NORMAL0;
 };
 
 struct VSOutput {
 	float4 Position : SV_POSITION;
     [[vk::location(0)]] float2 UV : UV0;
-    [[vk::location(1)]] float3 Normal : NORMAL0;
 };
 
 [[vk::binding(0, 0)]]
@@ -22,6 +20,5 @@ VSOutput main(VSInput input, uint VertexIndex : SV_VertexID) {
     float4 position = float4(input.Position.x, 0.0, input.Position.y, 1.0);
     output.Position = position;
     output.UV = input.UV;
-    output.Normal = input.Normal;
     return output;
 }

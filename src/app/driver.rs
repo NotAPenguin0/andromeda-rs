@@ -14,6 +14,7 @@ use crate::core::{
     ScrollInfo,
 };
 use crate::gfx::resource::height_map::HeightMap;
+use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
@@ -65,11 +66,11 @@ impl Driver {
         let renderer = gfx::WorldRenderer::new(shader_reload.clone(), gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
-        TerrainPlane::init_pipelines(gfx.shared.clone(), shader_reload.clone())?;
+        NormalMap::init_pipelines(gfx.shared.clone(), shader_reload.clone())?;
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
-        camera.set_position(Position(Vec3::new(0.0, 2000.0, 0.0)));
+        camera.set_position(Position(Vec3::new(0.0, 400.0, 0.0)));
         let camera = Arc::new(RwLock::new(camera));
         let camera_controller = Arc::new(RwLock::new(CameraController::new(camera.clone())));
         input
@@ -80,7 +81,7 @@ impl Driver {
 
         let future = FutureWorld {
             terrain: Some(Terrain::from_new_heightmap(
-                "data/heightmaps/mountain.png",
+                "data/heightmaps/bricks.png",
                 world.terrain_options,
                 gfx.shared.clone(),
             )),

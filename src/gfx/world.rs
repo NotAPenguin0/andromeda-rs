@@ -50,9 +50,9 @@ impl World {
             terrain: None,
             options: Default::default(),
             terrain_options: TerrainOptions {
-                horizontal_scale: 10000.0,
-                vertical_scale: 2000.0,
-                patch_resolution: 5,
+                horizontal_scale: 512.0,
+                vertical_scale: 100.0,
+                patch_resolution: 32,
             },
             camera,
         }

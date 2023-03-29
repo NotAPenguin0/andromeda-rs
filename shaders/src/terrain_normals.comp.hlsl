@@ -1,58 +1,39 @@
-struct Vertex {
-    float2 Position;
-    float2 UV;
-};
-
 [[vk::binding(0, 0)]]
-StructuredBuffer<Vertex> vertices;
+RWTexture2D<float4> normals;
 
-[[vk::binding(1, 0)]]
-RWStructuredBuffer<float> normals;
-
-[[vk::combinedImageSampler, vk::binding(2, 0)]]
+[[vk::combinedImageSampler, vk::binding(1, 0)]]
 Texture2D<half> heightmap;
 
-[[vk::combinedImageSampler, vk::binding(2, 0)]]
+[[vk::combinedImageSampler, vk::binding(1, 0)]]
 SamplerState smp;
 
-[[vk::push_constant]]
-struct PC {
-    // Number of patches in each direction
-    uint patch_resolution;
-} pc;
-
-uint offset_index(uint idx, int offset) {
-    int index = (int) idx + offset;
-    index = clamp(index, 0, pc.patch_resolution - 1);
-    return (uint) index;
+float sample_height(int x, int y, uint width, uint height) {
+    x = (float) clamp(x, 0, width);
+    y = (float) clamp(y, 0, height);
+    float2 uv = float2(x, y) / float2((float) width, (float) height);
+    return heightmap.SampleLevel(smp, uv, 0.0);
 }
 
-float sample_height(uint x, uint y) {
-    float2 uv = vertices[x + y * pc.patch_resolution].UV;
-    return (float) heightmap.SampleLevel(smp, uv, 0.0);
-}
-
-[numthreads(16, 16, 1)]
+[numthreads(32, 32, 1)]
 void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
-    if (GlobalInvocationID.x >= pc.patch_resolution)
+    uint width, height;
+    normals.GetDimensions(width, height);
+    if (GlobalInvocationID.x >= width)
         return;
-    if (GlobalInvocationID.y >= pc.patch_resolution) 
+    if (GlobalInvocationID.y >= height) 
         return;
     
+   
     // We calculate the normal using a sobel filter
     // For this, we need to consider the vertices in a 3x3 area around each patch vertex.
     float heights[3][3];
     for (int hx = -1; hx <= 1; hx++) {
         for (int hy = -1; hy <= 1; hy++) {
-            heights[hx + 1][hy + 1] = sample_height(
-                offset_index(GlobalInvocationID.x, hx),
-                offset_index(GlobalInvocationID.y, hy)
-            );
+            heights[hx + 1][hy + 1] = sample_height(GlobalInvocationID.x + hx, GlobalInvocationID.y + hy, width, height);
         }
     }
 
     // Now that we have our height samples, we can calculate the normal
-    uint index = GlobalInvocationID.x + GlobalInvocationID.y * pc.patch_resolution;
     float3 normal = (float3) 0;
     normal.x = 
         heights[0][0] 
@@ -69,10 +50,10 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
         - 2.0f * heights[1][2] 
         - heights[2][2];
     
-    normal.y = 1.0;
-    normal = normalize(normal);
-
-    normals[3 * index] = normal.x;
-    normals[3 * index + 1] = normal.y;
-    normals[3 * index + 2] = normal.z;
+    // original code has 0.25 sqrt(1 - x * x - z * z) here, which leads to NaNs
+    normal.y = 0.25;
+    normal = normalize(normal * float3(2.0, 1.0, 2.0));
+    // Remap normal from -1, 1 to [0, 1] before storing
+    normal = (normal + float3(1.0, 1.0, 1.0)) / 2.0;
+    normals[GlobalInvocationID.xy] = float4(normal, 0.0);
 }

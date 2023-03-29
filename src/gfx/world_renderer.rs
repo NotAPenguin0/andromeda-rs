@@ -17,12 +17,14 @@ use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 #[derive(Debug)]
 pub struct RenderOptions {
     pub tessellation_level: u32,
+    pub wireframe: bool,
 }
 
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
             tessellation_level: 8,
+            wireframe: false,
         }
     }
 }
@@ -124,7 +126,8 @@ impl WorldRenderer {
     fn update_render_state(&mut self, world: &World) -> Result<()> {
         let camera = world.camera.read().unwrap();
         self.state.view = camera.matrix();
-        self.state.projection = Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 10000000.0);
+        self.state.projection =
+            Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 10000000.0);
         // Flip y because Vulkan
         let v = self.state.projection.col_mut(1).y;
         self.state.projection.col_mut(1).y = v * -1.0;
@@ -132,7 +135,8 @@ impl WorldRenderer {
         self.state.projection_view = self.state.projection * self.state.view;
         self.state.inverse_projection_view = self.state.projection_view.inverse();
         self.state.inverse_projection = self.state.projection.inverse();
-        self.state.inverse_view_rotation = Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
+        self.state.inverse_view_rotation =
+            Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.atmosphere = world.atmosphere;
         self.state.sun_dir = -world.sun_direction.front_direction();
         Ok(())
@@ -163,7 +167,11 @@ impl WorldRenderer {
             .await?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
-            .color_attachment(&graph.latest_version(&scene_output)?, vk::AttachmentLoadOp::LOAD, None)?
+            .color_attachment(
+                &graph.latest_version(&scene_output)?,
+                vk::AttachmentLoadOp::LOAD,
+                None,
+            )?
             // We dont currently need depth resolved
             // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
             .resolve(&graph.latest_version(&scene_output)?, &resolved_output)

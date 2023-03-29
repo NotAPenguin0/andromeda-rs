@@ -27,7 +27,7 @@ pub fn show(
                 .suffix(" m")
                 .show(ui);
             dirty |= aligned_label_with(ui, "Patch resolution", |ui| {
-                ui.add(Slider::new(&mut world.terrain_options.patch_resolution, 1..=64))
+                ui.add(Slider::new(&mut world.terrain_options.patch_resolution, 1..=32))
                     .changed()
             })
             .inner;
@@ -35,9 +35,11 @@ pub fn show(
             // If changed, generate new terrain
             if dirty {
                 let options = world.terrain_options.clone();
-                future.terrain = world.terrain.as_ref().map(|terrain| {
-                    Terrain::from_new_mesh(terrain.height_map.clone(), options, gfx)
-                });
+                if world.terrain.is_some() {
+                    let old = world.terrain.take().unwrap();
+                    future.terrain =
+                        Some(Terrain::from_new_mesh(old.height_map, old.normal_map, options, gfx));
+                }
             }
         });
 }

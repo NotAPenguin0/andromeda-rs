@@ -50,7 +50,11 @@ impl UpdateLoop {
         Ok(Self {})
     }
 
-    fn try_take_promise<T: Send + DeleteDeferred>(promise: &mut Option<Promise<Result<T>>>, dst: &mut Option<T>, deferred_delete: &mut DeferredDelete) {
+    fn try_take_promise<T: Send + DeleteDeferred + 'static, U: Send + Into<T>>(
+        promise: &mut Option<Promise<Result<U>>>,
+        dst: &mut Option<T>,
+        deferred_delete: &mut DeferredDelete,
+    ) {
         if let Some(_) = &promise {
             if let Some(_) = promise.as_ref().unwrap().ready() {
                 // Unwrap safety: We just verified that this Option contains a value, and that
@@ -66,7 +70,7 @@ impl UpdateLoop {
                 }
                 *dst = match promise.try_take() {
                     Ok(result) => match result {
-                        Ok(value) => Some(value),
+                        Ok(value) => Some(value.into()),
                         Err(err) => {
                             error!("Error inside promise: {}", err);
                             None
@@ -78,9 +82,13 @@ impl UpdateLoop {
         }
     }
 
-    pub fn poll_future(&self, world: &mut World, future: &mut FutureWorld, deferred_delete: &mut DeferredDelete) {
-        Self::try_take_promise(&mut future.terrain_mesh, &mut world.terrain_mesh, deferred_delete);
-        Self::try_take_promise(&mut future.heightmap, &mut world.height_map, deferred_delete);
+    pub fn poll_future(
+        &self,
+        world: &mut World,
+        future: &mut FutureWorld,
+        deferred_delete: &mut DeferredDelete,
+    ) {
+        Self::try_take_promise(&mut future.terrain, &mut world.terrain, deferred_delete);
     }
 
     pub async fn update(
@@ -111,9 +119,10 @@ impl UpdateLoop {
         // Bind the swapchain resource.
         bindings.bind_image("swapchain", ifc.swapchain_image.as_ref().unwrap());
         // Record this frame.
-        let cmd = gfx
-            .exec
-            .on_domain::<ph::domain::All>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
+        let cmd = gfx.exec.on_domain::<ph::domain::All>(
+            Some(gfx.pipelines.clone()),
+            Some(gfx.descriptors.clone()),
+        )?;
         let cmd = graph.record(cmd, &bindings, &mut ifc, debug_messenger)?;
         cmd.finish()
     }

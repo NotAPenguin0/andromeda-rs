@@ -49,7 +49,7 @@ impl CameraController {
     fn handle_scroll(&self, scroll: ScrollInfo) -> Result<()> {
         let mut camera = self.camera.write().unwrap();
         let delta = camera.front() * scroll.delta_y;
-        const SPEED: f32 = 40.0;
+        const SPEED: f32 = 50.0;
         camera.update_position(Position(delta * SPEED));
         Ok(())
     }

@@ -1,13 +1,7 @@
 use poll_promise::Promise;
+use rayon::Yield;
 
-pub fn spawn_promise<T: Send + 'static, F: FnOnce() -> T + Send + 'static>(func: F) -> Promise<T> {
-    let (sender, promise) = Promise::new();
-    rayon::spawn(move || {
-        let value = func();
-        sender.send(value);
-    });
-    promise
-}
+pub mod promise;
 
 pub struct SendSyncPtr<T> {
     pointer: *const T,
@@ -28,3 +22,10 @@ impl<T> SendSyncPtr<T> {
 unsafe impl<T> Send for SendSyncPtr<T> {}
 
 unsafe impl<T> Sync for SendSyncPtr<T> {}
+
+pub fn yield_now() {
+    match rayon::yield_now() {
+        Some(Yield::Executed) => {}
+        _ => std::thread::yield_now(),
+    }
+}

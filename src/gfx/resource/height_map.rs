@@ -1,6 +1,8 @@
 use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use half::f16;
@@ -16,7 +18,8 @@ use rayon::prelude::*;
 use crate::gfx;
 use crate::gfx::resource::deferred_delete::{DeferredDelete, DeleteDeferred};
 use crate::gfx::PairedImageView;
-use crate::thread::{spawn_promise, SendSyncPtr};
+use crate::thread::promise::spawn_promise;
+use crate::thread::SendSyncPtr;
 
 #[derive(Debug)]
 pub struct HeightMap {
@@ -24,7 +27,11 @@ pub struct HeightMap {
 }
 
 impl HeightMap {
-    fn alloc_staging_buffer(ctx: &mut gfx::SharedContext, width: usize, height: usize) -> Result<ph::Buffer> {
+    fn alloc_staging_buffer(
+        ctx: &mut gfx::SharedContext,
+        width: usize,
+        height: usize,
+    ) -> Result<ph::Buffer> {
         ph::Buffer::new(
             ctx.device.clone(),
             &mut ctx.allocator,
@@ -34,7 +41,12 @@ impl HeightMap {
         )
     }
 
-    fn upload(mut ctx: gfx::SharedContext, buffer: &ph::BufferView, width: u32, height: u32) -> Result<PairedImageView> {
+    fn upload(
+        mut ctx: gfx::SharedContext,
+        buffer: &ph::BufferView,
+        width: u32,
+        height: u32,
+    ) -> Result<PairedImageView> {
         let image = ph::Image::new(
             ctx.device.clone(),
             &mut ctx.allocator,
@@ -70,8 +82,8 @@ impl HeightMap {
                 vk::AccessFlags2::NONE,
             )
             .finish()?;
-        // We are inside a rayon task, so cooperative wait is the best option for us
-        ctx.exec.submit(cmd)?.cooperative_wait()?;
+        // We are inside a rayon task, so this is the best option for us
+        ctx.exec.submit(cmd)?.wait_and_yield()?;
         Ok(image)
     }
 
@@ -90,7 +102,10 @@ impl HeightMap {
         });
     }
 
-    fn load_png<P: AsRef<Path> + Debug>(path: P, mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
+    fn load_png<P: AsRef<Path> + Debug>(
+        path: P,
+        mut ctx: gfx::SharedContext,
+    ) -> Result<PairedImageView> {
         let image = image::io::Reader::open(&path)?.decode()?;
         let width = image.width();
         let height = image.height();
@@ -112,14 +127,18 @@ impl HeightMap {
         Ok(image)
     }
 
-    fn load_netcdf<P: AsRef<Path> + Debug>(path: P, mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
+    fn load_netcdf<P: AsRef<Path> + Debug>(
+        path: P,
+        mut ctx: gfx::SharedContext,
+    ) -> Result<PairedImageView> {
         let file = netcdf::open(&path)?;
         // Identify the variable name used for heightmap data. We'll just pick the first 2D variable
         let var = file
             .variables()
             .filter(|var| var.dimensions().len() == 2)
             .next();
-        let var = var.ok_or(anyhow!("netcdf file {:?} does not appear to contain any 2D data", path))?;
+        let var =
+            var.ok_or(anyhow!("netcdf file {:?} does not appear to contain any 2D data", path))?;
         trace!("netcdf: identified heightmap variable: {}", var.name());
         trace!("netcdf: heightmap variable type is {:?}", var.vartype());
         // netcdf data has width and height switched, cool.
@@ -170,23 +189,26 @@ impl HeightMap {
         Ok(image)
     }
 
-    pub fn from_file<P: AsRef<Path> + Debug + Send + 'static>(path: P, ctx: gfx::SharedContext) -> Promise<Result<Self>> {
+    pub fn from_file<P: AsRef<Path> + Debug>(
+        path: P,
+        ctx: gfx::SharedContext,
+    ) -> Result<Arc<Self>> {
         info!("Loading heightmap from file: {:?}", path);
-        spawn_promise(move || {
-            let extension = path.as_ref().extension().unwrap_or(OsStr::new(""));
-            let image = if extension == OsStr::new("nc") {
-                Self::load_netcdf(path, ctx)?
-            } else if extension == OsStr::new("png") {
-                Self::load_png(path, ctx)?
-            } else {
-                todo!("Unsupported heightmap format")
-            };
+        let extension = path.as_ref().extension().unwrap_or(OsStr::new(""));
+        let image = if extension == OsStr::new("nc") {
+            Self::load_netcdf(path, ctx)?
+        } else if extension == OsStr::new("png") {
+            Self::load_png(path, ctx)?
+        } else {
+            todo!("Unsupported heightmap format")
+        };
 
-            Ok(Self {
-                image,
-            })
-        })
+        Ok(Arc::new(Self {
+            image,
+        }))
     }
 }
 
 impl DeleteDeferred for HeightMap {}
+
+impl DeleteDeferred for Arc<HeightMap> {}

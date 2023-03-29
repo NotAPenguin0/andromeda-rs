@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use phobos::{vk, PipelineBuilder, PipelineCache};
+use phobos::{vk, ComputePipelineBuilder, PipelineBuilder, PipelineCache};
 
 use crate::hot_reload::SyncShaderReload;
 
@@ -25,6 +25,12 @@ pub struct DynamicPipelineBuilder {
     shaders: Vec<ShaderInfo>,
 }
 
+#[derive(Debug)]
+pub struct DynamicComputePipelineBuilder {
+    inner: ComputePipelineBuilder,
+    shader: Option<ShaderInfo>,
+}
+
 impl DynamicPipelineBuilder {
     pub fn attach_shader(mut self, path: impl Into<PathBuf>, stage: vk::ShaderStageFlags) -> Self {
         self.shaders.push(ShaderInfo {
@@ -36,7 +42,11 @@ impl DynamicPipelineBuilder {
     }
 
     /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
-    pub fn build(self, hot_reload: SyncShaderReload, cache: Arc<Mutex<PipelineCache>>) -> Result<()> {
+    pub fn build(
+        self,
+        hot_reload: SyncShaderReload,
+        cache: Arc<Mutex<PipelineCache>>,
+    ) -> Result<()> {
         let pci = self.inner.build();
         {
             let mut cache = cache.lock().unwrap();
@@ -63,6 +73,45 @@ impl IntoDynamic for PipelineBuilder {
         DynamicPipelineBuilder {
             inner: self,
             shaders: vec![],
+        }
+    }
+}
+
+impl DynamicComputePipelineBuilder {
+    pub fn set_shader(mut self, path: impl Into<PathBuf>) -> Self {
+        self.shader = Some(ShaderInfo {
+            path: path.into(),
+            stage: vk::ShaderStageFlags::COMPUTE,
+            pipeline: self.inner.get_name().into(),
+        });
+        self
+    }
+
+    pub fn build(
+        self,
+        hot_reload: SyncShaderReload,
+        cache: Arc<Mutex<PipelineCache>>,
+    ) -> Result<()> {
+        let pci = self.inner.build();
+        {
+            let mut cache = cache.lock().unwrap();
+            cache.create_named_compute_pipeline(pci)?;
+        }
+
+        let mut reload = hot_reload.write().unwrap();
+        let shader = self.shader.expect("Must set a shader");
+        reload.add_shader(shader.path, shader.stage, shader.pipeline);
+        Ok(())
+    }
+}
+
+impl IntoDynamic for ComputePipelineBuilder {
+    type Target = DynamicComputePipelineBuilder;
+
+    fn into_dynamic(self) -> Self::Target {
+        DynamicComputePipelineBuilder {
+            inner: self,
+            shader: None,
         }
     }
 }

@@ -9,8 +9,12 @@ use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
 use crate::app::update_loop::UpdateLoop;
-use crate::core::{ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition, ScrollInfo};
+use crate::core::{
+    ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
+    ScrollInfo,
+};
 use crate::gfx::resource::height_map::HeightMap;
+use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
@@ -18,6 +22,7 @@ use crate::gui::util::integration::UIIntegration;
 use crate::hot_reload::{ShaderReload, SyncShaderReload};
 use crate::math::Position;
 use crate::state::Camera;
+use crate::thread::promise::{spawn_promise, MapPromise, ThenPromise, ThenTry, WaitAndYield};
 use crate::{gfx, gui};
 
 /// Main application driver. Hosts the event loop.
@@ -46,7 +51,11 @@ impl Driver {
         Ok((event_loop, window))
     }
 
-    fn create_gui_integration(event_loop: &EventLoop<()>, window: &Window, gfx: &gfx::Context) -> Result<UIIntegration> {
+    fn create_gui_integration(
+        event_loop: &EventLoop<()>,
+        window: &Window,
+        gfx: &gfx::Context,
+    ) -> Result<UIIntegration> {
         UIIntegration::new(event_loop, &window, gfx.shared.clone())
     }
 
@@ -56,6 +65,8 @@ impl Driver {
         let shader_reload = ShaderReload::new(gfx.shared.pipelines.clone(), "shaders/", true)?;
         let renderer = gfx::WorldRenderer::new(shader_reload.clone(), gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
+
+        TerrainPlane::init_pipelines(gfx.shared.clone(), shader_reload.clone())?;
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
@@ -67,10 +78,16 @@ impl Driver {
             .unwrap()
             .add_listener(CameraInputListener::new(camera_controller.clone()));
         let world = World::new(camera);
-        // Initially generate a mesh already
+
+        let ctx = gfx.shared.clone();
+        let ctx2 = ctx.clone();
+        let terrain =
+            spawn_promise(move || HeightMap::from_file("data/heightmaps/iceland.nc", ctx))
+                .then_try(move |heightmap| {
+                    TerrainPlane::generate(ctx2, world.terrain_options, heightmap.clone())
+                });
         let future = FutureWorld {
-            terrain_mesh: Some(TerrainPlane::generate(gfx.shared.clone(), world.terrain_options)),
-            heightmap: Some(HeightMap::from_file("data/heightmaps/iceland.nc", gfx.shared.clone())),
+            terrain: Some(terrain),
         };
         Ok(Driver {
             window,
@@ -178,12 +195,7 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
                     if input.state == ElementState::Pressed {
                         match input.virtual_keycode {
                             None => {}
-                            Some(keycode) => match keycode {
-                                VirtualKeyCode::R => {
-                                    driver.future.terrain_mesh = Some(TerrainPlane::generate(driver.gfx.shared.clone(), driver.world.terrain_options))
-                                }
-                                _ => {}
-                            },
+                            _ => {}
                         }
                     }
                 }

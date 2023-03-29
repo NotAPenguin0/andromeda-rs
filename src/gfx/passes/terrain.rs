@@ -23,14 +23,23 @@ impl TerrainRenderer {
             .vertex_input(0, vk::VertexInputRate::VERTEX)
             .vertex_attribute(0, 0, vk::Format::R32G32_SFLOAT)?
             .vertex_attribute(0, 1, vk::Format::R32G32_SFLOAT)?
+            // Normals
+            .vertex_input(1, vk::VertexInputRate::VERTEX)
+            .vertex_attribute(1, 2, vk::Format::R32G32B32_SFLOAT)?
             .polygon_mode(vk::PolygonMode::LINE)
             .blend_attachment_none()
             .tessellation(4, vk::PipelineTessellationStateCreateFlags::empty())
             .into_dynamic()
             .attach_shader("shaders/src/terrain.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/terrain.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .attach_shader("shaders/src/terrain.hull.hlsl", vk::ShaderStageFlags::TESSELLATION_CONTROL)
-            .attach_shader("shaders/src/terrain.dom.hlsl", vk::ShaderStageFlags::TESSELLATION_EVALUATION)
+            .attach_shader(
+                "shaders/src/terrain.hull.hlsl",
+                vk::ShaderStageFlags::TESSELLATION_CONTROL,
+            )
+            .attach_shader(
+                "shaders/src/terrain.dom.hlsl",
+                vk::ShaderStageFlags::TESSELLATION_EVALUATION,
+            )
             .build(shader_reload.clone(), ctx.pipelines)?;
         Ok(Self {
             heightmap_sampler: ph::Sampler::new(
@@ -85,33 +94,37 @@ impl TerrainRenderer {
                 }),
             )?
             .execute(|cmd, ifc, _bindings| {
-                if let Some(terrain) = &world.terrain_mesh {
-                    if let Some(heightmap) = &world.height_map {
-                        let mut cam_ubo = ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
-                        cam_ubo
-                            .mapped_slice()?
-                            .copy_from_slice(std::slice::from_ref(&state.projection_view));
-                        let tess_factor: u32 = world.options.tessellation_level;
-                        cmd.bind_graphics_pipeline("terrain")?
-                            .full_viewport_scissor()
-                            // .set_polygon_mode(vk::PolygonMode::LINE)?
-                            .push_constants(
-                                vk::ShaderStageFlags::TESSELLATION_CONTROL,
-                                0,
-                                std::slice::from_ref(&tess_factor),
-                            )
-                            .push_constants(
-                                vk::ShaderStageFlags::TESSELLATION_EVALUATION,
-                                4,
-                                std::slice::from_ref(&world.terrain_options.vertical_scale),
-                            )
-                            .bind_uniform_buffer(0, 0, &cam_ubo)?
-                            .bind_sampled_image(0, 1, &heightmap.image.view, &self.heightmap_sampler)?
-                            .bind_vertex_buffer(0, &terrain.vertices_view)
-                            .draw(terrain.vertex_count, 1, 0, 0)
-                    } else {
-                        Ok(cmd)
-                    }
+                if let Some(terrain) = &world.terrain {
+                    let mut cam_ubo =
+                        ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
+                    cam_ubo
+                        .mapped_slice()?
+                        .copy_from_slice(std::slice::from_ref(&state.projection_view));
+                    let tess_factor: u32 = world.options.tessellation_level;
+                    cmd.bind_graphics_pipeline("terrain")?
+                        .full_viewport_scissor()
+                        // .set_polygon_mode(vk::PolygonMode::LINE)?
+                        .push_constants(
+                            vk::ShaderStageFlags::TESSELLATION_CONTROL,
+                            0,
+                            std::slice::from_ref(&tess_factor),
+                        )
+                        .push_constants(
+                            vk::ShaderStageFlags::TESSELLATION_EVALUATION,
+                            4,
+                            std::slice::from_ref(&world.terrain_options.vertical_scale),
+                        )
+                        .bind_uniform_buffer(0, 0, &cam_ubo)?
+                        .bind_sampled_image(
+                            0,
+                            1,
+                            &terrain.height_map.image.view,
+                            &self.heightmap_sampler,
+                        )?
+                        .bind_vertex_buffer(0, &terrain.mesh.vertices_view)
+                        .bind_vertex_buffer(1, &terrain.mesh.normals_view)
+                        .bind_index_buffer(&terrain.mesh.indices_view, vk::IndexType::UINT32)
+                        .draw_indexed(terrain.mesh.index_count, 1, 0, 0, 0)
                 } else {
                     Ok(cmd)
                 }

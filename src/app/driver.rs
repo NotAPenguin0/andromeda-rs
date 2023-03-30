@@ -81,7 +81,8 @@ impl Driver {
 
         let future = FutureWorld {
             terrain: Some(Terrain::from_new_heightmap(
-                "data/heightmaps/bricks.png",
+                "data/heightmaps/mountain.png",
+                "data/textures/mountain.png",
                 world.terrain_options,
                 gfx.shared.clone(),
             )),

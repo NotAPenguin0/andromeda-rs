@@ -12,7 +12,7 @@ use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 #[derive(Debug)]
 pub struct TerrainRenderer {
     heightmap_sampler: ph::Sampler,
-    normalmap_sampler: ph::Sampler,
+    linear_sampler: ph::Sampler,
 }
 
 impl TerrainRenderer {
@@ -66,7 +66,7 @@ impl TerrainRenderer {
                     unnormalized_coordinates: vk::FALSE,
                 },
             )?,
-            normalmap_sampler: ph::Sampler::new(
+            linear_sampler: ph::Sampler::new(
                 ctx.device.clone(),
                 vk::SamplerCreateInfo {
                     s_type: vk::StructureType::SAMPLER_CREATE_INFO,
@@ -155,7 +155,13 @@ impl TerrainRenderer {
                             0,
                             3,
                             &terrain.normal_map.image.view,
-                            &self.normalmap_sampler,
+                            &self.linear_sampler,
+                        )?
+                        .bind_sampled_image(
+                            0,
+                            4,
+                            &terrain.diffuse_map.image.view,
+                            &self.linear_sampler,
                         )?
                         .set_polygon_mode(if world.options.wireframe {
                             vk::PolygonMode::LINE

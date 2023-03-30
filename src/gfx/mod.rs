@@ -19,6 +19,7 @@ mod passes;
 mod postprocess;
 pub mod resource;
 mod targets;
+pub mod util;
 pub mod world;
 mod world_renderer;
 

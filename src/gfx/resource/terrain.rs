@@ -10,6 +10,7 @@ use crate::gfx;
 use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::resource::height_map::{FileType, HeightMap};
 use crate::gfx::resource::normal_map::NormalMap;
+use crate::gfx::resource::texture::Texture;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::TerrainOptions;
 use crate::thread::io::{read_file, read_file_async};
@@ -21,6 +22,7 @@ use crate::thread::promise::{
 pub struct Terrain {
     pub height_map: HeightMap,
     pub normal_map: NormalMap,
+    pub diffuse_map: Texture,
     pub mesh: TerrainPlane,
 }
 
@@ -40,11 +42,13 @@ impl Terrain {
     /// Loads a terrain from a new heightmap and creates a mesh associated with it.
     pub fn from_new_heightmap<P: AsRef<Path> + Copy + Debug + Send + 'static>(
         heightmap_path: P,
+        texture_path: P,
         options: TerrainOptions,
         ctx: gfx::SharedContext,
     ) -> Promise<Result<Terrain>> {
         let ctx2 = ctx.clone();
         let ctx3 = ctx.clone();
+        let ctx4 = ctx.clone();
         trace!("Loading new heightmap from file: {heightmap_path:?}");
         Promise::spawn_blocking(move || {
             let mesh = TerrainPlane::generate(ctx2.clone(), options)?;
@@ -84,32 +88,39 @@ impl Terrain {
             })
             .block_and_take()
         })
-        .then_try_into()
+        .try_join(move || {
+            let texture = Texture::from_file(ctx4, texture_path).block_and_take()?;
+            Ok(texture)
+        })
+        .then_try_map(|((mesh, (height, normal)), texture)| {
+            info!("Fully loaded terrain");
+            Ok(Terrain {
+                height_map: height,
+                normal_map: normal,
+                diffuse_map: texture,
+                mesh,
+            })
+        })
     }
 
     /// Loads a terrain from an existing heightmap but generates a new mesh.
     pub fn from_new_mesh(
         height_map: HeightMap,
         normal_map: NormalMap,
+        diffuse_map: Texture,
         options: TerrainOptions,
         ctx: gfx::SharedContext,
     ) -> Promise<Result<Terrain>> {
         Promise::spawn(move || {
             let mesh = TerrainPlane::generate(ctx, options)?;
             info!("Terrain mesh regenerated successfully");
-            Ok((mesh, (height_map, normal_map)))
+            Ok(Terrain {
+                height_map,
+                normal_map,
+                diffuse_map,
+                mesh,
+            })
         })
-        .then_try_into()
-    }
-}
-
-impl From<(TerrainPlane, (HeightMap, NormalMap))> for Terrain {
-    fn from(value: (TerrainPlane, (HeightMap, NormalMap))) -> Self {
-        Self {
-            mesh: value.0,
-            height_map: value.1 .0,
-            normal_map: value.1 .1,
-        }
     }
 }
 

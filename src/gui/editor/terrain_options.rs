@@ -37,8 +37,13 @@ pub fn show(
                 let options = world.terrain_options.clone();
                 if world.terrain.is_some() {
                     let old = world.terrain.take().unwrap();
-                    future.terrain =
-                        Some(Terrain::from_new_mesh(old.height_map, old.normal_map, options, gfx));
+                    future.terrain = Some(Terrain::from_new_mesh(
+                        old.height_map,
+                        old.normal_map,
+                        old.diffuse_map,
+                        options,
+                        gfx,
+                    ));
                 }
             }
         });

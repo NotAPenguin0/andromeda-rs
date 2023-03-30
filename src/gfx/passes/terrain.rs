@@ -6,8 +6,7 @@ use phobos::prelude::traits::*;
 
 use crate::gfx;
 use crate::gfx::world::World;
-use crate::gfx::world_renderer::RenderOptions;
-use crate::hot_reload::{IntoDynamic, SyncShaderReload};
+use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug)]
 pub struct TerrainRenderer {
@@ -16,7 +15,7 @@ pub struct TerrainRenderer {
 }
 
 impl TerrainRenderer {
-    pub fn new(ctx: gfx::SharedContext, shader_reload: &SyncShaderReload) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("terrain")
             .samples(vk::SampleCountFlags::TYPE_8)
             .depth(true, true, false, vk::CompareOp::LESS)
@@ -41,7 +40,7 @@ impl TerrainRenderer {
                 "shaders/src/terrain.dom.hlsl",
                 vk::ShaderStageFlags::TESSELLATION_EVALUATION,
             )
-            .build(shader_reload.clone(), ctx.pipelines)?;
+            .build(ctx.shader_reload.clone(), ctx.pipelines)?;
         Ok(Self {
             heightmap_sampler: ph::Sampler::new(
                 ctx.device.clone(),

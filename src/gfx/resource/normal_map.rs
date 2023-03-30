@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use phobos::domain::Compute;
 use phobos::{
@@ -7,10 +5,9 @@ use phobos::{
     Sampler,
 };
 
-use crate::gfx;
 use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::{PairedImageView, SharedContext};
-use crate::hot_reload::{IntoDynamic, SyncShaderReload};
+use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug)]
 pub struct NormalMap {
@@ -18,12 +15,12 @@ pub struct NormalMap {
 }
 
 impl NormalMap {
-    pub fn init_pipelines(ctx: SharedContext, hot_reload: SyncShaderReload) -> Result<()> {
+    pub fn init_pipelines(ctx: SharedContext) -> Result<()> {
         ComputePipelineBuilder::new("terrain_normals")
             .persistent()
             .into_dynamic()
             .set_shader("shaders/src/terrain_normals.comp.hlsl")
-            .build(hot_reload, ctx.pipelines)
+            .build(ctx.shader_reload, ctx.pipelines)
     }
 
     fn create_sampler(ctx: &SharedContext) -> Result<Sampler> {

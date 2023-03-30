@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
@@ -7,12 +5,10 @@ use phobos::vk;
 
 use crate::gfx;
 use crate::gfx::passes::AtmosphereInfo;
-use crate::gfx::resource::height_map::HeightMap;
-use crate::gfx::resource::TerrainPlane;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
 use crate::gfx::{passes, postprocess};
-use crate::hot_reload::{IntoDynamic, SyncShaderReload};
+use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug)]
 pub struct RenderOptions {
@@ -54,7 +50,7 @@ pub struct WorldRenderer {
 }
 
 impl WorldRenderer {
-    pub fn new(reload: SyncShaderReload, ctx: gfx::SharedContext) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("flat_draw")
             .vertex_input(0, vk::VertexInputRate::VERTEX)
             .vertex_attribute(0, 0, vk::Format::R32G32B32_SFLOAT)?
@@ -66,7 +62,7 @@ impl WorldRenderer {
             .into_dynamic()
             .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .build(reload.clone(), ctx.pipelines.clone())?;
+            .build(ctx.shader_reload.clone(), ctx.pipelines.clone())?;
 
         let mut targets = RenderTargets::new()?;
         targets.set_output_resolution(1, 1)?;
@@ -100,9 +96,9 @@ impl WorldRenderer {
         Ok(Self {
             ctx: ctx.clone(),
             state: RenderState::default(),
-            tonemap: postprocess::Tonemap::new(ctx.clone(), &reload, &mut targets)?,
-            atmosphere: passes::AtmosphereRenderer::new(ctx.clone(), &reload)?,
-            terrain: passes::TerrainRenderer::new(ctx.clone(), &reload)?,
+            tonemap: postprocess::Tonemap::new(ctx.clone(), &mut targets)?,
+            atmosphere: passes::AtmosphereRenderer::new(ctx.clone())?,
+            terrain: passes::TerrainRenderer::new(ctx.clone())?,
             targets,
         })
     }

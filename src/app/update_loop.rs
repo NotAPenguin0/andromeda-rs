@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::rc::Rc;
 
 use anyhow::Result;
 use layout::backends::svg::SVGWriter;

@@ -1,9 +1,8 @@
 use std::ffi::OsStr;
 use std::fmt::Debug;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::Path;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use poll_promise::Promise;
 
 use crate::gfx;
@@ -13,10 +12,8 @@ use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::texture::Texture;
 use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::TerrainOptions;
-use crate::thread::io::{read_file, read_file_async};
-use crate::thread::promise::{
-    SpawnPromise, ThenMap, ThenTry, ThenTryInto, ThenTryMap, TryJoinPromise,
-};
+use crate::thread::io::read_file_async;
+use crate::thread::promise::{SpawnPromise, ThenTry, ThenTryMap, TryJoinPromise};
 
 #[derive(Debug)]
 pub struct Terrain {

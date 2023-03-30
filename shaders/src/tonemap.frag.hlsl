@@ -63,11 +63,16 @@ float aces_tonemap(float x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
-float4 main(in PS_INPUT input) : SV_TARGET {
-    float3 color = hdr_input.Sample(smp, input.UV).rgb;
-    float3 xyY = srgb2xyY(color);
-    float lum = xyY.b;
-    lum = aces_tonemap(lum);
-    xyY.b = lum;
-    return float4(xyY2srgb(xyY), 1.0);
+float4 main(in PS_INPUT input)
+
+: SV_TARGET {
+float3 color = hdr_input.Sample(smp, input.UV).rgb;
+float3 xyY = rgb2xyY(color);
+float lum = xyY.b;
+lum = aces_tonemap(lum);
+xyY.
+b = lum;
+return
+float4(xyY2rgb(xyY),
+1.0);
 }

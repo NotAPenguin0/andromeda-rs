@@ -5,7 +5,7 @@ use phobos as ph;
 use phobos::GraphicsCmdBuffer;
 
 use crate::gfx;
-use crate::hot_reload::{IntoDynamic, SyncShaderReload};
+use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct AtmosphereInfo {
@@ -46,7 +46,7 @@ pub struct AtmosphereRenderer {
 }
 
 impl AtmosphereRenderer {
-    pub fn new(ctx: gfx::SharedContext, shader_reload: &SyncShaderReload) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("atmosphere")
             .depth(true, false, false, vk::CompareOp::LESS_OR_EQUAL)
             .cull_mask(vk::CullModeFlags::NONE)
@@ -61,7 +61,7 @@ impl AtmosphereRenderer {
             .into_dynamic()
             .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/atmosphere.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .build(shader_reload.clone(), ctx.pipelines.clone())?;
+            .build(ctx.shader_reload.clone(), ctx.pipelines.clone())?;
 
         Ok(AtmosphereRenderer {
             ctx,
@@ -88,7 +88,8 @@ impl AtmosphereRenderer {
                     cam_pos: Vec4,
                 }
 
-                let mut camera = ifc.allocate_scratch_ubo(std::mem::size_of::<Camera>() as vk::DeviceSize)?;
+                let mut camera =
+                    ifc.allocate_scratch_ubo(std::mem::size_of::<Camera>() as vk::DeviceSize)?;
                 let camera_data = camera.mapped_slice::<Camera>()?;
                 let mut camera_data = camera_data.get_mut(0).unwrap();
                 camera_data.pv = state.projection_view;
@@ -104,7 +105,8 @@ impl AtmosphereRenderer {
                     ozone_sun: Vec4,
                 }
                 // TODO: Macro magic to make this more convenient?
-                let mut atmosphere = ifc.allocate_scratch_ubo(std::mem::size_of::<Atmosphere>() as vk::DeviceSize)?;
+                let mut atmosphere =
+                    ifc.allocate_scratch_ubo(std::mem::size_of::<Atmosphere>() as vk::DeviceSize)?;
                 let atmosphere_data = atmosphere.mapped_slice::<Atmosphere>()?;
                 let mut atmosphere_data = atmosphere_data.get_mut(0).unwrap();
                 atmosphere_data.radii_mie_albedo_g = Vec4::new(
@@ -113,9 +115,18 @@ impl AtmosphereRenderer {
                     state.atmosphere.mie_albedo,
                     state.atmosphere.mie_g,
                 );
-                atmosphere_data.rayleigh = Vec4::from((state.atmosphere.rayleigh_coefficients, state.atmosphere.rayleigh_scatter_height));
-                atmosphere_data.mie = Vec4::from((state.atmosphere.mie_coefficients, state.atmosphere.mie_scatter_height));
-                atmosphere_data.ozone_sun = Vec4::from((state.atmosphere.ozone_coefficients, state.atmosphere.sun_intensity));
+                atmosphere_data.rayleigh = Vec4::from((
+                    state.atmosphere.rayleigh_coefficients,
+                    state.atmosphere.rayleigh_scatter_height,
+                ));
+                atmosphere_data.mie = Vec4::from((
+                    state.atmosphere.mie_coefficients,
+                    state.atmosphere.mie_scatter_height,
+                ));
+                atmosphere_data.ozone_sun = Vec4::from((
+                    state.atmosphere.ozone_coefficients,
+                    state.atmosphere.sun_intensity,
+                ));
 
                 let pc = Vec4::from((state.sun_dir, 0.0));
 

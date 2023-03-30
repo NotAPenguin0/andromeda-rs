@@ -12,6 +12,7 @@ pub(self) use world_renderer::RenderState;
 pub use world_renderer::WorldRenderer;
 
 use crate::gfx::resource::deferred_delete::DeferredDelete;
+use crate::hot_reload::{ShaderReload, SyncShaderReload};
 
 mod graph;
 mod paired_image_view;
@@ -42,6 +43,7 @@ pub struct SharedContext {
     pub pipelines: Arc<Mutex<ph::PipelineCache>>,
     pub descriptors: Arc<Mutex<ph::DescriptorCache>>,
     pub device: Arc<ph::Device>,
+    pub shader_reload: SyncShaderReload,
 }
 
 impl Context {
@@ -103,6 +105,7 @@ impl Context {
 
         let pipelines = ph::PipelineCache::new(device.clone())?;
         let descriptors = ph::DescriptorCache::new(device.clone())?;
+        let shader_reload = ShaderReload::new(pipelines.clone(), "shaders/", true)?;
 
         Ok(Self {
             debug_messenger,
@@ -114,6 +117,7 @@ impl Context {
                 pipelines,
                 descriptors,
                 device,
+                shader_reload,
             },
             instance,
             deferred_delete: DeferredDelete::new(),

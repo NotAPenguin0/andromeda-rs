@@ -1,21 +1,12 @@
-use std::rc::Rc;
-use std::sync::Arc;
-
 use anyhow::Result;
-use phobos::domain::{Compute, ExecutionDomain, Transfer};
+use phobos::domain::{ExecutionDomain, Transfer};
 use phobos::traits::*;
-use phobos::{
-    domain, prelude as ph, vk, Buffer, BufferView, ComputePipelineBuilder, IncompleteCommandBuffer,
-    MemoryType, PipelineStage, Sampler,
-};
-use poll_promise::Promise;
+use phobos::{vk, Buffer, BufferView, IncompleteCommandBuffer, MemoryType};
 use rayon::prelude::*;
 
 use crate::gfx;
 use crate::gfx::resource::deferred_delete::DeleteDeferred;
-use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::world::TerrainOptions;
-use crate::hot_reload::{IntoDynamic, SyncShaderReload};
 
 /// A plane terrain mesh, used as a base for tesselation and rendering the terrain.
 #[derive(Debug)]
@@ -60,7 +51,7 @@ impl TerrainPlane {
         Ok((cmd, result, staging))
     }
 
-    pub fn generate(mut gfx: gfx::SharedContext, options: TerrainOptions) -> Result<Self> {
+    pub fn generate(gfx: gfx::SharedContext, options: TerrainOptions) -> Result<Self> {
         trace!(
             "Generating terrain mesh with patch resolution {}x{}",
             options.patch_resolution,

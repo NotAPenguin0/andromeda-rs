@@ -1,4 +1,3 @@
-use poll_promise::Promise;
 use rayon::Yield;
 
 pub mod io;

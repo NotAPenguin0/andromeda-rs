@@ -10,7 +10,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex, RwLock};
 use std::{env, fs};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 pub use dynamic_pipeline_builder::*;
 use notify::EventKind;
 use phobos::{prelude as ph, vk, PipelineType};
@@ -68,14 +68,6 @@ impl ShaderReload {
         this.write().unwrap().watch_tasks.push(watcher);
 
         Ok(this)
-    }
-
-    pub fn stop(&mut self) {
-        // Kill the owned file watchers
-        for task in &self.watch_tasks {
-            task.abort();
-        }
-        self.watch_tasks.clear();
     }
 
     pub fn add_shader(&mut self, path: PathBuf, stage: vk::ShaderStageFlags, pipeline: String) {

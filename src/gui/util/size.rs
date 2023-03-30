@@ -15,6 +15,7 @@ impl<T: Copy> Size<T> {
     pub fn x(&self) -> T {
         self.0
     }
+
     pub fn y(&self) -> T {
         self.1
     }

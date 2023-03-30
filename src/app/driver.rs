@@ -4,7 +4,7 @@ use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
 use tokio::runtime::Handle;
-use winit::event::{ElementState, MouseScrollDelta, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
@@ -13,14 +13,11 @@ use crate::core::{
     ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
     ScrollInfo,
 };
-use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::util::integration::UIIntegration;
-use crate::hot_reload::{ShaderReload, SyncShaderReload};
 use crate::math::Position;
 use crate::state::Camera;
 use crate::{gfx, gui};
@@ -38,7 +35,6 @@ pub struct Driver {
     pub gfx: gfx::Context,
     pub input: Arc<RwLock<Input>>,
     pub camera_controller: Arc<RwLock<CameraController>>,
-    pub shader_reload: SyncShaderReload,
 }
 
 impl Driver {
@@ -62,11 +58,10 @@ impl Driver {
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
         let gfx = gfx::Context::new(&window)?;
         let ui = Self::create_gui_integration(event_loop, &window, &gfx)?;
-        let shader_reload = ShaderReload::new(gfx.shared.pipelines.clone(), "shaders/", true)?;
-        let renderer = gfx::WorldRenderer::new(shader_reload.clone(), gfx.shared.clone())?;
+        let renderer = gfx::WorldRenderer::new(gfx.shared.clone())?;
         let update = UpdateLoop::new(&gfx)?;
 
-        NormalMap::init_pipelines(gfx.shared.clone(), shader_reload.clone())?;
+        NormalMap::init_pipelines(gfx.shared.clone())?;
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
@@ -82,7 +77,7 @@ impl Driver {
         let future = FutureWorld {
             terrain: Some(Terrain::from_new_heightmap(
                 "data/heightmaps/mountain.png",
-                "data/textures/mountain.png",
+                "data/textures/blank.png",
                 world.terrain_options,
                 gfx.shared.clone(),
             )),
@@ -97,7 +92,6 @@ impl Driver {
             future,
             input,
             camera_controller,
-            shader_reload,
         })
     }
 

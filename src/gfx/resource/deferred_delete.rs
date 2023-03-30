@@ -1,6 +1,4 @@
-use phobos::{Buffer, DeletionQueue};
-
-use crate::gfx::PairedImageView;
+use phobos::DeletionQueue;
 
 pub trait DeleteDeferred {}
 

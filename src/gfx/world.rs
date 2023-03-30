@@ -1,14 +1,10 @@
-use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use egui::Vec2;
 use glam::Vec3;
 use poll_promise::Promise;
 
-use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::resource::TerrainPlane;
 use crate::gfx::world_renderer::RenderOptions;
 use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;

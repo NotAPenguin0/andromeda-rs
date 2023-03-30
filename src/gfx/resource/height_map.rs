@@ -1,24 +1,18 @@
-use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::io::Cursor;
 use std::path::Path;
-use std::rc::Rc;
-use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Result};
 use half::f16;
 use image::ImageFormat;
-use ndarray::Ix2;
 use ph::traits::*;
 use ph::vk;
 use phobos::domain::Transfer;
-use phobos::vk::PipelineStageFlags;
 use phobos::{prelude as ph, MemoryType, PipelineStage};
-use poll_promise::Promise;
 use rayon::prelude::*;
 
 use crate::gfx;
-use crate::gfx::resource::deferred_delete::{DeferredDelete, DeleteDeferred};
+use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::PairedImageView;
 use crate::thread::SendSyncPtr;
 
@@ -197,7 +191,7 @@ impl HeightMap {
         Ok(image)
     }
 
-    pub fn from_buffer(ty: FileType, buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<Self> {
+    pub fn from_buffer(ty: FileType, buffer: &[u8], ctx: gfx::SharedContext) -> Result<Self> {
         let image = match ty {
             FileType::Png => Self::load_png(buffer, ctx),
             FileType::NetCDF => bail!("netcdf: cannot load from in-memory buffer"),

@@ -3,7 +3,7 @@ use phobos as ph;
 use phobos::{vk, GraphicsCmdBuffer};
 
 use crate::gfx;
-use crate::hot_reload::{IntoDynamic, SyncShaderReload};
+use crate::hot_reload::IntoDynamic;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub struct Tonemap {
 }
 
 impl Tonemap {
-    pub fn new(ctx: gfx::SharedContext, shader_reload: &SyncShaderReload, targets: &mut gfx::RenderTargets) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext, targets: &mut gfx::RenderTargets) -> Result<Self> {
         ph::PipelineBuilder::new("tonemap")
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
             .cull_mask(vk::CullModeFlags::NONE)
@@ -22,7 +22,7 @@ impl Tonemap {
             .into_dynamic()
             .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/tonemap.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
-            .build(shader_reload.clone(), ctx.pipelines.clone())?;
+            .build(ctx.shader_reload.clone(), ctx.pipelines.clone())?;
 
         targets.register_color_target(
             Self::output_name(),
@@ -42,7 +42,11 @@ impl Tonemap {
         "tonemap_output"
     }
 
-    pub fn render<'s: 'e + 'q, 'q, 'e>(&'s self, input: &ph::VirtualResource, graph: &mut gfx::FrameGraph<'e, 'q>) -> Result<()> {
+    pub fn render<'s: 'e + 'q, 'q, 'e>(
+        &'s self,
+        input: &ph::VirtualResource,
+        graph: &mut gfx::FrameGraph<'e, 'q>,
+    ) -> Result<()> {
         let input = graph.latest_version(input)?;
         let output = ph::VirtualResource::image(Self::output_name());
         let pass = ph::PassBuilder::render("tonemap")

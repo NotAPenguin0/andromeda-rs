@@ -25,7 +25,7 @@ float4 main(PS_INPUT input) : SV_TARGET {
     // remap back to [-1, 1]
     normal = normal * 2.0 - float3(1.0, 1.0, 1.0);
     float diff = max(dot(normal, -sun_dir), 0.0);
-    // TODO: this pow is not correct, just for this one texture
-    float4 color = pow(diffuse_map.Sample(color_smp, input.UV).rgba, 2.2);
+    float4 color = diffuse_map.Sample(color_smp, input.UV).rgba;
+    // color = color * 0.001 + float4(1.0, 1.0, 1.0, 1.0);
     return float4(color.rgb * diff, 1.0);
 }

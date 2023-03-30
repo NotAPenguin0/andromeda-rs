@@ -9,7 +9,7 @@ use poll_promise::Promise;
 
 use crate::gfx::util::upload::upload_image;
 use crate::gfx::{PairedImageView, SharedContext};
-use crate::thread::io::{read_file, read_file_async};
+use crate::thread::io::read_file_async;
 use crate::thread::promise::ThenTryMap;
 
 #[derive(Debug)]

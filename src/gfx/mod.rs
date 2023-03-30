@@ -49,13 +49,13 @@ pub struct SharedContext {
 impl Context {
     pub fn new(window: &Window) -> Result<Self> {
         let mut features = vk::PhysicalDeviceFeatures::default();
-        // Allows wireframe display mode
+        // Allows wireframe polygon mode
         features.fill_mode_non_solid = vk::TRUE;
         features.tessellation_shader = vk::TRUE;
 
         let settings = ph::AppBuilder::new()
             .version((0, 0, 1))
-            .name("Andromeda".to_owned())
+            .name("Andromeda")
             .validation(cfg!(debug_assertions))
             .window(window)
             .present_mode(vk::PresentModeKHR::MAILBOX)

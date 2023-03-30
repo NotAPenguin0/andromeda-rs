@@ -1,3 +1,5 @@
+use egui::Vec2;
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Size<T: Copy>(T, T);
 
@@ -21,18 +23,27 @@ impl<T: Copy> Size<T> {
     }
 }
 
-impl Into<egui::Vec2> for USize {
-    fn into(self) -> egui::Vec2 {
-        egui::Vec2 {
+impl From<Vec2> for USize {
+    fn from(value: Vec2) -> Self {
+        Self {
+            0: value.x as u32,
+            1: value.y as u32,
+        }
+    }
+}
+
+impl Into<Vec2> for USize {
+    fn into(self) -> Vec2 {
+        Vec2 {
             x: self.0 as f32,
             y: self.1 as f32,
         }
     }
 }
 
-impl Into<egui::Vec2> for FSize {
-    fn into(self) -> egui::Vec2 {
-        egui::Vec2 {
+impl Into<Vec2> for FSize {
+    fn into(self) -> Vec2 {
+        Vec2 {
             x: self.0,
             y: self.1,
         }

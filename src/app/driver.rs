@@ -17,6 +17,7 @@ use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::world::{FutureWorld, World};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
+use crate::gui::image_provider::RenderTargetImageProvider;
 use crate::gui::util::integration::UIIntegration;
 use crate::math::Position;
 use crate::state::Camera;
@@ -82,6 +83,7 @@ impl Driver {
                 gfx.shared.clone(),
             )),
         };
+
         Ok(Driver {
             window,
             gfx,
@@ -105,9 +107,11 @@ impl Driver {
 
                 gui::build_ui(
                     &self.ui.context(),
-                    &mut self.ui,
                     self.gfx.shared.clone(),
-                    &mut self.renderer.targets,
+                    RenderTargetImageProvider {
+                        targets: &mut self.renderer.targets,
+                        integration: &mut self.ui,
+                    },
                     &self.camera_controller,
                     &mut self.future,
                     &mut self.world,

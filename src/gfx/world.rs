@@ -9,13 +9,7 @@ use crate::gfx::world_renderer::RenderOptions;
 use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;
 use crate::state::Camera;
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct FutureWorld {
-    #[derivative(Debug = "ignore")]
-    pub terrain: Option<Promise<Result<Terrain>>>,
-}
+use crate::thread::promised_value::PromisedValue;
 
 #[derive(Debug, Copy, Clone)]
 pub struct TerrainOptions {
@@ -32,7 +26,7 @@ pub struct World {
     /// Direction of the sun. This is represented as a rotation for easy editing.
     pub sun_direction: Rotation,
     pub atmosphere: AtmosphereInfo,
-    pub terrain: Option<Terrain>,
+    pub terrain: PromisedValue<Terrain>,
     pub options: RenderOptions,
     pub terrain_options: TerrainOptions,
     pub camera: Arc<RwLock<Camera>>,
@@ -43,7 +37,7 @@ impl World {
         World {
             sun_direction: Rotation(Vec3::new(45f32.to_radians(), 0.0, 0.0)),
             atmosphere: AtmosphereInfo::earth(),
-            terrain: None,
+            terrain: PromisedValue::new(),
             options: Default::default(),
             terrain_options: TerrainOptions {
                 horizontal_scale: 512.0,
@@ -52,5 +46,9 @@ impl World {
             },
             camera,
         }
+    }
+
+    pub fn poll_all(&mut self) {
+        self.terrain.poll();
     }
 }

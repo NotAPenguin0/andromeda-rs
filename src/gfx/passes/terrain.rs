@@ -91,10 +91,10 @@ impl TerrainRenderer {
         })
     }
 
-    pub async fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q>(
+    pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
         world: &'world World,
-        graph: &mut gfx::FrameGraph<'e, 'q>,
+        graph: &mut gfx::FrameGraph<'e, 'q, A>,
         _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
@@ -117,7 +117,7 @@ impl TerrainRenderer {
                 }),
             )?
             .execute(|cmd, ifc, _bindings| {
-                if let Some(terrain) = &world.terrain {
+                if let Some(terrain) = world.terrain.value() {
                     let mut cam_ubo =
                         ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
                     cam_ubo

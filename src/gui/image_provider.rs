@@ -1,4 +1,5 @@
 use egui::Vec2;
+use phobos::Allocator;
 
 use crate::gfx::RenderTargets;
 use crate::gui::util::image::Image;

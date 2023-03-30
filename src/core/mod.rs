@@ -5,4 +5,3 @@ pub use safe_error::SafeUnwrap;
 pub mod byte_size;
 pub mod input;
 pub mod safe_error;
-pub mod subsystem;

@@ -5,7 +5,6 @@ use phobos::{vk, Buffer, BufferView, IncompleteCommandBuffer, MemoryType};
 use rayon::prelude::*;
 
 use crate::gfx;
-use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::world::TerrainOptions;
 
 /// A plane terrain mesh, used as a base for tesselation and rendering the terrain.
@@ -124,5 +123,3 @@ impl TerrainPlane {
         })
     }
 }
-
-impl DeleteDeferred for TerrainPlane {}

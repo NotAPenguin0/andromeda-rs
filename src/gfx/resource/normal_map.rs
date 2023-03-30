@@ -1,8 +1,8 @@
 use anyhow::Result;
 use phobos::domain::Compute;
 use phobos::{
-    vk, ComputeCmdBuffer, ComputePipelineBuilder, Image, IncompleteCmdBuffer, PipelineStage,
-    Sampler,
+    vk, Allocator, ComputeCmdBuffer, ComputePipelineBuilder, Image, IncompleteCmdBuffer,
+    PipelineStage, Sampler,
 };
 
 use crate::gfx::resource::height_map::HeightMap;

@@ -3,19 +3,20 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
+use phobos::DefaultAllocator;
 use tokio::runtime::Handle;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
-use crate::app::update_loop::UpdateLoop;
 use crate::core::{
     ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
     ScrollInfo,
 };
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::world::{FutureWorld, World};
+use crate::gfx::world::World;
+use crate::gfx::{AppRenderer, AppWindow};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::image_provider::RenderTargetImageProvider;
 use crate::gui::util::integration::UIIntegration;
@@ -27,13 +28,9 @@ use crate::{gfx, gui};
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    pub window: Window,
-    renderer: gfx::WorldRenderer,
-    ui: UIIntegration,
-    update: UpdateLoop,
+    pub window: AppWindow,
+    pub renderer: AppRenderer,
     pub world: World,
-    pub future: FutureWorld,
-    pub gfx: gfx::Context,
     pub input: Arc<RwLock<Input>>,
     pub camera_controller: Arc<RwLock<CameraController>>,
 }
@@ -48,21 +45,8 @@ impl Driver {
         Ok((event_loop, window))
     }
 
-    fn create_gui_integration(
-        event_loop: &EventLoop<()>,
-        window: &Window,
-        gfx: &gfx::Context,
-    ) -> Result<UIIntegration> {
-        UIIntegration::new(event_loop, &window, gfx.shared.clone())
-    }
-
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
-        let gfx = gfx::Context::new(&window)?;
-        let ui = Self::create_gui_integration(event_loop, &window, &gfx)?;
-        let renderer = gfx::WorldRenderer::new(gfx.shared.clone())?;
-        let update = UpdateLoop::new(&gfx)?;
-
-        NormalMap::init_pipelines(gfx.shared.clone())?;
+        let (gfx, window, renderer) = gfx::init_graphics(window, &event_loop)?;
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
@@ -73,90 +57,42 @@ impl Driver {
             .write()
             .unwrap()
             .add_listener(CameraInputListener::new(camera_controller.clone()));
-        let world = World::new(camera);
+        let mut world = World::new(camera);
 
-        let future = FutureWorld {
-            terrain: Some(Terrain::from_new_heightmap(
-                "data/heightmaps/mountain.png",
-                "data/textures/blank.png",
-                world.terrain_options,
-                gfx.shared.clone(),
-            )),
-        };
+        world.terrain.promise(Terrain::from_new_heightmap(
+            "data/heightmaps/mountain.png",
+            "data/textures/blank.png",
+            world.terrain_options,
+            gfx,
+        ));
 
         Ok(Driver {
             window,
-            gfx,
-            ui,
             renderer,
-            update,
             world,
-            future,
             input,
             camera_controller,
         })
     }
 
     pub async fn process_frame(&mut self) -> Result<()> {
-        self.gfx
-            .frame
-            .new_frame(self.gfx.shared.exec.clone(), &self.window, &self.gfx.surface, |ifc| {
-                // Do start of frame logic, we'll keep this here to keep things a bit easier
-                self.ui.new_frame(&self.window);
-                self.renderer.new_frame();
+        self.window
+            .new_frame(|window, ifc| {
+                self.world.poll_all();
+                self.renderer.new_frame(window);
 
                 gui::build_ui(
-                    &self.ui.context(),
-                    self.gfx.shared.clone(),
-                    RenderTargetImageProvider {
-                        targets: &mut self.renderer.targets,
-                        integration: &mut self.ui,
-                    },
+                    self.renderer.ui(),
+                    self.renderer.gfx(),
+                    self.renderer.image_provider(),
                     &self.camera_controller,
-                    &mut self.future,
                     &mut self.world,
                 );
 
-                Handle::current().block_on(async {
-                    self.update
-                        .update(
-                            ifc,
-                            &mut self.ui,
-                            &self.window,
-                            &mut self.world,
-                            &mut self.future,
-                            &mut self.renderer,
-                            self.gfx.shared.clone(),
-                            &mut self.gfx.deferred_delete,
-                            self.gfx.debug_messenger.as_ref(),
-                        )
-                        .await
-                })
+                self.renderer.render(&window, &self.world, ifc)
             })
             .await?;
-
-        self.gfx.next_frame();
         Ok(())
-    }
-}
-
-impl From<winit::event::MouseButton> for MouseButton {
-    fn from(value: winit::event::MouseButton) -> Self {
-        match value {
-            winit::event::MouseButton::Left => MouseButton::Left,
-            winit::event::MouseButton::Right => MouseButton::Right,
-            winit::event::MouseButton::Middle => MouseButton::Middle,
-            winit::event::MouseButton::Other(x) => MouseButton::Other(x),
-        }
-    }
-}
-
-impl From<ElementState> for ButtonState {
-    fn from(value: ElementState) -> Self {
-        match value {
-            ElementState::Pressed => ButtonState::Pressed,
-            ElementState::Released => ButtonState::Released,
-        }
     }
 }
 
@@ -167,14 +103,14 @@ pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Res
             event,
             window_id,
         } => {
-            driver.ui.process_event(&event);
+            driver.renderer.process_event(&event);
             let mut input = driver.input.write().unwrap();
             match event {
                 WindowEvent::Resized(_) => {}
                 WindowEvent::Moved(_) => {}
                 WindowEvent::CloseRequested => {
                     if window_id == driver.window.id() {
-                        driver.gfx.shared.device.wait_idle()?;
+                        driver.renderer.gfx().device.wait_idle()?;
                         return Ok(ControlFlow::Exit);
                     }
                 }

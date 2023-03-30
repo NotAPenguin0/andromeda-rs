@@ -2,7 +2,7 @@ use anyhow::Result;
 use glam::{Mat4, Vec3, Vec3Swizzles, Vec4};
 use ph::vk;
 use phobos as ph;
-use phobos::GraphicsCmdBuffer;
+use phobos::{Allocator, GraphicsCmdBuffer};
 
 use crate::gfx;
 use crate::hot_reload::IntoDynamic;
@@ -68,9 +68,9 @@ impl AtmosphereRenderer {
         })
     }
 
-    pub async fn render<'s: 'e + 'q, 'state: 'e + 'q, 'e, 'q>(
+    pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
-        graph: &mut gfx::FrameGraph<'e, 'q>,
+        graph: &mut gfx::FrameGraph<'e, 'q, A>,
         _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,

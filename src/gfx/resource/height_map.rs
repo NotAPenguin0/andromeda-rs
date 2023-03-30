@@ -12,7 +12,6 @@ use phobos::{prelude as ph, MemoryType, PipelineStage};
 use rayon::prelude::*;
 
 use crate::gfx;
-use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::PairedImageView;
 use crate::thread::SendSyncPtr;
 
@@ -203,5 +202,3 @@ impl HeightMap {
         })
     }
 }
-
-impl DeleteDeferred for HeightMap {}

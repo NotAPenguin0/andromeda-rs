@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use crate::gfx;
-use crate::gfx::world::{FutureWorld, World};
+use crate::gfx::world::World;
 use crate::gui::editor::camera_controller::CameraController;
 use crate::gui::image_provider::ImageProvider;
 use crate::gui::util::integration::UIIntegration;
@@ -12,11 +12,10 @@ pub mod util;
 pub mod widgets;
 
 pub fn build_ui(
-    context: &egui::Context,
+    context: egui::Context,
     gfx: gfx::SharedContext,
     image_provider: impl ImageProvider,
     camera_controller: &Arc<RwLock<CameraController>>,
-    future: &mut FutureWorld,
     world: &mut World,
 ) {
     egui::CentralPanel::default().show(&context, |ui| {
@@ -25,6 +24,6 @@ pub fn build_ui(
         editor::world_view::show(&context, image_provider, &camera_controller);
         editor::environment::show(&context, world);
         editor::render_options::show(&context, world);
-        editor::terrain_options::show(&context, gfx, future, world);
+        editor::terrain_options::show(&context, gfx, world);
     });
 }

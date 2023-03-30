@@ -2,6 +2,7 @@ use rayon::Yield;
 
 pub mod io;
 pub mod promise;
+pub mod promised_value;
 
 pub struct SendSyncPtr<T> {
     pointer: *const T,

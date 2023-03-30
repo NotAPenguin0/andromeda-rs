@@ -63,6 +63,26 @@ pub enum InputEvent {
     Scroll(ScrollInfo),
 }
 
+impl From<winit::event::MouseButton> for MouseButton {
+    fn from(value: winit::event::MouseButton) -> Self {
+        match value {
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            winit::event::MouseButton::Other(x) => MouseButton::Other(x),
+        }
+    }
+}
+
+impl From<winit::event::ElementState> for ButtonState {
+    fn from(value: winit::event::ElementState) -> Self {
+        match value {
+            winit::event::ElementState::Pressed => ButtonState::Pressed,
+            winit::event::ElementState::Released => ButtonState::Released,
+        }
+    }
+}
+
 pub trait InputListener {
     fn handle(&self, event: InputEvent, input: &Input) -> Result<()>;
 }
@@ -111,10 +131,16 @@ impl Input {
     }
 
     pub fn get_key(&self, key: Key) -> ButtonState {
-        self.kb_buttons.get(&key).cloned().unwrap_or(ButtonState::Released)
+        self.kb_buttons
+            .get(&key)
+            .cloned()
+            .unwrap_or(ButtonState::Released)
     }
 
     pub fn get_mouse_key(&self, key: MouseButton) -> ButtonState {
-        self.mouse_buttons.get(&key).cloned().unwrap_or(ButtonState::Released)
+        self.mouse_buttons
+            .get(&key)
+            .cloned()
+            .unwrap_or(ButtonState::Released)
     }
 }

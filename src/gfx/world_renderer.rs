@@ -1,10 +1,11 @@
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
-use phobos::vk;
+use phobos::{vk, Allocator};
 
 use crate::gfx;
 use crate::gfx::passes::AtmosphereInfo;
+use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::targets::{RenderTargets, SizeGroup};
 use crate::gfx::world::World;
 use crate::gfx::{passes, postprocess};
@@ -41,7 +42,7 @@ pub struct RenderState {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorldRenderer {
-    pub targets: RenderTargets,
+    targets: RenderTargets,
     ctx: gfx::SharedContext,
     state: RenderState,
     tonemap: postprocess::Tonemap,
@@ -63,6 +64,8 @@ impl WorldRenderer {
             .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(ctx.shader_reload.clone(), ctx.pipelines.clone())?;
+
+        NormalMap::init_pipelines(ctx.clone())?;
 
         let mut targets = RenderTargets::new()?;
         targets.set_output_resolution(1, 1)?;
@@ -119,6 +122,10 @@ impl WorldRenderer {
         self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
+    pub fn targets(&mut self) -> &mut RenderTargets {
+        &mut self.targets
+    }
+
     fn update_render_state(&mut self, world: &World) -> Result<()> {
         let camera = world.camera.read().unwrap();
         self.state.view = camera.matrix();
@@ -138,7 +145,7 @@ impl WorldRenderer {
         Ok(())
     }
 
-    pub async fn redraw_world<'s: 'e + 'q, 'world: 'e + 'q, 'q, 'e>(
+    pub fn redraw_world<'s: 'e + 'q, 'world: 'e + 'q, 'q, 'e>(
         &'s mut self,
         world: &'world World,
     ) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
@@ -154,13 +161,17 @@ impl WorldRenderer {
         let tonemapped_output = ph::VirtualResource::image(postprocess::Tonemap::output_name());
 
         // 1. Render terrain
-        self.terrain
-            .render(&world, &mut graph, &mut bindings, &scene_output, &depth, &self.state)
-            .await?;
+        self.terrain.render(
+            &world,
+            &mut graph,
+            &mut bindings,
+            &scene_output,
+            &depth,
+            &self.state,
+        )?;
         // 2. Render atmosphere
         self.atmosphere
-            .render(&mut graph, &mut bindings, &scene_output, &depth, &self.state)
-            .await?;
+            .render(&mut graph, &mut bindings, &scene_output, &depth, &self.state)?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
             .color_attachment(

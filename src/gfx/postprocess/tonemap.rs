@@ -1,6 +1,6 @@
 use anyhow::Result;
 use phobos as ph;
-use phobos::{vk, GraphicsCmdBuffer};
+use phobos::{vk, Allocator, GraphicsCmdBuffer};
 
 use crate::gfx;
 use crate::hot_reload::IntoDynamic;
@@ -42,10 +42,10 @@ impl Tonemap {
         "tonemap_output"
     }
 
-    pub fn render<'s: 'e + 'q, 'q, 'e>(
+    pub fn render<'s: 'e + 'q, 'q, 'e, A: Allocator>(
         &'s self,
         input: &ph::VirtualResource,
-        graph: &mut gfx::FrameGraph<'e, 'q>,
+        graph: &mut gfx::FrameGraph<'e, 'q, A>,
     ) -> Result<()> {
         let input = graph.latest_version(input)?;
         let output = ph::VirtualResource::image(Self::output_name());

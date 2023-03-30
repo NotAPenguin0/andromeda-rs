@@ -2,16 +2,11 @@ use egui::Slider;
 
 use crate::gfx;
 use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::world::{FutureWorld, World};
+use crate::gfx::world::World;
 use crate::gui::widgets::aligned_label::aligned_label_with;
 use crate::gui::widgets::drag::Drag;
 
-pub fn show(
-    context: &egui::Context,
-    gfx: gfx::SharedContext,
-    future: &mut FutureWorld,
-    world: &mut World,
-) {
+pub fn show(context: &egui::Context, gfx: gfx::SharedContext, world: &mut World) {
     egui::Window::new("Terrain options")
         .resizable(true)
         .movable(true)
@@ -34,15 +29,17 @@ pub fn show(
             // If changed, generate new terrain
             if dirty {
                 let options = world.terrain_options.clone();
-                if world.terrain.is_some() {
-                    let old = world.terrain.take().unwrap();
-                    future.terrain = Some(Terrain::from_new_mesh(
-                        old.height_map,
-                        old.normal_map,
-                        old.diffuse_map,
-                        options,
-                        gfx,
-                    ));
+                match world.terrain.take() {
+                    None => {}
+                    Some(old) => {
+                        world.terrain.promise(Terrain::from_new_mesh(
+                            old.height_map,
+                            old.normal_map,
+                            old.diffuse_map,
+                            options,
+                            gfx,
+                        ));
+                    }
                 }
             }
         });

@@ -6,7 +6,6 @@ use anyhow::{bail, Result};
 use poll_promise::Promise;
 
 use crate::gfx;
-use crate::gfx::resource::deferred_delete::DeleteDeferred;
 use crate::gfx::resource::height_map::{FileType, HeightMap};
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::texture::Texture;
@@ -120,5 +119,3 @@ impl Terrain {
         })
     }
 }
-
-impl DeleteDeferred for Terrain {}

@@ -20,6 +20,7 @@ pub fn read_file_async<P: Into<PathBuf> + Send + 'static>(path: P) -> Promise<Re
     })
 }
 
+#[allow(dead_code)]
 pub fn read_file<P: Into<PathBuf> + Send + 'static>(path: P) -> Promise<Result<Vec<u8>>> {
     Promise::spawn(move || {
         let path = path.into();

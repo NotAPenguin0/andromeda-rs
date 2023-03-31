@@ -3,23 +3,18 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
-use phobos::DefaultAllocator;
-use tokio::runtime::Handle;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder};
 
+use crate::app::renderer::AppRenderer;
+use crate::app::window::AppWindow;
 use crate::core::{
-    ButtonState, Input, InputEvent, Key, KeyState, MouseButton, MouseButtonState, MousePosition,
-    ScrollInfo,
+    ButtonState, Input, InputEvent, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
 };
-use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::world::World;
-use crate::gfx::{AppRenderer, AppWindow};
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
-use crate::gui::image_provider::RenderTargetImageProvider;
-use crate::gui::util::integration::UIIntegration;
 use crate::math::Position;
 use crate::state::Camera;
 use crate::{gfx, gui};

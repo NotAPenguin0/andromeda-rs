@@ -3,11 +3,9 @@ use std::sync::{Arc, RwLock};
 use crate::gfx;
 use crate::gfx::world::World;
 use crate::gui::editor::camera_controller::CameraController;
-use crate::gui::image_provider::ImageProvider;
-use crate::gui::util::integration::UIIntegration;
+use crate::gui::util::image_provider::ImageProvider;
 
 pub mod editor;
-pub mod image_provider;
 pub mod util;
 pub mod widgets;
 

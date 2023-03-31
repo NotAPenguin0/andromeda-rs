@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glam::{Mat3, Mat4, Vec3};
 use phobos as ph;
-use phobos::{vk, Allocator};
+use phobos::vk;
 
 use crate::gfx;
 use crate::gfx::passes::AtmosphereInfo;

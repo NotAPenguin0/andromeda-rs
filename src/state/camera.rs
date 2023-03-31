@@ -32,8 +32,10 @@ impl Camera {
         const MAX_ANGLE: f32 = std::f32::consts::PI / 2.0 - 0.0001;
         const UNBOUNDED: f32 = f32::MAX;
         Rotation(
-            rot.0
-                .clamp(Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0), Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0)),
+            rot.0.clamp(
+                Vec3::new(-MAX_ANGLE, -UNBOUNDED, 0.0),
+                Vec3::new(MAX_ANGLE, UNBOUNDED, 0.0),
+            ),
         )
     }
 
@@ -59,6 +61,7 @@ impl Camera {
         self.position
     }
 
+    #[allow(dead_code)]
     pub fn rotation(&self) -> Rotation {
         self.rotation
     }
@@ -71,8 +74,9 @@ impl Camera {
         self.position = pos;
     }
 
+    #[allow(dead_code)]
     pub fn set_rotation(&mut self, rot: Rotation) {
-        self.rotation = rot;
+        self.rotation = Self::clamp_rotation(rot);
     }
 
     pub fn update_position(&mut self, pos: Position) {
@@ -81,8 +85,10 @@ impl Camera {
 
     pub fn update_rotation(&mut self, rot: Rotation) {
         self.rotation.0 += rot.0;
+        self.rotation = Self::clamp_rotation(self.rotation);
     }
 
+    #[allow(dead_code)]
     pub fn update_fov(&mut self, fov: f32) {
         self.fov += fov;
     }

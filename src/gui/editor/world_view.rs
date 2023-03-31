@@ -1,12 +1,9 @@
 use std::sync::{Arc, RwLock};
 
-use egui::{Response, Vec2};
+use egui::Response;
 
-use crate::gfx;
 use crate::gui::editor::camera_controller::{enable_camera_over, CameraController};
-use crate::gui::image_provider::ImageProvider;
-use crate::gui::util::image::Image;
-use crate::gui::util::integration::UIIntegration;
+use crate::gui::util::image_provider::ImageProvider;
 use crate::gui::widgets::resizable_image::resizable_image_window;
 
 fn behaviour(response: &Response, camera_controller: &Arc<RwLock<CameraController>>) {

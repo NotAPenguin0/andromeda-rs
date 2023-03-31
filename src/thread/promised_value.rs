@@ -1,13 +1,8 @@
-use std::any::Any;
 use std::fmt::{Debug, Formatter};
 
 use anyhow::Result;
 use phobos::DeletionQueue;
 use poll_promise::Promise;
-
-use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::world::World;
-use crate::gfx::SharedContext;
 
 /// Wrapper struct that stores both a current value and a promise value that will eventually replace the current
 /// value.
@@ -26,6 +21,7 @@ impl<T: Send + 'static> PromisedValue<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new_promise(promise: Promise<Result<T>>) -> Self {
         Self {
             present: None,
@@ -69,6 +65,7 @@ impl<T: Send + 'static> PromisedValue<T> {
         self.present.as_ref()
     }
 
+    #[allow(dead_code)]
     pub fn value_mut(&mut self) -> Option<&mut T> {
         self.present.as_mut()
     }

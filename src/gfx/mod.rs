@@ -4,24 +4,16 @@ use anyhow::Result;
 pub use graph::FrameGraph;
 pub use passes::AtmosphereInfo;
 use ph::vk;
-use phobos::domain::{All, ExecutionDomain};
-use phobos::{
-    prelude as ph, Allocator, CommandBuffer, DefaultAllocator, DeletionQueue, FrameManager,
-    InFlightContext, IncompleteCmdBuffer, RecordGraphToCommandBuffer, Surface, WindowInterface,
-};
-use poll_promise::Promise;
+use phobos::{prelude as ph, Allocator, DefaultAllocator, FrameManager, Surface, WindowInterface};
 pub use targets::{RenderTargets, SizeGroup};
 pub use util::paired_image_view::PairedImageView;
-use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
-use winit::window::{Window, WindowId};
+use winit::window::Window;
 pub(self) use world_renderer::RenderState;
 pub use world_renderer::WorldRenderer;
 
-use crate::gfx::world::World;
-use crate::gui;
-use crate::gui::image_provider::RenderTargetImageProvider;
-use crate::gui::util::integration::UIIntegration;
+use crate::app::renderer::AppRenderer;
+use crate::app::window::AppWindow;
 use crate::hot_reload::{ShaderReload, SyncShaderReload};
 
 mod graph;
@@ -136,105 +128,4 @@ pub fn init_graphics(
         },
         renderer,
     ))
-}
-
-#[derive(Debug)]
-pub struct AppWindow<A: Allocator = DefaultAllocator> {
-    pub frame: FrameManager<A>,
-    pub window: Window,
-    pub surface: Surface,
-    pub gfx: SharedContext,
-}
-
-impl<A: Allocator> AppWindow<A> {
-    pub async fn new_frame<
-        D: ExecutionDomain + 'static,
-        F: FnOnce(&Window, InFlightContext<A>) -> Result<CommandBuffer<D>>,
-    >(
-        &mut self,
-        func: F,
-    ) -> Result<()> {
-        self.frame
-            .new_frame(self.gfx.exec.clone(), &self.window, &self.surface, |ifc| {
-                func(&self.window, ifc)
-            })
-            .await
-    }
-
-    pub fn id(&self) -> WindowId {
-        self.window.id()
-    }
-
-    pub fn request_redraw(&self) {
-        self.window.request_redraw();
-    }
-}
-
-#[derive(Debug)]
-pub struct AppRenderer {
-    gfx: SharedContext,
-    renderer: WorldRenderer,
-    ui: UIIntegration,
-}
-
-impl AppRenderer {
-    pub fn new(gfx: SharedContext, window: &Window, event_loop: &EventLoop<()>) -> Result<Self> {
-        Ok(Self {
-            renderer: WorldRenderer::new(gfx.clone())?,
-            ui: UIIntegration::new(&event_loop, &window, gfx.clone())?,
-            gfx,
-        })
-    }
-
-    pub fn ui(&self) -> egui::Context {
-        self.ui.context()
-    }
-
-    pub fn gfx(&self) -> SharedContext {
-        self.gfx.clone()
-    }
-
-    pub fn process_event(&mut self, event: &WindowEvent) {
-        self.ui.process_event(event);
-    }
-
-    pub fn image_provider(&mut self) -> RenderTargetImageProvider {
-        RenderTargetImageProvider {
-            targets: self.renderer.targets(),
-            integration: &mut self.ui,
-        }
-    }
-
-    pub fn new_frame(&mut self, window: &Window) {
-        self.ui.new_frame(window);
-        self.renderer.new_frame();
-        self.gfx.pipelines.lock().unwrap().next_frame();
-        self.gfx.descriptors.lock().unwrap().next_frame();
-    }
-
-    pub fn render(
-        &mut self,
-        window: &Window,
-        world: &World,
-        mut ifc: InFlightContext,
-    ) -> Result<CommandBuffer<All>> {
-        let (mut graph, mut bindings) = self.renderer.redraw_world(world)?;
-        let swapchain = graph.swapchain_resource();
-        // Record UI commands
-        self.ui.render(window, swapchain.clone(), &mut graph)?;
-        // Add a present pass to the graph.
-        let present_pass = ph::PassBuilder::present("present", &graph.latest_version(&swapchain)?);
-        graph.add_pass(present_pass);
-        let mut graph = graph.build()?;
-
-        // Bind the swapchain resource.
-        bindings.bind_image("swapchain", ifc.swapchain_image.as_ref().unwrap());
-        // Record this frame.
-        let cmd = self.gfx.exec.on_domain::<All>(
-            Some(self.gfx.pipelines.clone()),
-            Some(self.gfx.descriptors.clone()),
-        )?;
-        let cmd = graph.record(cmd, &bindings, &mut ifc, self.gfx.debug_messenger.clone())?;
-        cmd.finish()
-    }
 }

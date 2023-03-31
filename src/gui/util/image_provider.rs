@@ -1,6 +1,3 @@
-use egui::Vec2;
-use phobos::Allocator;
-
 use crate::gfx::RenderTargets;
 use crate::gui::util::image::Image;
 use crate::gui::util::integration::UIIntegration;

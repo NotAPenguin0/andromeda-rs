@@ -1,8 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::Result;
 use glam::Vec3;
-use poll_promise::Promise;
 
 use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::world_renderer::RenderOptions;

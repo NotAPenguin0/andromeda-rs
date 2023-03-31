@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
-use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
@@ -64,7 +64,7 @@ impl Driver {
         })
     }
 
-    pub async fn process_frame(&mut self) -> Result<()> {
+    async fn process_frame(&mut self) -> Result<()> {
         self.window
             .new_frame(|window, ifc| {
                 self.world.poll_all();
@@ -78,133 +78,132 @@ impl Driver {
             .await?;
         Ok(())
     }
-}
 
-pub fn process_event(driver: &mut Driver, event: winit::event::Event<()>) -> Result<ControlFlow> {
-    use winit::event::Event;
-    match event {
-        Event::WindowEvent {
-            event,
-            window_id,
-        } => {
-            driver.renderer.process_event(&event);
-            let mut input = driver.input.write().unwrap();
-            match event {
-                WindowEvent::Resized(_) => {}
-                WindowEvent::Moved(_) => {}
-                WindowEvent::CloseRequested => {
-                    if window_id == driver.window.id() {
-                        driver.renderer.gfx().device.wait_idle()?;
-                        return Ok(ControlFlow::Exit);
-                    }
-                }
-                WindowEvent::Destroyed => {}
-                WindowEvent::DroppedFile(_) => {}
-                WindowEvent::HoveredFile(_) => {}
-                WindowEvent::HoveredFileCancelled => {}
-                WindowEvent::ReceivedCharacter(_) => {}
-                WindowEvent::Focused(_) => {}
-                WindowEvent::KeyboardInput {
-                    input,
-                    ..
-                } => {
-                    if input.state == ElementState::Pressed {
-                        match input.virtual_keycode {
-                            None => {}
-                            _ => {}
+    pub fn process_event(&mut self, event: Event<()>) -> Result<ControlFlow> {
+        match event {
+            Event::WindowEvent {
+                event,
+                window_id,
+            } => {
+                self.renderer.process_event(&event);
+                let mut input = self.input.write().unwrap();
+                match event {
+                    WindowEvent::Resized(_) => {}
+                    WindowEvent::Moved(_) => {}
+                    WindowEvent::CloseRequested => {
+                        if window_id == self.window.id() {
+                            self.renderer.gfx().device.wait_idle()?;
+                            return Ok(ControlFlow::Exit);
                         }
                     }
-                }
-                WindowEvent::ModifiersChanged(state) => {
-                    if state.shift() {
-                        input.process_event(InputEvent::Button(KeyState {
-                            state: ButtonState::Pressed,
-                            button: Key::Shift,
-                        }));
-                    } else {
-                        input.process_event(InputEvent::Button(KeyState {
-                            state: ButtonState::Released,
-                            button: Key::Shift,
-                        }));
+                    WindowEvent::Destroyed => {}
+                    WindowEvent::DroppedFile(_) => {}
+                    WindowEvent::HoveredFile(_) => {}
+                    WindowEvent::HoveredFileCancelled => {}
+                    WindowEvent::ReceivedCharacter(_) => {}
+                    WindowEvent::Focused(_) => {}
+                    WindowEvent::KeyboardInput {
+                        input,
+                        ..
+                    } => {
+                        if input.state == ElementState::Pressed {
+                            match input.virtual_keycode {
+                                None => {}
+                                _ => {}
+                            }
+                        }
                     }
-                }
-                WindowEvent::Ime(_) => {}
-                WindowEvent::CursorMoved {
-                    position,
-                    ..
-                } => {
-                    input.process_event(InputEvent::MousePosition(MousePosition {
-                        x: position.x,
-                        y: position.y,
-                    }));
-                }
-                WindowEvent::CursorEntered {
-                    ..
-                } => {}
-                WindowEvent::CursorLeft {
-                    ..
-                } => {}
-                WindowEvent::MouseWheel {
-                    delta,
-                    ..
-                } => {
-                    match delta {
-                        MouseScrollDelta::LineDelta(x, y) => {
-                            input.process_event(InputEvent::Scroll(ScrollInfo {
-                                delta_x: x,
-                                delta_y: y,
+                    WindowEvent::ModifiersChanged(state) => {
+                        if state.shift() {
+                            input.process_event(InputEvent::Button(KeyState {
+                                state: ButtonState::Pressed,
+                                button: Key::Shift,
+                            }));
+                        } else {
+                            input.process_event(InputEvent::Button(KeyState {
+                                state: ButtonState::Released,
+                                button: Key::Shift,
                             }));
                         }
-                        MouseScrollDelta::PixelDelta(px) => {
-                            input.process_event(InputEvent::Scroll(ScrollInfo {
-                                delta_x: px.x as f32,
-                                delta_y: px.y as f32,
-                            }));
-                        }
-                    };
+                    }
+                    WindowEvent::Ime(_) => {}
+                    WindowEvent::CursorMoved {
+                        position,
+                        ..
+                    } => {
+                        input.process_event(InputEvent::MousePosition(MousePosition {
+                            x: position.x,
+                            y: position.y,
+                        }));
+                    }
+                    WindowEvent::CursorEntered {
+                        ..
+                    } => {}
+                    WindowEvent::CursorLeft {
+                        ..
+                    } => {}
+                    WindowEvent::MouseWheel {
+                        delta,
+                        ..
+                    } => {
+                        match delta {
+                            MouseScrollDelta::LineDelta(x, y) => {
+                                input.process_event(InputEvent::Scroll(ScrollInfo {
+                                    delta_x: x,
+                                    delta_y: y,
+                                }));
+                            }
+                            MouseScrollDelta::PixelDelta(px) => {
+                                input.process_event(InputEvent::Scroll(ScrollInfo {
+                                    delta_x: px.x as f32,
+                                    delta_y: px.y as f32,
+                                }));
+                            }
+                        };
+                    }
+                    WindowEvent::MouseInput {
+                        state,
+                        button,
+                        ..
+                    } => {
+                        input.process_event(InputEvent::MouseButton(MouseButtonState {
+                            state: state.into(),
+                            button: button.into(),
+                        }));
+                    }
+                    WindowEvent::TouchpadMagnify {
+                        ..
+                    } => {}
+                    WindowEvent::SmartMagnify {
+                        ..
+                    } => {}
+                    WindowEvent::TouchpadRotate {
+                        ..
+                    } => {}
+                    WindowEvent::TouchpadPressure {
+                        ..
+                    } => {}
+                    WindowEvent::AxisMotion {
+                        ..
+                    } => {}
+                    WindowEvent::Touch(_) => {}
+                    WindowEvent::ScaleFactorChanged {
+                        ..
+                    } => {}
+                    WindowEvent::ThemeChanged(_) => {}
+                    WindowEvent::Occluded(_) => {}
                 }
-                WindowEvent::MouseInput {
-                    state,
-                    button,
-                    ..
-                } => {
-                    input.process_event(InputEvent::MouseButton(MouseButtonState {
-                        state: state.into(),
-                        button: button.into(),
-                    }));
-                }
-                WindowEvent::TouchpadMagnify {
-                    ..
-                } => {}
-                WindowEvent::SmartMagnify {
-                    ..
-                } => {}
-                WindowEvent::TouchpadRotate {
-                    ..
-                } => {}
-                WindowEvent::TouchpadPressure {
-                    ..
-                } => {}
-                WindowEvent::AxisMotion {
-                    ..
-                } => {}
-                WindowEvent::Touch(_) => {}
-                WindowEvent::ScaleFactorChanged {
-                    ..
-                } => {}
-                WindowEvent::ThemeChanged(_) => {}
-                WindowEvent::Occluded(_) => {}
             }
-        }
-        Event::MainEventsCleared => {
-            driver.window.request_redraw();
-        }
-        Event::RedrawRequested(_) => {
-            // TODO: Multi-window
-            block_on(driver.process_frame())?
-        }
-        _ => (),
-    };
+            Event::MainEventsCleared => {
+                self.window.request_redraw();
+            }
+            Event::RedrawRequested(_) => {
+                // TODO: Multi-window
+                block_on(self.process_frame())?
+            }
+            _ => (),
+        };
 
-    Ok(ControlFlow::Wait)
+        Ok(ControlFlow::Wait)
+    }
 }

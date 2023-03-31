@@ -48,7 +48,7 @@ fn main() -> Result<!> {
 
         let result = match driver.as_mut() {
             None => Ok(ControlFlow::Exit),
-            Some(driver) => process_event(driver, event),
+            Some(driver) => driver.process_event(event),
         };
 
         match result {

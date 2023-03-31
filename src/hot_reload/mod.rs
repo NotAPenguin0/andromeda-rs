@@ -16,7 +16,7 @@ use notify::EventKind;
 use phobos::{prelude as ph, vk, PipelineType};
 use tokio::task::JoinHandle;
 
-use crate::safe_error::SafeUnwrap;
+use crate::util::safe_error::SafeUnwrap;
 
 pub mod dynamic_pipeline_builder;
 mod file_watcher;

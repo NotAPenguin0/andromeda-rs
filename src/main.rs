@@ -13,17 +13,18 @@ use anyhow::Result;
 use tokio;
 use winit::event_loop::ControlFlow;
 
+use crate::app::driver::Driver;
 use crate::app::*;
-use crate::core::*;
+use crate::util::safe_error::SafeUnwrap;
 
 mod app;
-mod core;
 mod gfx;
 mod gui;
 mod hot_reload;
 mod math;
 mod state;
 mod thread;
+mod util;
 
 fn main() -> Result<!> {
     std::env::set_var("RUST_LOG", "trace");

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use anyhow::Result;
 
-use crate::core::SafeUnwrap;
+use crate::util::safe_error::SafeUnwrap;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ButtonState {

@@ -27,6 +27,7 @@ pub struct AppWindow<A: Allocator = DefaultAllocator> {
 }
 
 impl<A: Allocator> AppWindow<A> {
+    /// Create a new application window.
     pub fn new(
         frame: FrameManager<A>,
         window: Window,

@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use glam::Vec3;
 
-use crate::core::{ButtonState, Input, InputEvent, InputListener, Key, MouseButton, MouseDelta, ScrollInfo};
+use crate::app::input::*;
 use crate::math::{Position, Rotation};
 use crate::state::Camera;
 

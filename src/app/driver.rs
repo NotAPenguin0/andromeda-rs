@@ -7,11 +7,9 @@ use winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
+use crate::app::input::*;
 use crate::app::renderer::AppRenderer;
 use crate::app::window::AppWindow;
-use crate::core::{
-    ButtonState, Input, InputEvent, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
-};
 use crate::gfx;
 use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::world::World;

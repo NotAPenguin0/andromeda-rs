@@ -1,9 +1,19 @@
 use anyhow::Result;
 use phobos::domain::ExecutionDomain;
 use phobos::{Allocator, CommandBuffer, DefaultAllocator, FrameManager, InFlightContext, Surface};
-use winit::window::{Window, WindowId};
+use winit::event_loop::{EventLoop, EventLoopBuilder};
+use winit::window::{Window, WindowBuilder, WindowId};
 
 use crate::gfx::SharedContext;
+
+pub fn create_window() -> Result<(EventLoop<()>, Window)> {
+    let event_loop = EventLoopBuilder::new().build();
+    let window = WindowBuilder::new()
+        .with_title("Andromeda")
+        .with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0))
+        .build(&event_loop)?;
+    Ok((event_loop, window))
+}
 
 #[derive(Debug)]
 pub struct AppWindow<A: Allocator = DefaultAllocator> {

@@ -36,7 +36,7 @@ fn main() -> Result<!> {
     let _guard = runtime.enter();
 
     // Create window
-    let (event_loop, window) = Driver::create_window()?;
+    let (event_loop, window) = window::create_window()?;
     // Create application driver
     let mut driver = Some(Driver::init(&event_loop, window)?);
 

@@ -4,20 +4,21 @@ use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
 use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
-use winit::window::{Window, WindowBuilder};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::window::Window;
 
 use crate::app::renderer::AppRenderer;
 use crate::app::window::AppWindow;
 use crate::core::{
     ButtonState, Input, InputEvent, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
 };
+use crate::gfx;
 use crate::gfx::resource::terrain::Terrain;
 use crate::gfx::world::World;
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
+use crate::gui::editor::Editor;
 use crate::math::Position;
 use crate::state::Camera;
-use crate::{gfx, gui};
 
 /// Main application driver. Hosts the event loop.
 #[derive(Derivative)]
@@ -27,19 +28,10 @@ pub struct Driver {
     pub renderer: AppRenderer,
     pub world: World,
     pub input: Arc<RwLock<Input>>,
-    pub camera_controller: Arc<RwLock<CameraController>>,
+    pub editor: Editor,
 }
 
 impl Driver {
-    pub fn create_window() -> Result<(EventLoop<()>, Window)> {
-        let event_loop = EventLoopBuilder::new().build();
-        let window = WindowBuilder::new()
-            .with_title("Andromeda")
-            .with_inner_size(winit::dpi::LogicalSize::new(1920.0, 1080.0))
-            .build(&event_loop)?;
-        Ok((event_loop, window))
-    }
-
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
         let (gfx, window, renderer) = gfx::init_graphics(window, &event_loop)?;
 
@@ -58,15 +50,17 @@ impl Driver {
             "data/heightmaps/mountain.png",
             "data/textures/blank.png",
             world.terrain_options,
-            gfx,
+            gfx.clone(),
         ));
+
+        let editor = Editor::new(renderer.ui(), gfx, camera_controller);
 
         Ok(Driver {
             window,
             renderer,
             world,
             input,
-            camera_controller,
+            editor,
         })
     }
 
@@ -76,13 +70,8 @@ impl Driver {
                 self.world.poll_all();
                 self.renderer.new_frame(window);
 
-                gui::build_ui(
-                    self.renderer.ui(),
-                    self.renderer.gfx(),
-                    self.renderer.image_provider(),
-                    &self.camera_controller,
-                    &mut self.world,
-                );
+                self.editor
+                    .show(&mut self.world, self.renderer.image_provider());
 
                 self.renderer.render(&window, &self.world, ifc)
             })

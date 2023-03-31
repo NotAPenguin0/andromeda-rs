@@ -10,7 +10,7 @@ use crate::gfx::resource::height_map::{FileType, HeightMap};
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::texture::Texture;
 use crate::gfx::resource::TerrainPlane;
-use crate::gfx::world::TerrainOptions;
+use crate::state::world::TerrainOptions;
 use crate::thread::io::read_file_async;
 use crate::thread::promise::{SpawnPromise, ThenTry, ThenTryMap, TryJoinPromise};
 

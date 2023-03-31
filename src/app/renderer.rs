@@ -7,10 +7,11 @@ use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use crate::gfx::world::World;
-use crate::gfx::{SharedContext, WorldRenderer};
+use crate::gfx::renderer::world_renderer::WorldRenderer;
+use crate::gfx::SharedContext;
 use crate::gui::util::image_provider::RenderTargetImageProvider;
 use crate::gui::util::integration::UIIntegration;
+use crate::state::world::World;
 
 /// Stores the graphics and context, as well as the world and GUI renderers.
 #[derive(Debug)]

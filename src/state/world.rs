@@ -2,9 +2,9 @@ use std::sync::{Arc, RwLock};
 
 use glam::Vec3;
 
+use crate::gfx::renderer::passes::AtmosphereInfo;
+use crate::gfx::renderer::world_renderer::RenderOptions;
 use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::world_renderer::RenderOptions;
-use crate::gfx::AtmosphereInfo;
 use crate::math::Rotation;
 use crate::state::Camera;
 use crate::thread::promised_value::PromisedValue;

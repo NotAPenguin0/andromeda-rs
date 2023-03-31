@@ -5,6 +5,8 @@ use phobos as ph;
 use phobos::{Allocator, GraphicsCmdBuffer};
 
 use crate::gfx;
+use crate::gfx::renderer::world_renderer::RenderState;
+use crate::gfx::util::graph::FrameGraph;
 use crate::hot_reload::IntoDynamic;
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -70,11 +72,11 @@ impl AtmosphereRenderer {
 
     pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
-        graph: &mut gfx::FrameGraph<'e, 'q, A>,
+        graph: &mut FrameGraph<'e, 'q, A>,
         _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
-        state: &'state gfx::RenderState,
+        state: &'state RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("atmosphere")
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?

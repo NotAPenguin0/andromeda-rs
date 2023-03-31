@@ -1,4 +1,4 @@
-use crate::gfx::RenderTargets;
+use crate::gfx::util::targets::RenderTargets;
 use crate::gui::util::image::Image;
 use crate::gui::util::integration::UIIntegration;
 use crate::gui::util::size::USize;

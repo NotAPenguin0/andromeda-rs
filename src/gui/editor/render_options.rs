@@ -1,7 +1,7 @@
 use egui::{Checkbox, Slider};
 
-use crate::gfx::world::World;
 use crate::gui::widgets::aligned_label::aligned_label_with;
+use crate::state::world::World;
 
 pub fn show(context: &egui::Context, world: &mut World) {
     egui::Window::new("Render options")

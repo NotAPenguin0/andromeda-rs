@@ -3,6 +3,8 @@ use phobos as ph;
 use phobos::{vk, Allocator, GraphicsCmdBuffer};
 
 use crate::gfx;
+use crate::gfx::util::graph::FrameGraph;
+use crate::gfx::util::targets::{RenderTargets, SizeGroup};
 use crate::hot_reload::IntoDynamic;
 
 #[allow(dead_code)]
@@ -13,7 +15,7 @@ pub struct Tonemap {
 }
 
 impl Tonemap {
-    pub fn new(ctx: gfx::SharedContext, targets: &mut gfx::RenderTargets) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext, targets: &mut RenderTargets) -> Result<Self> {
         ph::PipelineBuilder::new("tonemap")
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
             .cull_mask(vk::CullModeFlags::NONE)
@@ -26,7 +28,7 @@ impl Tonemap {
 
         targets.register_color_target(
             Self::output_name(),
-            gfx::SizeGroup::OutputResolution,
+            SizeGroup::OutputResolution,
             ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::R8G8B8A8_SRGB,
@@ -45,7 +47,7 @@ impl Tonemap {
     pub fn render<'s: 'e + 'q, 'q, 'e, A: Allocator>(
         &'s self,
         input: &ph::VirtualResource,
-        graph: &mut gfx::FrameGraph<'e, 'q, A>,
+        graph: &mut FrameGraph<'e, 'q, A>,
     ) -> Result<()> {
         let input = graph.latest_version(input)?;
         let output = ph::VirtualResource::image(Self::output_name());

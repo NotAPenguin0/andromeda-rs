@@ -4,12 +4,13 @@ use phobos as ph;
 use phobos::vk;
 
 use crate::gfx;
-use crate::gfx::passes::AtmosphereInfo;
+use crate::gfx::renderer::passes::AtmosphereInfo;
+use crate::gfx::renderer::{passes, postprocess};
 use crate::gfx::resource::normal_map::NormalMap;
-use crate::gfx::targets::{RenderTargets, SizeGroup};
-use crate::gfx::world::World;
-use crate::gfx::{passes, postprocess};
+use crate::gfx::util::graph::FrameGraph;
+use crate::gfx::util::targets::{RenderTargets, SizeGroup};
 use crate::hot_reload::IntoDynamic;
+use crate::state::world::World;
 
 #[derive(Debug)]
 pub struct RenderOptions {
@@ -148,9 +149,9 @@ impl WorldRenderer {
     pub fn redraw_world<'s: 'e + 'q, 'world: 'e + 'q, 'q, 'e>(
         &'s mut self,
         world: &'world World,
-    ) -> Result<(gfx::FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
+    ) -> Result<(FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
-        let mut graph = gfx::FrameGraph::new();
+        let mut graph = FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
 
         self.update_render_state(world)?;

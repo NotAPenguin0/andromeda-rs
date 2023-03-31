@@ -10,6 +10,7 @@ use winit::event_loop::EventLoop;
 use winit::window::Window;
 
 use crate::gfx;
+use crate::gfx::util::graph::FrameGraph;
 use crate::gui::util::image::Image;
 use crate::gui::util::size::USize;
 
@@ -65,7 +66,7 @@ impl UIIntegration {
         &'s mut self,
         window: &Window,
         swapchain: ph::VirtualResource,
-        graph: &mut gfx::FrameGraph<'e, 'q>,
+        graph: &mut FrameGraph<'e, 'q>,
     ) -> Result<()> {
         self.integration.resize(window.width(), window.height());
 

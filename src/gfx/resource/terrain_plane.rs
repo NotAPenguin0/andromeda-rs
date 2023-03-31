@@ -5,7 +5,7 @@ use phobos::{vk, Buffer, BufferView, IncompleteCommandBuffer, MemoryType};
 use rayon::prelude::*;
 
 use crate::gfx;
-use crate::gfx::world::TerrainOptions;
+use crate::state::world::TerrainOptions;
 
 /// A plane terrain mesh, used as a base for tesselation and rendering the terrain.
 #[derive(Debug)]

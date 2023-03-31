@@ -12,10 +12,10 @@ use crate::app::renderer::AppRenderer;
 use crate::app::window::AppWindow;
 use crate::gfx;
 use crate::gfx::resource::terrain::Terrain;
-use crate::gfx::world::World;
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::editor::Editor;
 use crate::math::Position;
+use crate::state::world::World;
 use crate::state::Camera;
 
 /// Main application driver. Holds core modules such as the renderer,

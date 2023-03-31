@@ -5,8 +5,10 @@ use phobos::prelude as ph;
 use phobos::prelude::traits::*;
 
 use crate::gfx;
-use crate::gfx::world::World;
+use crate::gfx::renderer::world_renderer::RenderState;
+use crate::gfx::util::graph::FrameGraph;
 use crate::hot_reload::IntoDynamic;
+use crate::state::world::World;
 
 #[derive(Debug)]
 pub struct TerrainRenderer {
@@ -94,11 +96,11 @@ impl TerrainRenderer {
     pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
         world: &'world World,
-        graph: &mut gfx::FrameGraph<'e, 'q, A>,
+        graph: &mut FrameGraph<'e, 'q, A>,
         _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
-        state: &'state gfx::RenderState,
+        state: &'state RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("terrain")
             .color_attachment(

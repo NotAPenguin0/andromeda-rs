@@ -1,5 +1,5 @@
-use crate::gfx::world::World;
 use crate::gui::widgets::drag::Drag;
+use crate::state::world::World;
 
 pub fn show(context: &egui::Context, world: &mut World) {
     egui::Window::new("Environment Settings")
@@ -33,8 +33,12 @@ pub fn show(context: &egui::Context, world: &mut World) {
                     .scale(10e4)
                     .digits(3)
                     .show(ui);
-                Drag::new("Mie albedo", &mut world.atmosphere.mie_albedo).speed(0.01).show(ui);
-                Drag::new("Mie G", &mut world.atmosphere.mie_g).speed(0.01).show(ui);
+                Drag::new("Mie albedo", &mut world.atmosphere.mie_albedo)
+                    .speed(0.01)
+                    .show(ui);
+                Drag::new("Mie G", &mut world.atmosphere.mie_g)
+                    .speed(0.01)
+                    .show(ui);
                 Drag::new("Mie scatter height", &mut world.atmosphere.mie_scatter_height)
                     .suffix(" m")
                     .show(ui);

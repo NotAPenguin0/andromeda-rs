@@ -4,3 +4,4 @@ Cargo.lock
 shaders/src/out/*
 /shaders/src/.vs/
 /data/heightmaps/*.png
+/data/textures/*.png

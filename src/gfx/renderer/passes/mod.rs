@@ -1,5 +1,2 @@
-pub use atmosphere::{AtmosphereInfo, AtmosphereRenderer};
-pub use terrain::TerrainRenderer;
-
-mod atmosphere;
-mod terrain;
+pub mod atmosphere;
+pub mod terrain;

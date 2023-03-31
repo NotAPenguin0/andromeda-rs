@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glam::{Mat4, Vec3, Vec3Swizzles, Vec4};
+use glam::{Mat4, Vec3Swizzles, Vec4};
 use ph::vk;
 use phobos as ph;
 use phobos::{Allocator, GraphicsCmdBuffer};
@@ -8,38 +8,7 @@ use crate::gfx;
 use crate::gfx::renderer::world_renderer::RenderState;
 use crate::gfx::util::graph::FrameGraph;
 use crate::hot_reload::IntoDynamic;
-
-#[derive(Debug, Default, Copy, Clone)]
-pub struct AtmosphereInfo {
-    pub planet_radius: f32,
-    pub atmosphere_radius: f32,
-    pub rayleigh_coefficients: Vec3,
-    pub rayleigh_scatter_height: f32,
-    pub mie_coefficients: Vec3,
-    pub mie_albedo: f32,
-    pub mie_scatter_height: f32,
-    pub mie_g: f32,
-    pub ozone_coefficients: Vec3,
-    pub sun_intensity: f32,
-}
-
-impl AtmosphereInfo {
-    /// Returns earth-like atmosphere parameters
-    pub fn earth() -> Self {
-        Self {
-            planet_radius: 6371000.0,
-            atmosphere_radius: 6471000.0,
-            rayleigh_coefficients: Vec3::new(0.0000058, 0.0000133, 0.00003331),
-            rayleigh_scatter_height: 8000.0,
-            mie_coefficients: Vec3::new(0.000021, 0.000021, 0.000021),
-            mie_albedo: 0.9,
-            mie_scatter_height: 1200.0,
-            mie_g: 0.8,
-            ozone_coefficients: Vec3::new(0.00000077295962, 0.000000667717648, 0.0000000704931588),
-            sun_intensity: 22.0,
-        }
-    }
-}
+use crate::state::world::World;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -70,12 +39,13 @@ impl AtmosphereRenderer {
         })
     }
 
-    pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'e, 'q, A: Allocator>(
+    pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
         graph: &mut FrameGraph<'e, 'q, A>,
         _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
+        world: &'world World,
         state: &'state RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("atmosphere")
@@ -97,7 +67,7 @@ impl AtmosphereRenderer {
                 camera_data.pv = state.projection_view;
                 camera_data.inv_proj = state.inverse_projection;
                 camera_data.inv_view_rotation = state.inverse_view_rotation;
-                camera_data.cam_pos = state.position.xyzx(); // last component does not matter
+                camera_data.cam_pos = state.cam_position.xyzx(); // last component does not matter
 
                 #[repr(C)]
                 struct Atmosphere {
@@ -112,25 +82,25 @@ impl AtmosphereRenderer {
                 let atmosphere_data = atmosphere.mapped_slice::<Atmosphere>()?;
                 let mut atmosphere_data = atmosphere_data.get_mut(0).unwrap();
                 atmosphere_data.radii_mie_albedo_g = Vec4::new(
-                    state.atmosphere.planet_radius,
-                    state.atmosphere.atmosphere_radius,
-                    state.atmosphere.mie_albedo,
-                    state.atmosphere.mie_g,
+                    world.atmosphere.planet_radius,
+                    world.atmosphere.atmosphere_radius,
+                    world.atmosphere.mie_albedo,
+                    world.atmosphere.mie_g,
                 );
                 atmosphere_data.rayleigh = Vec4::from((
-                    state.atmosphere.rayleigh_coefficients,
-                    state.atmosphere.rayleigh_scatter_height,
+                    world.atmosphere.rayleigh_coefficients,
+                    world.atmosphere.rayleigh_scatter_height,
                 ));
                 atmosphere_data.mie = Vec4::from((
-                    state.atmosphere.mie_coefficients,
-                    state.atmosphere.mie_scatter_height,
+                    world.atmosphere.mie_coefficients,
+                    world.atmosphere.mie_scatter_height,
                 ));
                 atmosphere_data.ozone_sun = Vec4::from((
-                    state.atmosphere.ozone_coefficients,
-                    state.atmosphere.sun_intensity,
+                    world.atmosphere.ozone_coefficients,
+                    world.atmosphere.sun_intensity,
                 ));
 
-                let pc = Vec4::from((state.sun_dir, 0.0));
+                let pc = Vec4::from((state.sun_direction, 0.0));
 
                 cmd = cmd
                     .bind_graphics_pipeline("atmosphere")?

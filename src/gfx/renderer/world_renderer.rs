@@ -4,8 +4,9 @@ use phobos as ph;
 use phobos::vk;
 
 use crate::gfx;
-use crate::gfx::renderer::passes::AtmosphereInfo;
-use crate::gfx::renderer::{passes, postprocess};
+use crate::gfx::renderer::passes::atmosphere::AtmosphereRenderer;
+use crate::gfx::renderer::passes::terrain::TerrainRenderer;
+use crate::gfx::renderer::postprocess;
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::util::graph::FrameGraph;
 use crate::gfx::util::targets::{RenderTargets, SizeGroup};
@@ -35,9 +36,8 @@ pub struct RenderState {
     pub inverse_projection: Mat4,
     pub inverse_projection_view: Mat4,
     pub inverse_view_rotation: Mat4,
-    pub position: Vec3,
-    pub atmosphere: AtmosphereInfo,
-    pub sun_dir: Vec3,
+    pub sun_direction: Vec3,
+    pub cam_position: Vec3,
 }
 
 #[allow(dead_code)]
@@ -47,8 +47,8 @@ pub struct WorldRenderer {
     ctx: gfx::SharedContext,
     state: RenderState,
     tonemap: postprocess::Tonemap,
-    atmosphere: passes::AtmosphereRenderer,
-    terrain: passes::TerrainRenderer,
+    atmosphere: AtmosphereRenderer,
+    terrain: TerrainRenderer,
 }
 
 impl WorldRenderer {
@@ -101,8 +101,8 @@ impl WorldRenderer {
             ctx: ctx.clone(),
             state: RenderState::default(),
             tonemap: postprocess::Tonemap::new(ctx.clone(), &mut targets)?,
-            atmosphere: passes::AtmosphereRenderer::new(ctx.clone())?,
-            terrain: passes::TerrainRenderer::new(ctx.clone())?,
+            atmosphere: AtmosphereRenderer::new(ctx.clone())?,
+            terrain: TerrainRenderer::new(ctx.clone())?,
             targets,
         })
     }
@@ -135,14 +135,13 @@ impl WorldRenderer {
         // Flip y because Vulkan
         let v = self.state.projection.col_mut(1).y;
         self.state.projection.col_mut(1).y = v * -1.0;
-        self.state.position = camera.position().0;
+        self.state.cam_position = camera.position().0;
         self.state.projection_view = self.state.projection * self.state.view;
         self.state.inverse_projection_view = self.state.projection_view.inverse();
         self.state.inverse_projection = self.state.projection.inverse();
         self.state.inverse_view_rotation =
             Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
-        self.state.atmosphere = world.atmosphere;
-        self.state.sun_dir = -world.sun_direction.front_direction();
+        self.state.sun_direction = -world.sun_direction.front_direction();
         Ok(())
     }
 
@@ -171,8 +170,14 @@ impl WorldRenderer {
             &self.state,
         )?;
         // 2. Render atmosphere
-        self.atmosphere
-            .render(&mut graph, &mut bindings, &scene_output, &depth, &self.state)?;
+        self.atmosphere.render(
+            &mut graph,
+            &mut bindings,
+            &scene_output,
+            &depth,
+            &world,
+            &self.state,
+        )?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
             .color_attachment(

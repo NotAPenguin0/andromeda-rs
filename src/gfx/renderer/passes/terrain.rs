@@ -129,7 +129,7 @@ impl TerrainRenderer {
                         ifc.allocate_scratch_ubo(std::mem::size_of::<Vec3>() as vk::DeviceSize)?;
                     lighting_ubo
                         .mapped_slice()?
-                        .copy_from_slice(std::slice::from_ref(&state.sun_dir));
+                        .copy_from_slice(std::slice::from_ref(&state.sun_direction));
                     let tess_factor: u32 = world.options.tessellation_level;
                     cmd.bind_graphics_pipeline("terrain")?
                         .full_viewport_scissor()

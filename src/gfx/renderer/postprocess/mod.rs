@@ -1,3 +1,1 @@
-pub use tonemap::Tonemap;
-
-mod tonemap;
+pub mod tonemap;

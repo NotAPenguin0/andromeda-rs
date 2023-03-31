@@ -6,7 +6,7 @@ use phobos::vk;
 use crate::gfx;
 use crate::gfx::renderer::passes::atmosphere::AtmosphereRenderer;
 use crate::gfx::renderer::passes::terrain::TerrainRenderer;
-use crate::gfx::renderer::postprocess;
+use crate::gfx::renderer::postprocess::tonemap::Tonemap;
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::util::graph::FrameGraph;
 use crate::gfx::util::targets::{RenderTargets, SizeGroup};
@@ -46,7 +46,7 @@ pub struct WorldRenderer {
     targets: RenderTargets,
     ctx: gfx::SharedContext,
     state: RenderState,
-    tonemap: postprocess::Tonemap,
+    tonemap: Tonemap,
     atmosphere: AtmosphereRenderer,
     terrain: TerrainRenderer,
 }
@@ -100,7 +100,7 @@ impl WorldRenderer {
         Ok(Self {
             ctx: ctx.clone(),
             state: RenderState::default(),
-            tonemap: postprocess::Tonemap::new(ctx.clone(), &mut targets)?,
+            tonemap: Tonemap::new(ctx.clone(), &mut targets)?,
             atmosphere: AtmosphereRenderer::new(ctx.clone())?,
             terrain: TerrainRenderer::new(ctx.clone())?,
             targets,
@@ -108,7 +108,7 @@ impl WorldRenderer {
     }
 
     pub fn output_name() -> &'static str {
-        postprocess::Tonemap::output_name()
+        Tonemap::output_name()
     }
 
     pub fn output_image(&self) -> ph::ImageView {
@@ -158,26 +158,14 @@ impl WorldRenderer {
         let scene_output = ph::VirtualResource::image("scene_output");
         let depth = ph::VirtualResource::image("depth");
         let resolved_output = ph::VirtualResource::image("resolved_output");
-        let tonemapped_output = ph::VirtualResource::image(postprocess::Tonemap::output_name());
+        let tonemapped_output = ph::VirtualResource::image(Tonemap::output_name());
 
         // 1. Render terrain
-        self.terrain.render(
-            &world,
-            &mut graph,
-            &mut bindings,
-            &scene_output,
-            &depth,
-            &self.state,
-        )?;
+        self.terrain
+            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
         // 2. Render atmosphere
-        self.atmosphere.render(
-            &mut graph,
-            &mut bindings,
-            &scene_output,
-            &depth,
-            &world,
-            &self.state,
-        )?;
+        self.atmosphere
+            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
             .color_attachment(
@@ -191,7 +179,7 @@ impl WorldRenderer {
             .build();
         graph.add_pass(resolve);
         // 4. Apply tonemapping
-        self.tonemap.render(&resolved_output, &mut graph)?;
+        self.tonemap.render(&mut graph, &resolved_output)?;
         // 5. Alias our final result to the expected name
         graph.alias("renderer_output", tonemapped_output);
 

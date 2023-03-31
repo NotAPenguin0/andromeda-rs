@@ -10,6 +10,8 @@ use crate::gfx::util::graph::FrameGraph;
 use crate::hot_reload::IntoDynamic;
 use crate::state::world::World;
 
+/// The atmosphere renderer is responsible for rendering the
+/// atmosphere into the frame graph.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct AtmosphereRenderer {
@@ -17,6 +19,7 @@ pub struct AtmosphereRenderer {
 }
 
 impl AtmosphereRenderer {
+    /// Create a new atmosphere renderer. This will initialize pipelines and other resources it needs.
     pub fn new(ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("atmosphere")
             .depth(true, false, false, vk::CompareOp::LESS_OR_EQUAL)
@@ -39,10 +42,18 @@ impl AtmosphereRenderer {
         })
     }
 
+    /// Render the atmosphere and add all relevant passes to the graph.
+    ///
+    /// # Arguments
+    ///
+    /// * `graph` - The frame graph to add the passes to
+    /// * `color` - The name of the color attachment to render to. The latest version will be queried from the graph.
+    /// * `depth` - The name of the depth attachment to use. The latest version will be queried from the graph.
+    /// * `world` - The world state with parameters for rendering.
+    /// * `state` - The render state with camera settings and global rendering options.
     pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
         graph: &mut FrameGraph<'e, 'q, A>,
-        _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
         world: &'world World,

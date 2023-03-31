@@ -51,7 +51,7 @@ impl AppRenderer {
         RenderTargetImageProvider {
             targets: self.renderer.targets(),
             integration: &mut self.ui,
-            name: "resolved_output",
+            name: WorldRenderer::output_name(),
         }
     }
 

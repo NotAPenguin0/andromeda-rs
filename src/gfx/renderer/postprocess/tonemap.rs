@@ -7,6 +7,7 @@ use crate::gfx::util::graph::FrameGraph;
 use crate::gfx::util::targets::{RenderTargets, SizeGroup};
 use crate::hot_reload::IntoDynamic;
 
+/// This stores all the resources and state needed for the tonemapper to work.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Tonemap {
@@ -15,6 +16,8 @@ pub struct Tonemap {
 }
 
 impl Tonemap {
+    /// Initialize the tonemapper. Adds a new target with name [`Self::output_name()`] to the
+    /// render target database, and creates pipelines and resources.
     pub fn new(ctx: gfx::SharedContext, targets: &mut RenderTargets) -> Result<Self> {
         ph::PipelineBuilder::new("tonemap")
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
@@ -40,14 +43,21 @@ impl Tonemap {
         })
     }
 
+    /// Get the name of the output attachment.
     pub fn output_name() -> &'static str {
         "tonemap_output"
     }
 
+    /// Tonemap the input attachment into the tonemapped output attachment.
+    ///
+    /// # Arguments
+    ///
+    /// * `graph` - The frame graph to add the tonemapper passes to.
+    /// * `input` - The input resource that must be tonemapped. The latest version will be queried from the graph.
     pub fn render<'s: 'e + 'q, 'q, 'e, A: Allocator>(
         &'s self,
-        input: &ph::VirtualResource,
         graph: &mut FrameGraph<'e, 'q, A>,
+        input: &ph::VirtualResource,
     ) -> Result<()> {
         let input = graph.latest_version(input)?;
         let output = ph::VirtualResource::image(Self::output_name());

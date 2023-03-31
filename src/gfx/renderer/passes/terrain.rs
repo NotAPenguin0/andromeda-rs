@@ -10,6 +10,8 @@ use crate::gfx::util::graph::FrameGraph;
 use crate::hot_reload::IntoDynamic;
 use crate::state::world::World;
 
+/// The terrain renderer. Stores resources it needs for rendering.
+/// This struct renders the main terrain mesh.
 #[derive(Debug)]
 pub struct TerrainRenderer {
     heightmap_sampler: ph::Sampler,
@@ -17,6 +19,8 @@ pub struct TerrainRenderer {
 }
 
 impl TerrainRenderer {
+    /// Create a new terrain renderer, this will initialize some resources and create
+    /// necessary pipelines.
     pub fn new(ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("terrain")
             .samples(vk::SampleCountFlags::TYPE_8)
@@ -93,13 +97,21 @@ impl TerrainRenderer {
         })
     }
 
+    /// Render the terrain and add all relevant passes to the graph.
+    ///
+    /// # Arguments
+    ///
+    /// * `graph` - The frame graph to add the passes to
+    /// * `color` - The name of the color attachment to render to. The latest version will be queried from the graph.
+    /// * `depth` - The name of the depth attachment to use. The latest version will be queried from the graph.
+    /// * `world` - The world state with parameters for rendering.
+    /// * `state` - The render state with camera settings and global rendering options.
     pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
         &'s mut self,
-        world: &'world World,
         graph: &mut FrameGraph<'e, 'q, A>,
-        _bindings: &mut ph::PhysicalResourceBindings,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
+        world: &'world World,
         state: &'state RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("terrain")

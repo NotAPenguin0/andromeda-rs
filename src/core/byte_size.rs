@@ -13,6 +13,12 @@ where
     }
 }
 
+impl<T> ByteSize for &[T] {
+    fn byte_size(&self) -> usize {
+        self.len() * std::mem::size_of::<T>()
+    }
+}
+
 impl ByteSize for Mat4 {
     fn byte_size(&self) -> usize {
         16 * std::mem::size_of::<f32>()

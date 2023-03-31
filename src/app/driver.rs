@@ -20,24 +20,26 @@ use crate::gui::editor::Editor;
 use crate::math::Position;
 use crate::state::Camera;
 
-/// Main application driver. Hosts the event loop.
+/// Main application driver. Holds core modules such as the renderer,
+/// window and input systems. Feed this all winit events using [`Driver::process_event`] to run the application.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    pub window: AppWindow,
-    pub renderer: AppRenderer,
-    pub world: World,
-    pub input: Arc<RwLock<Input>>,
-    pub editor: Editor,
+    window: AppWindow,
+    renderer: AppRenderer,
+    world: World,
+    input: Arc<RwLock<Input>>,
+    editor: Editor,
 }
 
 impl Driver {
+    /// Initialize the application driver with a window and event loop.
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
         let (gfx, window, renderer) = gfx::init_graphics(window, &event_loop)?;
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
-        camera.set_position(Position(Vec3::new(0.0, 400.0, 0.0)));
+        camera.set_position(Position(Vec3::new(0.0, 200.0, 0.0)));
         let camera = Arc::new(RwLock::new(camera));
         let camera_controller = Arc::new(RwLock::new(CameraController::new(camera.clone())));
         input
@@ -64,6 +66,7 @@ impl Driver {
         })
     }
 
+    /// Process one frame. This will update the UI and render the world.
     async fn process_frame(&mut self) -> Result<()> {
         self.window
             .new_frame(|window, ifc| {
@@ -79,6 +82,8 @@ impl Driver {
         Ok(())
     }
 
+    /// Process a winit event. This forwards events to the input and UI systems, as well as
+    /// renders a frame when a redraw is requested.
     pub fn process_event(&mut self, event: Event<()>) -> Result<ControlFlow> {
         match event {
             Event::WindowEvent {

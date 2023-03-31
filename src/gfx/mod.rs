@@ -80,7 +80,6 @@ pub fn init_graphics(
     event_loop: &EventLoop<()>,
 ) -> Result<(SharedContext, AppWindow, AppRenderer)> {
     let settings = fill_app_settings(&window);
-
     let instance = ph::VkInstance::new(&settings)?;
     #[cfg(debug_assertions)]
     let debug_messenger = Some(Arc::new(ph::DebugMessenger::new(&instance)?));
@@ -117,15 +116,7 @@ pub fn init_graphics(
     };
 
     let renderer = AppRenderer::new(gfx.clone(), &window, &event_loop)?;
+    let window = AppWindow::new(frame, window, surface, gfx.clone());
 
-    Ok((
-        gfx.clone(),
-        AppWindow {
-            frame,
-            window,
-            surface,
-            gfx,
-        },
-        renderer,
-    ))
+    Ok((gfx, window, renderer))
 }

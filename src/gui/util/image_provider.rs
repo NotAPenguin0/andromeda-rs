@@ -7,12 +7,13 @@ pub trait ImageProvider {
     fn get_image(&mut self, size: impl Into<USize>) -> Option<Image>;
 }
 
-pub struct RenderTargetImageProvider<'r, 'i> {
+pub struct RenderTargetImageProvider<'r, 'i, 's> {
     pub targets: &'r mut RenderTargets,
     pub integration: &'i mut UIIntegration,
+    pub name: &'s str,
 }
 
-impl ImageProvider for RenderTargetImageProvider<'_, '_> {
+impl ImageProvider for RenderTargetImageProvider<'_, '_, '_> {
     fn get_image(&mut self, size: impl Into<USize>) -> Option<Image> {
         // Make sure next frames output with our requested size
         let size = size.into();
@@ -20,7 +21,7 @@ impl ImageProvider for RenderTargetImageProvider<'_, '_> {
             .set_output_resolution(size.x(), size.y())
             .ok()?;
         // Then grab our color output.
-        let image = self.targets.get_target_view("resolved_output").unwrap();
+        let image = self.targets.get_target_view(self.name).unwrap();
         // We can re-register the same image, nothing will happen.
         let handle = self.integration.register_texture(&image);
         Some(handle)

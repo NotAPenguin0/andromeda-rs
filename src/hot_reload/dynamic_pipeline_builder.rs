@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use phobos::{vk, ComputePipelineBuilder, PipelineBuilder, PipelineCache};
 
-use crate::hot_reload::SyncShaderReload;
+use crate::hot_reload::ShaderReload;
 
 pub trait IntoDynamic {
     type Target;
@@ -44,7 +44,7 @@ impl DynamicPipelineBuilder {
     /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
     pub fn build(
         self,
-        hot_reload: SyncShaderReload,
+        mut hot_reload: ShaderReload,
         cache: Arc<Mutex<PipelineCache>>,
     ) -> Result<()> {
         let pci = self.inner.build();
@@ -53,12 +53,11 @@ impl DynamicPipelineBuilder {
             cache.create_named_pipeline(pci)?;
         }
 
-        let mut reload = hot_reload.write().unwrap();
         let _ = self
             .shaders
             .into_iter()
             .map(|shader| {
-                reload.add_shader(shader.path, shader.stage, shader.pipeline);
+                hot_reload.add_shader(shader.path, shader.stage, shader.pipeline);
             })
             .collect::<Vec<_>>();
 
@@ -89,7 +88,7 @@ impl DynamicComputePipelineBuilder {
 
     pub fn build(
         self,
-        hot_reload: SyncShaderReload,
+        mut hot_reload: ShaderReload,
         cache: Arc<Mutex<PipelineCache>>,
     ) -> Result<()> {
         let pci = self.inner.build();
@@ -98,9 +97,8 @@ impl DynamicComputePipelineBuilder {
             cache.create_named_compute_pipeline(pci)?;
         }
 
-        let mut reload = hot_reload.write().unwrap();
         let shader = self.shader.expect("Must set a shader");
-        reload.add_shader(shader.path, shader.stage, shader.pipeline);
+        hot_reload.add_shader(shader.path, shader.stage, shader.pipeline);
         Ok(())
     }
 }

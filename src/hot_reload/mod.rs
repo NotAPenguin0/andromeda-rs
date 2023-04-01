@@ -4,10 +4,9 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Read;
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::{env, fs};
 
 use anyhow::{ensure, Result};
@@ -28,21 +27,15 @@ struct ShaderInfo {
 }
 
 #[derive(Debug)]
-pub struct ShaderReload {
+pub struct ShaderReloadInner {
     pipelines: Arc<Mutex<ph::PipelineCache>>,
     shaders: HashMap<PathBuf, ShaderInfo>,
     watch_tasks: Vec<JoinHandle<Result<()>>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct SyncShaderReload(pub Arc<RwLock<ShaderReload>>);
-
-impl Deref for SyncShaderReload {
-    type Target = Arc<RwLock<ShaderReload>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub struct ShaderReload {
+    inner: Arc<RwLock<ShaderReloadInner>>,
 }
 
 impl ShaderReload {
@@ -50,27 +43,30 @@ impl ShaderReload {
         pipelines: Arc<Mutex<ph::PipelineCache>>,
         path: impl Into<PathBuf>,
         recursive: bool,
-    ) -> Result<SyncShaderReload> {
-        let this = SyncShaderReload(Arc::new(RwLock::new(Self {
-            pipelines,
-            shaders: Default::default(),
-            watch_tasks: vec![],
-        })));
+    ) -> Result<Self> {
+        let this = ShaderReload {
+            inner: Arc::new(RwLock::new(ShaderReloadInner {
+                pipelines,
+                shaders: Default::default(),
+                watch_tasks: vec![],
+            })),
+        };
 
         let copy = this.clone();
         let watcher =
             tokio::spawn(file_watcher::async_watch(path.into(), recursive, move |event| {
-                copy.read().unwrap().handle_file_event(event);
+                copy.handle_file_event(event);
             }));
 
-        this.write().unwrap().watch_tasks.push(watcher);
+        this.inner.write().unwrap().watch_tasks.push(watcher);
 
         Ok(this)
     }
 
     pub fn add_shader(&mut self, path: PathBuf, stage: vk::ShaderStageFlags, pipeline: String) {
+        let mut inner = self.inner.write().unwrap();
         info!("Pipeline {pipeline:?} added to watch for shader {path:?}");
-        let entry = self.shaders.entry(fs::canonicalize(path.clone()).unwrap());
+        let entry = inner.shaders.entry(fs::canonicalize(path.clone()).unwrap());
         match entry {
             Entry::Occupied(entry) => {
                 entry.into_mut().pipelines.push(pipeline.clone());
@@ -82,7 +78,8 @@ impl ShaderReload {
                 });
             }
         };
-        self.reload_pipeline(path.as_path(), &pipeline, stage)
+        let mut pipelines = inner.pipelines.lock().unwrap();
+        self.reload_pipeline(path.as_path(), &pipeline, &mut pipelines, stage)
             .safe_unwrap();
     }
 
@@ -181,6 +178,7 @@ impl ShaderReload {
         &self,
         shader: &Path,
         pipeline: &str,
+        pipelines: &mut MutexGuard<ph::PipelineCache>,
         stage: vk::ShaderStageFlags,
     ) -> Result<()> {
         info!("Reloading pipeline {pipeline:?}");
@@ -197,31 +195,26 @@ impl ShaderReload {
         // let mut options = shaderc::CompileOptions::new().unwrap();
         // let result = compiler.compile_into_spirv(&source, kind, shader.file_name().unwrap().to_str().unwrap(), "main", Some(&options))?;
         let binary = Self::compile_hlsl(shader, stage)?;
-        {
-            let mut pipelines = self.pipelines.lock().unwrap();
-            match pipelines.pipeline_type(pipeline) {
-                None => {}
-                Some(PipelineType::Graphics) => {
-                    let mut pci = pipelines.pipeline_info(pipeline).unwrap().clone();
-                    // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
-                    pci.shaders.retain(|shader| shader.stage() != stage);
-                    pci.shaders
-                        .push(ph::ShaderCreateInfo::from_spirv(stage, binary));
-                    // This fixes a validation layer message, but I have no idea why
-                    pci.build_inner();
-                    // Register as new pipeline, this will update the PCI
-                    pipelines.create_named_pipeline(pci)?;
-                }
-                Some(PipelineType::Compute) => {
-                    let mut pci = pipelines.compute_pipeline_info(pipeline).unwrap().clone();
-                    // Replace shader, compute shaders only have one shader so this is easy
-                    pci.shader = Some(ph::ShaderCreateInfo::from_spirv(
-                        vk::ShaderStageFlags::COMPUTE,
-                        binary,
-                    ));
-                    // Register as new pipeline, this will update the PCI
-                    pipelines.create_named_compute_pipeline(pci)?;
-                }
+        match pipelines.pipeline_type(pipeline) {
+            None => {}
+            Some(PipelineType::Graphics) => {
+                let mut pci = pipelines.pipeline_info(pipeline).unwrap().clone();
+                // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
+                pci.shaders.retain(|shader| shader.stage() != stage);
+                pci.shaders
+                    .push(ph::ShaderCreateInfo::from_spirv(stage, binary));
+                // This fixes a validation layer message, but I have no idea why
+                pci.build_inner();
+                // Register as new pipeline, this will update the PCI
+                pipelines.create_named_pipeline(pci)?;
+            }
+            Some(PipelineType::Compute) => {
+                let mut pci = pipelines.compute_pipeline_info(pipeline).unwrap().clone();
+                // Replace shader, compute shaders only have one shader so this is easy
+                pci.shader =
+                    Some(ph::ShaderCreateInfo::from_spirv(vk::ShaderStageFlags::COMPUTE, binary));
+                // Register as new pipeline, this will update the PCI
+                pipelines.create_named_compute_pipeline(pci)?;
             }
         }
 
@@ -230,14 +223,16 @@ impl ShaderReload {
 
     fn reload_file(&self, path: PathBuf) -> Result<()> {
         // If our shader was an included shader, we naively reload all pipelines
+        let inner = self.inner.write().unwrap();
+        let mut pipelines = inner.pipelines.lock().unwrap();
         if path.to_str().unwrap().contains("shaders\\include\\") {
             info!(
                 "Included shader {:?} changed. Reloading all pipelines.",
                 path.file_name().unwrap()
             );
-            for (path, info) in &self.shaders {
+            for (path, info) in &inner.shaders {
                 for pipeline in &info.pipelines {
-                    self.reload_pipeline(path, pipeline, info.stage)?;
+                    self.reload_pipeline(path, pipeline, &mut pipelines, info.stage)?;
                 }
             }
             return Ok(());
@@ -249,13 +244,13 @@ impl ShaderReload {
         }
         info!("Reloading shader file {:?}", path.file_name().unwrap());
         // Get all involved pipelines
-        let info = self
+        let info = inner
             .shaders
             .get(path.as_path())
             .ok_or(anyhow::anyhow!("Shader path not in watchlist: {:?}", path.file_name().unwrap()))
             .cloned()?;
         for pipeline in &info.pipelines {
-            self.reload_pipeline(&path, pipeline, info.stage)?;
+            self.reload_pipeline(&path, pipeline, &mut pipelines, info.stage)?;
         }
         Ok(())
     }

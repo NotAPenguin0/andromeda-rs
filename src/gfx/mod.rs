@@ -9,7 +9,7 @@ use winit::window::Window;
 
 use crate::app::renderer::AppRenderer;
 use crate::app::window::AppWindow;
-use crate::hot_reload::{ShaderReload, SyncShaderReload};
+use crate::hot_reload::ShaderReload;
 
 pub mod renderer;
 pub mod resource;
@@ -25,7 +25,7 @@ pub struct SharedContext<A: Allocator = DefaultAllocator> {
     pub debug_messenger: Option<Arc<ph::DebugMessenger>>,
     pub instance: Arc<ph::VkInstance>,
     pub device: Arc<ph::Device>,
-    pub shader_reload: SyncShaderReload,
+    pub shader_reload: ShaderReload,
 }
 
 fn fill_app_settings<W: WindowInterface>(window: &W) -> ph::AppSettings<W> {

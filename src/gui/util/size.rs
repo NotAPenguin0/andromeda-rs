@@ -8,10 +8,7 @@ pub type FSize = Size<f32>;
 
 impl<T: Copy> Size<T> {
     pub fn new(x: T, y: T) -> Self {
-        Self {
-            0: x,
-            1: y,
-        }
+        Self(x, y)
     }
 
     pub fn x(&self) -> T {
@@ -25,27 +22,24 @@ impl<T: Copy> Size<T> {
 
 impl From<Vec2> for USize {
     fn from(value: Vec2) -> Self {
-        Self {
-            0: value.x as u32,
-            1: value.y as u32,
+        Self(value.x as u32, value.y as u32)
+    }
+}
+
+impl From<USize> for Vec2 {
+    fn from(value: USize) -> Self {
+        Vec2 {
+            x: value.x() as f32,
+            y: value.y() as f32,
         }
     }
 }
 
-impl Into<Vec2> for USize {
-    fn into(self) -> Vec2 {
+impl From<FSize> for Vec2 {
+    fn from(value: FSize) -> Self {
         Vec2 {
-            x: self.0 as f32,
-            y: self.1 as f32,
-        }
-    }
-}
-
-impl Into<Vec2> for FSize {
-    fn into(self) -> Vec2 {
-        Vec2 {
-            x: self.0,
-            y: self.1,
+            x: value.x(),
+            y: value.y(),
         }
     }
 }

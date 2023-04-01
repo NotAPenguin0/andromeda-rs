@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::path::Path;
 
@@ -24,18 +23,6 @@ pub struct Terrain {
 }
 
 impl Terrain {
-    pub fn detect_filetype<P: AsRef<Path>>(path: P) -> FileType {
-        let path = path.as_ref();
-        let extension = path.extension().unwrap_or(OsStr::new(""));
-        if extension == OsStr::new("png") {
-            FileType::Png
-        } else if extension == OsStr::new("nc") {
-            FileType::NetCDF
-        } else {
-            FileType::Unknown(extension.to_str().unwrap_or("").to_string())
-        }
-    }
-
     /// Loads a terrain from a new heightmap and creates a mesh associated with it.
     pub fn from_new_heightmap<P: AsRef<Path> + Copy + Debug + Send + 'static>(
         heightmap_path: P,
@@ -55,7 +42,7 @@ impl Terrain {
             Texture::from_file(ctx2, texture_path).block_and_take()
         });
         let height_normal = Promise::spawn_blocking(move || {
-            let filetype = Self::detect_filetype(heightmap_path);
+            let filetype = FileType::from(heightmap_path);
             let height = match filetype {
                 FileType::Png => {
                     let file_data =

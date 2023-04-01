@@ -100,7 +100,7 @@ pub struct Input {
 impl Input {
     fn fire_event_listeners(&self, event: InputEvent) {
         for listener in &self.listeners {
-            listener.handle(event, &self).safe_unwrap();
+            listener.handle(event, self).safe_unwrap();
         }
     }
 

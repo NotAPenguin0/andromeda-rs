@@ -36,16 +36,16 @@ impl<'e, 'q, A: Allocator> FrameGraph<'e, 'q, A> {
     pub fn aliased_resource(&self, name: &str) -> Result<ph::VirtualResource> {
         self.aliases
             .get(name)
-            .ok_or(anyhow!("No such alias {:?}", name))
+            .ok_or(anyhow!("No such alias {name:?}"))
             .cloned()
     }
 
     pub fn latest_version(&self, resource: &ph::VirtualResource) -> Result<ph::VirtualResource> {
         self.passes
             .values()
-            .flat_map(|pass| pass.output(&resource).cloned())
+            .flat_map(|pass| pass.output(resource).cloned())
             .max_by_key(|resource| resource.version())
-            .ok_or(anyhow!("No such resource {:?}", resource))
+            .ok_or(anyhow!("No such resource {resource:?}"))
     }
 
     #[allow(dead_code)]
@@ -57,9 +57,9 @@ impl<'e, 'q, A: Allocator> FrameGraph<'e, 'q, A> {
         let pass = self
             .passes
             .get(pass)
-            .ok_or(anyhow!("No such pass {:?}", pass))?;
+            .ok_or(anyhow!("No such pass {pass:?}"))?;
         pass.output(resource)
-            .ok_or(anyhow!("No such resource {:?}", resource))
+            .ok_or(anyhow!("No such resource {resource:?}"))
     }
 
     pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All, A>> {

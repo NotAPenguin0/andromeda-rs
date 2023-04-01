@@ -27,8 +27,8 @@ impl NormalMap {
         let image = Image::new(
             ctx.device.clone(),
             &mut ctx.allocator,
-            heights.image.image.width(),
-            heights.image.image.height(),
+            heights.image.width(),
+            heights.image.height(),
             vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED,
             vk::Format::R8G8B8A8_UNORM,
             vk::SampleCountFlags::TYPE_1,
@@ -44,8 +44,8 @@ impl NormalMap {
             .exec
             .on_domain::<Compute>(Some(ctx.pipelines.clone()), Some(ctx.descriptors.clone()))?;
 
-        let dispatches_x = (image.image.width() as f32 / 32.0).ceil() as u32;
-        let dispatches_y = (image.image.height() as f32 / 32.0).ceil() as u32;
+        let dispatches_x = (image.width() as f32 / 32.0).ceil() as u32;
+        let dispatches_y = (image.height() as f32 / 32.0).ceil() as u32;
         let cmd = cmd
             .transition_image(
                 &image.view,

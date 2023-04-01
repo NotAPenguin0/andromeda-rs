@@ -7,13 +7,16 @@ use futures::channel::mpsc::{channel, Receiver};
 use futures::{SinkExt, StreamExt};
 use notify::Watcher;
 
-pub fn create_async_watcher() -> Result<(notify::RecommendedWatcher, Receiver<Result<notify::Event>>)> {
+pub fn create_async_watcher(
+) -> Result<(notify::RecommendedWatcher, Receiver<Result<notify::Event>>)> {
     let (mut tx, rx) = channel(1);
 
     let watcher = notify::RecommendedWatcher::new(
         move |res: notify::Result<notify::Event>| {
             futures::executor::block_on(async {
-                tx.send(res.map_err(|e| -> anyhow::Error { e.into() })).await.unwrap();
+                tx.send(res.map_err(|e| -> anyhow::Error { e.into() }))
+                    .await
+                    .unwrap();
             })
         },
         notify::Config::default(),
@@ -28,7 +31,7 @@ where
     F: Fn(notify::Event), {
     let (mut watcher, mut rx) = create_async_watcher()?;
 
-    info!("Starting file watcher for path {:?}, recursive = {:?}", path, recursive);
+    info!("Starting file watcher for path {path:?}, recursive = {recursive:?}");
     let path = match fs::canonicalize(path.as_ref()) {
         Ok(path) => path,
         Err(_) => {
@@ -50,7 +53,7 @@ where
         match res {
             Ok(event) => (callback)(event),
             Err(err) => {
-                error!("File watcher error: {:?}", err);
+                error!("File watcher error: {err:?}");
             }
         }
     }

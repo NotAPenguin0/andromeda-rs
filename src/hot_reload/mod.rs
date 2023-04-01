@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Read;
@@ -10,7 +10,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex, RwLock};
 use std::{env, fs};
 
-use anyhow::{bail, Result};
+use anyhow::{ensure, Result};
 pub use dynamic_pipeline_builder::*;
 use notify::EventKind;
 use phobos::{prelude as ph, vk, PipelineType};
@@ -51,13 +51,11 @@ impl ShaderReload {
         path: impl Into<PathBuf>,
         recursive: bool,
     ) -> Result<SyncShaderReload> {
-        let this = SyncShaderReload {
-            0: Arc::new(RwLock::new(Self {
-                pipelines,
-                shaders: Default::default(),
-                watch_tasks: vec![],
-            })),
-        };
+        let this = SyncShaderReload(Arc::new(RwLock::new(Self {
+            pipelines,
+            shaders: Default::default(),
+            watch_tasks: vec![],
+        })));
 
         let copy = this.clone();
         let watcher =
@@ -71,7 +69,7 @@ impl ShaderReload {
     }
 
     pub fn add_shader(&mut self, path: PathBuf, stage: vk::ShaderStageFlags, pipeline: String) {
-        info!("Pipeline {:?} added to watch for shader {:?}", pipeline, path);
+        info!("Pipeline {pipeline:?} added to watch for shader {path:?}");
         let entry = self.shaders.entry(fs::canonicalize(path.clone()).unwrap());
         match entry {
             Entry::Occupied(entry) => {
@@ -79,7 +77,7 @@ impl ShaderReload {
             }
             Entry::Vacant(entry) => {
                 entry.insert(ShaderInfo {
-                    stage: stage,
+                    stage,
                     pipelines: vec![pipeline.clone()],
                 });
             }
@@ -89,21 +87,17 @@ impl ShaderReload {
     }
 
     pub fn handle_file_event(&self, event: notify::Event) {
-        match event {
-            notify::Event {
-                kind,
-                paths,
-                ..
-            } => match kind {
-                EventKind::Modify(_) => {
-                    for path in paths {
-                        if path.extension().unwrap_or(OsStr::new("")) == OsString::from("hlsl") {
-                            self.reload_file(path).safe_unwrap();
-                        }
-                    }
+        let notify::Event {
+            kind,
+            paths,
+            ..
+        } = event;
+        if let EventKind::Modify(_) = kind {
+            for path in paths {
+                if path.extension().unwrap_or(OsStr::new("")) == "hlsl" {
+                    self.reload_file(path).safe_unwrap();
                 }
-                _ => {}
-            },
+            }
         }
     }
 
@@ -139,10 +133,11 @@ impl ShaderReload {
     }
 
     fn load_spirv_file(path: &Path) -> Result<Vec<u32>> {
-        let mut f = File::open(&path)?;
-        let metadata = fs::metadata(&path)?;
+        let mut f = File::open(path)?;
+        let metadata = fs::metadata(path)?;
         let mut buffer = vec![0; metadata.len() as usize];
-        f.read(&mut buffer)?;
+        f.read_exact(&mut buffer)?;
+        // SAFETY: A valid SPIR-V module is made out of 32-bit words.
         let (_, binary, _) = unsafe { buffer.align_to::<u32>() };
         Ok(Vec::from(binary))
     }
@@ -173,13 +168,13 @@ impl ShaderReload {
             // Our input file
             .arg(path)
             .output()?;
-        match output.status.success() {
-            true => Self::load_spirv_file(&out),
-            false => bail!(
-                "Error compiling shader {path:?}: {}",
-                String::from_utf8(output.stderr).unwrap()
-            ),
-        }
+
+        ensure!(
+            output.status.success(),
+            "Error compiling shader {path:?}: {}",
+            String::from_utf8(output.stderr).unwrap()
+        );
+        Self::load_spirv_file(&out)
     }
 
     fn reload_pipeline(
@@ -242,14 +237,14 @@ impl ShaderReload {
             );
             for (path, info) in &self.shaders {
                 for pipeline in &info.pipelines {
-                    self.reload_pipeline(&path, pipeline, info.stage)?;
+                    self.reload_pipeline(path, pipeline, info.stage)?;
                 }
             }
             return Ok(());
         }
 
         // CLion always saves quickly files with a ~ suffix first for some reason, so we add a quick hack to ignore this temporary file
-        if path.file_name().unwrap().to_str().unwrap().ends_with("~") {
+        if path.file_name().unwrap().to_str().unwrap().ends_with('~') {
             return Ok(());
         }
         info!("Reloading shader file {:?}", path.file_name().unwrap());

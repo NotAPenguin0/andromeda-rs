@@ -15,4 +15,12 @@ impl PairedImageView {
             image,
         })
     }
+
+    pub fn width(&self) -> u32 {
+        self.view.width()
+    }
+
+    pub fn height(&self) -> u32 {
+        self.view.height()
+    }
 }

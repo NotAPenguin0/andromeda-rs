@@ -6,12 +6,27 @@ use phobos::vk;
 
 use crate::gfx;
 
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+pub struct TargetSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl TargetSize {
+    pub fn new(width: u32, height: u32) -> Self {
+        TargetSize {
+            width,
+            height,
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SizeGroup {
     RenderResolution,
     OutputResolution,
-    Custom(u32, u32),
+    Custom(TargetSize),
 }
 
 #[derive(Derivative)]
@@ -20,7 +35,7 @@ struct RenderTargetEntry {
     pub size_group: SizeGroup,
     pub target: gfx::PairedImageView,
     #[derivative(Debug = "ignore")]
-    pub recreate: Box<dyn Fn(u32, u32) -> Result<gfx::PairedImageView>>,
+    pub recreate: Box<dyn Fn(TargetSize) -> Result<gfx::PairedImageView>>,
 }
 
 #[allow(dead_code)]
@@ -28,8 +43,8 @@ struct RenderTargetEntry {
 pub struct RenderTargets {
     targets: HashMap<String, RenderTargetEntry>,
     deferred_delete: ph::DeletionQueue<gfx::PairedImageView>,
-    output_resolution: (u32, u32),
-    render_resolution: (u32, u32),
+    output_resolution: TargetSize,
+    render_resolution: TargetSize,
 }
 
 impl RenderTargets {
@@ -37,18 +52,18 @@ impl RenderTargets {
         Ok(RenderTargets {
             targets: Default::default(),
             deferred_delete: ph::DeletionQueue::new(4),
-            output_resolution: (0, 0),
-            render_resolution: (0, 0),
+            output_resolution: TargetSize::default(),
+            render_resolution: TargetSize::default(),
         })
     }
 
     pub fn set_output_resolution(&mut self, width: u32, height: u32) -> Result<()> {
         // no change
-        if self.output_resolution.0 == width && self.output_resolution.1 == height {
+        if self.output_resolution.width == width && self.output_resolution.height == height {
             return Ok(());
         }
-        self.output_resolution = (width, height);
-        for (_, entry) in &mut self.targets {
+        self.output_resolution = TargetSize::new(width, height);
+        for entry in self.targets.values_mut() {
             if entry.size_group == SizeGroup::OutputResolution {
                 Self::resize_target(&mut self.deferred_delete, entry, width, height)?;
             }
@@ -72,9 +87,17 @@ impl RenderTargets {
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
         let alloc = ctx.allocator.clone();
-        self.register_target(name, size, move |width, height| {
+        self.register_target(name, size, move |size| {
             gfx::PairedImageView::new(
-                ph::Image::new(ctx.device.clone(), &mut alloc.clone(), width, height, usage, format, samples)?,
+                ph::Image::new(
+                    ctx.device.clone(),
+                    &mut alloc.clone(),
+                    size.width,
+                    size.height,
+                    usage,
+                    format,
+                    samples,
+                )?,
                 aspect,
             )
         })
@@ -128,7 +151,15 @@ impl RenderTargets {
         format: vk::Format,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::COLOR, samples)
+        self.register_simple_target(
+            name,
+            size,
+            ctx,
+            usage,
+            format,
+            vk::ImageAspectFlags::COLOR,
+            samples,
+        )
     }
 
     pub fn register_multisampled_depth_target(
@@ -140,14 +171,22 @@ impl RenderTargets {
         format: vk::Format,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        self.register_simple_target(name, size, ctx, usage, format, vk::ImageAspectFlags::DEPTH, samples)
+        self.register_simple_target(
+            name,
+            size,
+            ctx,
+            usage,
+            format,
+            vk::ImageAspectFlags::DEPTH,
+            samples,
+        )
     }
 
     pub fn register_target(
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        recreate: impl Fn(u32, u32) -> Result<gfx::PairedImageView> + 'static,
+        recreate: impl Fn(TargetSize) -> Result<gfx::PairedImageView> + 'static,
     ) -> Result<()> {
         let target = self.create_target(&recreate, size)?;
         self.targets.insert(
@@ -167,18 +206,21 @@ impl RenderTargets {
     }
 
     #[allow(dead_code)]
-    pub fn target_size(&self, name: &str) -> Result<(u32, u32)> {
-        let target = self.targets.get(name).ok_or(anyhow!("Target {} not found", name))?;
+    pub fn target_size(&self, name: &str) -> Result<TargetSize> {
+        let target = self
+            .targets
+            .get(name)
+            .ok_or(anyhow!("Target {name} not found"))?;
         Ok(self.size_group_resolution(target.size_group))
     }
 
-    pub fn size_group_resolution(&self, size_group: SizeGroup) -> (u32, u32) {
+    pub fn size_group_resolution(&self, size_group: SizeGroup) -> TargetSize {
         match size_group {
             SizeGroup::RenderResolution => {
                 todo!()
             }
             SizeGroup::OutputResolution => self.output_resolution,
-            SizeGroup::Custom(w, h) => (w, h),
+            SizeGroup::Custom(size) => size,
         }
     }
 
@@ -186,7 +228,7 @@ impl RenderTargets {
         Ok(self
             .targets
             .get(name)
-            .ok_or(anyhow!("Target not found: {}", name))?
+            .ok_or(anyhow!("Target {name} not found"))?
             .target
             .view
             .clone())
@@ -198,18 +240,27 @@ impl RenderTargets {
         }
     }
 
-    fn create_target(&self, recreate: &impl Fn(u32, u32) -> Result<gfx::PairedImageView>, size: SizeGroup) -> Result<gfx::PairedImageView> {
-        let (w, h) = self.size_group_resolution(size);
-        recreate.call((w, h))
+    fn create_target(
+        &self,
+        recreate: &impl Fn(TargetSize) -> Result<gfx::PairedImageView>,
+        size: SizeGroup,
+    ) -> Result<gfx::PairedImageView> {
+        let size = self.size_group_resolution(size);
+        recreate.call((size,))
     }
 
-    fn resize_target(deferred_delete: &mut ph::DeletionQueue<gfx::PairedImageView>, target: &mut RenderTargetEntry, width: u32, height: u32) -> Result<()> {
+    fn resize_target(
+        deferred_delete: &mut ph::DeletionQueue<gfx::PairedImageView>,
+        target: &mut RenderTargetEntry,
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
         // Store new size if this was a custom size group
-        if let SizeGroup::Custom(_, _) = target.size_group {
-            target.size_group = SizeGroup::Custom(width, height);
+        if let SizeGroup::Custom(size) = target.size_group {
+            target.size_group = SizeGroup::Custom(size);
         }
         // Allocate new target
-        let mut new_target = target.recreate.call((width, height))?;
+        let mut new_target = target.recreate.call((TargetSize::new(width, height),))?;
         // Swap old and new, push old onto deferred delete queue
         std::mem::swap(&mut new_target, &mut target.target);
         deferred_delete.push(new_target);

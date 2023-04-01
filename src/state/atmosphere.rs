@@ -26,7 +26,7 @@ impl AtmosphereInfo {
             mie_albedo: 0.9,
             mie_scatter_height: 1200.0,
             mie_g: 0.8,
-            ozone_coefficients: Vec3::new(0.00000077295962, 0.000000667717648, 0.0000000704931588),
+            ozone_coefficients: Vec3::new(0.0000007729596, 0.00000066771764, 0.00000007049316),
             sun_intensity: 22.0,
         }
     }

@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use futures::executor::block_on;
 use glam::Vec3;
-use winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
+use winit::event::{Event, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 
@@ -33,7 +33,7 @@ pub struct Driver {
 impl Driver {
     /// Initialize the application driver with a window and event loop.
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
-        let (gfx, window, renderer) = gfx::init_graphics(window, &event_loop)?;
+        let (gfx, window, renderer) = gfx::init_graphics(window, event_loop)?;
 
         let input = Arc::new(RwLock::new(Input::default()));
         let mut camera = Camera::default();
@@ -74,7 +74,7 @@ impl Driver {
                 self.editor
                     .show(&mut self.world, self.renderer.image_provider());
 
-                self.renderer.render(&window, &self.world, ifc)
+                self.renderer.render(window, &self.world, ifc)
             })
             .await?;
         Ok(())
@@ -106,16 +106,8 @@ impl Driver {
                     WindowEvent::ReceivedCharacter(_) => {}
                     WindowEvent::Focused(_) => {}
                     WindowEvent::KeyboardInput {
-                        input,
                         ..
-                    } => {
-                        if input.state == ElementState::Pressed {
-                            match input.virtual_keycode {
-                                None => {}
-                                _ => {}
-                            }
-                        }
-                    }
+                    } => {}
                     WindowEvent::ModifiersChanged(state) => {
                         if state.shift() {
                             input.process_event(InputEvent::Button(KeyState {

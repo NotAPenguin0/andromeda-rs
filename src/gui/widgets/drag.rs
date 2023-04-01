@@ -6,8 +6,14 @@ use glam::Vec3;
 use crate::gui::widgets::aligned_label::aligned_label_with;
 use crate::math::Rotation;
 
-pub trait Draggable: Copy + Default + Sub<Self, Output = Self> + Add<Self, Output = Self> + Mul<f32, Output = Self> + Div<f32, Output = Self> {
-    fn drag(&mut self, ui: &mut egui::Ui, speed: f64, digits: usize, suffix: &str) -> bool;
+pub trait Draggable:
+    Copy
+    + Default
+    + Sub<Self, Output = Self>
+    + Add<Self, Output = Self>
+    + Mul<f32, Output = Self>
+    + Div<f32, Output = Self> {
+    fn drag(&mut self, ui: &mut Ui, speed: f64, digits: usize, suffix: &str) -> bool;
 }
 
 impl Draggable for Vec3 {
@@ -109,7 +115,9 @@ where
     pub fn show(mut self, ui: &mut egui::Ui) -> bool {
         aligned_label_with(ui, self.label, |ui| {
             self.scaled_value = (*self.original_value - self.base) * self.scale;
-            let response = self.scaled_value.drag(ui, self.speed, self.digits, self.suffix.unwrap_or(""));
+            let response =
+                self.scaled_value
+                    .drag(ui, self.speed, self.digits, self.suffix.unwrap_or(""));
             *self.original_value = (self.scaled_value / self.scale) + self.base;
             response
         })

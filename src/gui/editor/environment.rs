@@ -5,7 +5,7 @@ pub fn show(context: &egui::Context, world: &mut World) {
     egui::Window::new("Environment Settings")
         .resizable(true)
         .movable(true)
-        .show(&context, |ui| {
+        .show(context, |ui| {
             Drag::new("Sun direction", &mut world.sun_direction).show(ui);
             egui::CollapsingHeader::new("Atmosphere").show(ui, |ui| {
                 Drag::new("Planet radius", &mut world.atmosphere.planet_radius)

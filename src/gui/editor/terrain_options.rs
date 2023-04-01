@@ -10,7 +10,7 @@ pub fn show(context: &egui::Context, gfx: gfx::SharedContext, world: &mut World)
     egui::Window::new("Terrain options")
         .resizable(true)
         .movable(true)
-        .show(&context, |ui| {
+        .show(context, |ui| {
             let mut dirty =
                 Drag::new("Terrain horizontal scale", &mut world.terrain_options.horizontal_scale)
                     .speed(1.0)
@@ -28,7 +28,6 @@ pub fn show(context: &egui::Context, gfx: gfx::SharedContext, world: &mut World)
 
             // If changed, generate new terrain
             if dirty {
-                let options = world.terrain_options.clone();
                 match world.terrain.take() {
                     None => {}
                     Some(old) => {
@@ -36,7 +35,7 @@ pub fn show(context: &egui::Context, gfx: gfx::SharedContext, world: &mut World)
                             old.height_map,
                             old.normal_map,
                             old.diffuse_map,
-                            options,
+                            world.terrain_options,
                             gfx,
                         ));
                     }

@@ -45,7 +45,7 @@ impl UIIntegration {
                 ctx.device.clone(),
                 ctx.allocator.clone(),
                 ctx.exec.clone(),
-                ctx.pipelines.clone(),
+                ctx.pipelines,
             )?,
             to_unregister: HashMap::new(),
         })
@@ -54,7 +54,7 @@ impl UIIntegration {
     pub fn new_frame(&mut self, window: &Window) {
         self.integration.begin_frame(window);
         self.to_unregister.iter_mut().for_each(|(id, ttl)| {
-            *ttl = *ttl - 1;
+            *ttl -= 1;
             if *ttl == 0 {
                 self.integration.unregister_user_texture(*id);
             }
@@ -87,7 +87,7 @@ impl UIIntegration {
     }
 
     pub fn context(&self) -> egui::Context {
-        self.integration.context().clone()
+        self.integration.context()
     }
 
     pub fn process_event(&mut self, event: &WindowEvent) {

@@ -1,11 +1,13 @@
 use anyhow::Result;
 use phobos::domain::{ExecutionDomain, Transfer};
 use phobos::traits::*;
-use phobos::{vk, Buffer, BufferView, IncompleteCommandBuffer, MemoryType};
+use phobos::{vk, Buffer, BufferView, IncompleteCommandBuffer};
 use rayon::prelude::*;
 
 use crate::gfx;
+use crate::gfx::util::staging_buffer::StagingBuffer;
 use crate::state::world::TerrainOptions;
+use crate::util::byte_size::ByteSize;
 
 /// A plane terrain mesh, used as a base for tesselation and rendering the terrain.
 #[derive(Debug)]
@@ -28,25 +30,18 @@ impl TerrainPlane {
         cmd: IncompleteCommandBuffer<'a, D>,
         src: &[T],
         usage: vk::BufferUsageFlags,
-    ) -> Result<(IncompleteCommandBuffer<'a, D>, Buffer, Buffer)> {
-        let staging = Buffer::new(
-            gfx.device.clone(),
-            &mut gfx.allocator,
-            (src.len() * std::mem::size_of::<T>()) as u64,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            MemoryType::CpuToGpu,
-        )?;
-        let mut staging_view = staging.view_full();
+    ) -> Result<(IncompleteCommandBuffer<'a, D>, Buffer, StagingBuffer)> {
+        let mut staging = StagingBuffer::new(&mut gfx, src.byte_size())?;
         let result = Buffer::new_device_local(
             gfx.device.clone(),
             &mut gfx.allocator,
-            (src.len() * std::mem::size_of::<T>()) as u64,
+            src.byte_size() as u64,
             usage | vk::BufferUsageFlags::TRANSFER_DST,
         )?;
         let result_view = result.view_full();
-        staging_view.mapped_slice::<T>()?.copy_from_slice(src);
+        staging.mapped_slice::<T>()?.copy_from_slice(src);
 
-        let cmd = cmd.copy_buffer(&staging_view, &result_view)?;
+        let cmd = cmd.copy_buffer(&staging.view, &result_view)?;
         Ok((cmd, result, staging))
     }
 

@@ -2,7 +2,6 @@
 #![feature(never_type)]
 #![feature(fn_traits)]
 
-#[allow(dead_code)]
 #[macro_use]
 extern crate derivative;
 #[macro_use]
@@ -10,7 +9,6 @@ extern crate log;
 extern crate pretty_env_logger;
 
 use anyhow::Result;
-use tokio;
 use winit::event_loop::ControlFlow;
 
 use crate::app::driver::Driver;

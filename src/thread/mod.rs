@@ -27,6 +27,6 @@ unsafe impl<T> Sync for SendSyncPtr<T> {}
 pub fn yield_now() {
     match rayon::yield_now() {
         Some(Yield::Executed) => {}
-        _ => {} // std::thread::yield_now()
+        _ => std::thread::yield_now(),
     }
 }

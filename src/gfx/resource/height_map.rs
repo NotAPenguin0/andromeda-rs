@@ -27,7 +27,7 @@ fn normalize_height(data: &mut [f16]) {
     let extreme_val_inverse = f16::ONE / extreme_val;
     // Now divide every height value by this extreme value
     data.par_iter_mut().for_each(|value| {
-        *value = *value * extreme_val_inverse;
+        *value *= extreme_val_inverse;
     });
 }
 
@@ -92,10 +92,7 @@ impl HeightMap {
         let file = netcdf::open(&path)?;
         trace!("netcdf: opened file {path:?}");
         // Identify the variable name used for heightmap data. We'll just pick the first 2D variable
-        let var = file
-            .variables()
-            .filter(|var| var.dimensions().len() == 2)
-            .next();
+        let var = file.variables().find(|var| var.dimensions().len() == 2);
         let var =
             var.ok_or(anyhow!("netcdf file {path:?} does not appear to contain any 2D data"))?;
         trace!("netcdf: identified heightmap variable: {}", var.name());
@@ -127,7 +124,7 @@ impl HeightMap {
                 // SAFETY: src_ptr refers to the same slice as before, and the size of a u16 is the same as the size
                 // of an f16, so all these accesses are valid
                 // As for safety of the get() call, see the comment above
-                *as_f16 = f16::from_f32(unsafe { *src_ptr.get().offset(idx as isize) } as f32);
+                *as_f16 = f16::from_f32(unsafe { *src_ptr.get().add(idx) } as f32);
             });
         // Normalize all height values to [-1, 1]
         normalize_height(f16_slice);

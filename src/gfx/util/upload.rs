@@ -69,7 +69,6 @@ pub fn upload_image(
     Promise::spawn_blocking(move || {
         let mut buffer = StagingBuffer::new(&mut ctx, data.len())?;
         buffer.mapped_slice()?.copy_from_slice(data.as_slice());
-        return upload_image_from_buffer(ctx, buffer, width, height, format, usage)
-            .block_and_take();
+        upload_image_from_buffer(ctx, buffer, width, height, format, usage).block_and_take()
     })
 }

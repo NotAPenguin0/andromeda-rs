@@ -29,11 +29,14 @@ pub struct SharedContext<A: Allocator = DefaultAllocator> {
 }
 
 fn fill_app_settings<W: WindowInterface>(window: &W) -> ph::AppSettings<W> {
-    let mut features = vk::PhysicalDeviceFeatures::default();
+    let features = vk::PhysicalDeviceFeatures {
+        fill_mode_non_solid: vk::TRUE,
+        tessellation_shader: vk::TRUE,
+        sampler_anisotropy: vk::TRUE,
+        ..Default::default()
+    };
+
     // Allows wireframe polygon mode
-    features.fill_mode_non_solid = vk::TRUE;
-    features.tessellation_shader = vk::TRUE;
-    features.sampler_anisotropy = vk::TRUE;
 
     ph::AppBuilder::new()
         .version((0, 0, 1))
@@ -44,7 +47,7 @@ fn fill_app_settings<W: WindowInterface>(window: &W) -> ph::AppSettings<W> {
         .scratch_size(8 * 1024 * 1024u64)
         .gpu(ph::GPURequirements {
             dedicated: false,
-            min_video_memory: 1 * 1024 * 1024 * 1024,
+            min_video_memory: 1024 * 1024 * 1024,
             min_dedicated_video_memory: 0,
             queues: vec![
                 ph::QueueRequest {
@@ -106,7 +109,7 @@ pub fn init_graphics(
         shader_reload,
     };
 
-    let renderer = AppRenderer::new(gfx.clone(), &window, &event_loop)?;
+    let renderer = AppRenderer::new(gfx.clone(), &window, event_loop)?;
     let window = AppWindow::new(frame, window, surface, gfx.clone());
 
     Ok((gfx, window, renderer))

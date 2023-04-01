@@ -1,14 +1,8 @@
 use std::sync::{Arc, RwLock};
 
-use egui::Response;
-
 use crate::gui::editor::camera_controller::{enable_camera_over, CameraController};
 use crate::gui::util::image_provider::ImageProvider;
 use crate::gui::widgets::resizable_image::resizable_image_window;
-
-fn behaviour(response: &Response, camera_controller: &Arc<RwLock<CameraController>>) {
-    enable_camera_over(response, camera_controller);
-}
 
 pub fn show(
     context: &egui::Context,
@@ -19,7 +13,7 @@ pub fn show(
         context,
         "World view",
         |size| provider.get_image(size),
-        |response| behaviour(&response, &camera_controller),
+        |response| enable_camera_over(&response, camera_controller),
         (800.0, 600.0).into(),
     );
 }

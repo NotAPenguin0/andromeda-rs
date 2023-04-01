@@ -26,7 +26,7 @@ impl AppRenderer {
     pub fn new(gfx: SharedContext, window: &Window, event_loop: &EventLoop<()>) -> Result<Self> {
         Ok(Self {
             renderer: WorldRenderer::new(gfx.clone())?,
-            ui: UIIntegration::new(&event_loop, &window, gfx.clone())?,
+            ui: UIIntegration::new(event_loop, window, gfx.clone())?,
             gfx,
         })
     }

@@ -105,7 +105,7 @@ impl WorldRenderer {
             state: RenderState::default(),
             tonemap: Tonemap::new(ctx.clone(), &mut targets)?,
             atmosphere: AtmosphereRenderer::new(ctx.clone())?,
-            terrain: TerrainRenderer::new(ctx.clone())?,
+            terrain: TerrainRenderer::new(ctx)?,
             targets,
         })
     }
@@ -181,10 +181,10 @@ impl WorldRenderer {
 
         // 1. Render terrain
         self.terrain
-            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
+            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
         // 2. Render atmosphere
         self.atmosphere
-            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
+            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
             .color_attachment(

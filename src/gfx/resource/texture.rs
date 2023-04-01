@@ -3,7 +3,6 @@ use std::io::Cursor;
 use std::path::Path;
 
 use anyhow::Result;
-use image::ImageFormat;
 use phobos::vk;
 use poll_promise::Promise;
 
@@ -24,13 +23,12 @@ impl Texture {
     ) -> Promise<Result<Self>> {
         trace!("Loading texture {path:?}");
         read_file_async(path.as_ref().to_path_buf()).then_try_map(move |buffer| {
-            let mut reader = image::io::Reader::new(Cursor::new(buffer));
-            reader.set_format(ImageFormat::Png);
+            let reader = image::io::Reader::new(Cursor::new(buffer)).with_guessed_format()?;
             let image = reader.decode()?;
             let width = image.width();
             let height = image.height();
-            trace!("png: texture size is {width}x{height}");
-            trace!("png: texture color type is {:?}", image.color());
+            trace!("texture size is {width}x{height}");
+            trace!("texture color type is {:?}", image.color());
             let image = image.into_rgba8();
             let image = upload_image(
                 ctx,

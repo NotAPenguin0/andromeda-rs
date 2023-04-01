@@ -6,14 +6,14 @@ pub fn resizable_image_window(
     context: &egui::Context,
     title: impl Into<egui::WidgetText>,
     get_image: impl FnOnce(Vec2) -> Option<Image>,
-    behaviour: impl FnOnce(Response) -> (),
+    behaviour: impl FnOnce(Response),
     default_size: Vec2,
 ) {
     egui::Window::new(title)
         .resizable(true)
         .default_size(default_size)
         .movable(true)
-        .show(&context, |ui| {
+        .show(context, |ui| {
             let cursor = ui.cursor();
             let remaining_size = ui.available_size();
             let (response, painter) = ui.allocate_painter(remaining_size, Sense::drag());

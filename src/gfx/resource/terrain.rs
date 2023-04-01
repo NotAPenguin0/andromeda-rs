@@ -12,7 +12,7 @@ use crate::gfx::resource::texture::Texture;
 use crate::gfx::resource::TerrainPlane;
 use crate::state::world::TerrainOptions;
 use crate::thread::io::read_file_async;
-use crate::thread::promise::{SpawnPromise, ThenTry, ThenTryMap, TryJoinPromise};
+use crate::thread::promise::SpawnPromise;
 use crate::util::file_type::FileType;
 
 #[derive(Debug)]
@@ -45,58 +45,54 @@ impl Terrain {
     ) -> Promise<Result<Terrain>> {
         let ctx2 = ctx.clone();
         let ctx3 = ctx.clone();
-        let ctx4 = ctx.clone();
         trace!("Loading new heightmap from file: {heightmap_path:?}");
-        Promise::spawn_blocking(move || {
-            let mesh = TerrainPlane::generate(ctx2.clone(), options)?;
+        let mesh = Promise::spawn_blocking(move || {
+            let mesh = TerrainPlane::generate(ctx, options)?;
             info!("Terrain mesh from heightmap {heightmap_path:?} generated successfully");
-            Ok(mesh)
-        })
-        .try_join(move || {
+            Ok::<_, anyhow::Error>(mesh)
+        });
+        let texture = Promise::spawn_blocking(move || {
+            Texture::from_file(ctx2, texture_path).block_and_take()
+        });
+        let height_normal = Promise::spawn_blocking(move || {
             let filetype = Self::detect_filetype(heightmap_path);
-            // netcdf cannot be loaded from an in-memory buffer because the library is ass,
-            // so we need this ugly match.
-            match filetype {
-                FileType::Unknown(ext) => Promise::spawn_blocking(move || {
-                    bail!("Heightmap {heightmap_path:?} has unsupported file type {ext}")
-                }),
-                FileType::NetCDF => Promise::spawn_blocking(move || {
-                    let image = HeightMap::load_netcdf(heightmap_path, ctx)?;
+            let height = match filetype {
+                FileType::Png => {
+                    let file_data =
+                        read_file_async(heightmap_path.as_ref().to_path_buf()).block_and_take()?;
+                    trace!("Heightmap file {heightmap_path:?} loaded from disk ... decoding");
+                    let height =
+                        HeightMap::from_buffer(filetype, file_data.as_slice(), ctx3.clone())?;
                     info!("Heightmap {heightmap_path:?} loaded successfully");
-                    Ok(HeightMap {
-                        image,
-                    })
-                }),
-                _ => read_file_async(heightmap_path.as_ref().to_path_buf()).then_try_map(
-                    move |buffer| {
-                        trace!("Heightmap file {heightmap_path:?} loaded from disk ... decoding");
-                        let height = HeightMap::from_buffer(filetype, buffer.as_slice(), ctx)?;
-                        info!("Heightmap {heightmap_path:?} loaded successfully");
-                        Ok(height)
-                    },
-                ),
-            }
-            // Once we have the height map we can generate the normal map
-            .then_try(move |heightmap| {
-                info!("Generating normal map from heightmap {heightmap_path:?}");
-                let normal_map = NormalMap::generate_from_heights(ctx3, heightmap)?;
-                info!("Normal map from heightmap {heightmap_path:?} generated successfully");
-                Ok(normal_map)
-            })
-            .block_and_take()
-        })
-        .try_join(move || {
-            let texture = Texture::from_file(ctx4, texture_path).block_and_take()?;
-            Ok(texture)
-        })
-        .then_try_map(|((mesh, (height, normal)), texture)| {
-            info!("Fully loaded terrain");
-            Ok(Terrain {
+                    Ok::<_, anyhow::Error>(height)
+                }
+                FileType::NetCDF => {
+                    let height = HeightMap::from_netcdf(heightmap_path, ctx3.clone())?;
+                    info!("Heightmap {heightmap_path:?} loaded successfully");
+                    Ok(height)
+                }
+                FileType::Unknown(ext) => {
+                    bail!("Heightmap {heightmap_path:?} has unsupported file type {ext}")
+                }
+            }?;
+
+            info!("Generating normal map from heightmap {heightmap_path:?}");
+            let normal = NormalMap::generate_from_heights(ctx3, &height)?;
+            info!("Normal map from heightmap {heightmap_path:?} generated successfully");
+
+            Ok((height, normal))
+        });
+
+        Promise::spawn_blocking(move || {
+            let (height, normal) = height_normal.block_and_take()?;
+            let terrain = Terrain {
                 height_map: height,
                 normal_map: normal,
-                diffuse_map: texture,
-                mesh,
-            })
+                diffuse_map: texture.block_and_take()?,
+                mesh: mesh.block_and_take()?,
+            };
+            info!("Terrain {heightmap_path:?} loaded successfully");
+            Ok(terrain)
         })
     }
 

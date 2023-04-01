@@ -10,10 +10,43 @@ use rayon::prelude::*;
 
 use crate::gfx;
 use crate::gfx::util::staging_buffer::StagingBuffer;
-use crate::gfx::util::upload::{upload_image, upload_image_from_buffer};
+use crate::gfx::util::upload::upload_image_from_buffer;
 use crate::gfx::PairedImageView;
 use crate::thread::SendSyncPtr;
 use crate::util::file_type::FileType;
+
+// Normalizes height values in the height map to [-1, 1] based on the most extreme value
+fn normalize_height(data: &mut [f16]) {
+    trace!("Normalizing heightmap data");
+    // Find the largest absolute value in the dataset, and take the absolute value of it.
+    let extreme_val = data
+        .par_iter()
+        .max_by(|lhs, rhs| lhs.to_f32().abs().total_cmp(&rhs.to_f32().abs()))
+        .unwrap();
+    let extreme_val = f16::from_f32(extreme_val.to_f32().abs());
+    let extreme_val_inverse = f16::ONE / extreme_val;
+    // Now divide every height value by this extreme value
+    data.par_iter_mut().for_each(|value| {
+        *value = *value * extreme_val_inverse;
+    });
+}
+
+fn flip_image_vertical<T: Send>(data: &mut [T], row_length: impl Into<usize>) {
+    let width = row_length.into();
+    let (top, bottom) = data.split_at_mut(data.len() / 2);
+    // Each chunk returned by this iterator is one row, we zip both halves together and swap each element.
+    // Note that for the second iterator to go bottom to top we have to reverse it.
+    top.par_chunks_mut(width)
+        .zip(bottom.par_chunks_mut(width).rev())
+        .for_each(|(top_row, bottom_row)| {
+            top_row
+                .par_iter_mut()
+                .zip(bottom_row.par_iter_mut())
+                .for_each(|(top, bottom)| {
+                    std::mem::swap(top, bottom);
+                });
+        });
+}
 
 #[derive(Debug)]
 pub struct HeightMap {
@@ -21,22 +54,6 @@ pub struct HeightMap {
 }
 
 impl HeightMap {
-    // Normalizes height values in the height map to [-1, 1] based on the most extreme value
-    fn normalize_height(data: &mut [f16]) {
-        trace!("Normalizing heightmap data");
-        // Find the largest absolute value in the dataset, and take the absolute value of it.
-        let extreme_val = data
-            .par_iter()
-            .max_by(|lhs, rhs| lhs.to_f32().abs().total_cmp(&rhs.to_f32().abs()))
-            .unwrap();
-        let extreme_val = f16::from_f32(extreme_val.to_f32().abs());
-        let extreme_val_inverse = f16::ONE / extreme_val;
-        // Now divide every height value by this extreme value
-        data.par_iter_mut().for_each(|value| {
-            *value = *value * extreme_val_inverse;
-        });
-    }
-
     fn load_image(buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
         let reader = image::io::Reader::new(Cursor::new(buffer)).with_guessed_format()?;
         let image = reader.decode()?;
@@ -54,7 +71,7 @@ impl HeightMap {
             .for_each(|(dst, src)| {
                 *dst = f16::from_f32(*src as f32);
             });
-        Self::normalize_height(data_slice);
+        normalize_height(data_slice);
         trace!("Uploading heightmap data");
         let image = upload_image_from_buffer(
             ctx,
@@ -68,10 +85,10 @@ impl HeightMap {
         Ok(image)
     }
 
-    pub fn load_netcdf<P: AsRef<Path> + Debug>(
+    pub fn from_netcdf<P: AsRef<Path> + Debug>(
         path: P,
         mut ctx: gfx::SharedContext,
-    ) -> Result<PairedImageView> {
+    ) -> Result<Self> {
         let file = netcdf::open(&path)?;
         trace!("netcdf: opened file {path:?}");
         // Identify the variable name used for heightmap data. We'll just pick the first 2D variable
@@ -95,20 +112,8 @@ impl HeightMap {
         // Get the data slice as the correct type, then reverse it (because the heightmap loads upside down)
         let data_slice = staging_buffer.mapped_slice::<i16>()?;
         // Since our data is now in contiguous rows, we split in each half of the image first
-        let (top, bottom) = data_slice.split_at_mut(data_slice.len() / 2);
-        // Each chunk returned by this iterator is one row, we zip both halves together and swap each element.
-        // Note that for the second iterator to go bottom to top we have to reverse it.
         trace!("netcdf: flipping image vertically");
-        top.par_chunks_mut(width)
-            .zip(bottom.par_chunks_mut(width).rev())
-            .for_each(|(top_row, bottom_row)| {
-                top_row
-                    .par_iter_mut()
-                    .zip(bottom_row.par_iter_mut())
-                    .for_each(|(top, bottom)| {
-                        std::mem::swap(top, bottom);
-                    });
-            });
+        flip_image_vertical(data_slice, width);
 
         // SAFETY: Each invocation of for_each accesses a different offset of this pointer, so
         // we can safely iterate over it in parallel.
@@ -125,7 +130,7 @@ impl HeightMap {
                 *as_f16 = f16::from_f32(unsafe { *src_ptr.get().offset(idx as isize) } as f32);
             });
         // Normalize all height values to [-1, 1]
-        Self::normalize_height(f16_slice);
+        normalize_height(f16_slice);
         let image = upload_image_from_buffer(
             ctx,
             staging_buffer,
@@ -135,8 +140,9 @@ impl HeightMap {
             vk::ImageUsageFlags::SAMPLED,
         )
         .block_and_take()?;
-        // Cleanup is performed already, we're done.
-        Ok(image)
+        Ok(Self {
+            image,
+        })
     }
 
     pub fn from_buffer(ty: FileType, buffer: &[u8], ctx: gfx::SharedContext) -> Result<Self> {

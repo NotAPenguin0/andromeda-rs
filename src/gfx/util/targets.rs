@@ -79,7 +79,6 @@ impl RenderTargets {
         todo!()
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn register_simple_target(
         &mut self,
         name: impl Into<String>,

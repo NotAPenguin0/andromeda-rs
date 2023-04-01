@@ -2,11 +2,11 @@ use std::sync::{Arc, RwLock};
 
 use glam::Vec3;
 
-use crate::gfx::renderer::world_renderer::RenderOptions;
 use crate::gfx::resource::terrain::Terrain;
 use crate::math::Rotation;
 use crate::state::atmosphere::AtmosphereInfo;
-use crate::state::Camera;
+use crate::state::camera::Camera;
+use crate::state::render_options::RenderOptions;
 use crate::thread::promised_value::PromisedValue;
 
 #[derive(Debug, Copy, Clone)]

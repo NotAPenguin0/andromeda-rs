@@ -6,13 +6,14 @@ use anyhow::{bail, Result};
 use poll_promise::Promise;
 
 use crate::gfx;
-use crate::gfx::resource::height_map::{FileType, HeightMap};
+use crate::gfx::resource::height_map::HeightMap;
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::resource::texture::Texture;
 use crate::gfx::resource::TerrainPlane;
 use crate::state::world::TerrainOptions;
 use crate::thread::io::read_file_async;
 use crate::thread::promise::{SpawnPromise, ThenTry, ThenTryMap, TryJoinPromise};
+use crate::util::file_type::FileType;
 
 #[derive(Debug)]
 pub struct Terrain {
@@ -31,7 +32,7 @@ impl Terrain {
         } else if extension == OsStr::new("nc") {
             FileType::NetCDF
         } else {
-            FileType::Unknown
+            FileType::Unknown(extension.to_str().unwrap_or("").to_string())
         }
     }
 
@@ -56,8 +57,8 @@ impl Terrain {
             // netcdf cannot be loaded from an in-memory buffer because the library is ass,
             // so we need this ugly match.
             match filetype {
-                FileType::Unknown => Promise::spawn_blocking(move || {
-                    bail!("Heightmap {heightmap_path:?} has unsupported file type")
+                FileType::Unknown(ext) => Promise::spawn_blocking(move || {
+                    bail!("Heightmap {heightmap_path:?} has unsupported file type {ext}")
                 }),
                 FileType::NetCDF => Promise::spawn_blocking(move || {
                     let image = HeightMap::load_netcdf(heightmap_path, ctx)?;

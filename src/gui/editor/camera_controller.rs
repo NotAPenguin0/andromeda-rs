@@ -5,7 +5,7 @@ use glam::Vec3;
 
 use crate::app::input::*;
 use crate::math::{Position, Rotation};
-use crate::state::Camera;
+use crate::state::camera::Camera;
 
 #[derive(Debug)]
 pub struct CameraController {

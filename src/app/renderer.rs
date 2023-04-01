@@ -48,11 +48,7 @@ impl AppRenderer {
 
     /// Get an image provider to get access to final output image to display.
     pub fn image_provider(&mut self) -> RenderTargetImageProvider {
-        RenderTargetImageProvider {
-            targets: self.renderer.targets(),
-            integration: &mut self.ui,
-            name: WorldRenderer::output_name(),
-        }
+        self.renderer.image_provider(&mut self.ui)
     }
 
     /// Call each frame to update per-frame resources and state.

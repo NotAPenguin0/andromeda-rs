@@ -4,90 +4,23 @@ use std::path::Path;
 
 use anyhow::{anyhow, bail, Result};
 use half::f16;
-use image::ImageFormat;
-use ph::traits::*;
 use ph::vk;
-use phobos::domain::Transfer;
-use phobos::{prelude as ph, MemoryType, PipelineStage};
+use phobos::prelude as ph;
 use rayon::prelude::*;
 
 use crate::gfx;
+use crate::gfx::util::staging_buffer::StagingBuffer;
+use crate::gfx::util::upload::{upload_image, upload_image_from_buffer};
 use crate::gfx::PairedImageView;
 use crate::thread::SendSyncPtr;
+use crate::util::file_type::FileType;
 
 #[derive(Debug)]
 pub struct HeightMap {
     pub image: PairedImageView,
 }
 
-pub enum FileType {
-    Png,
-    NetCDF,
-    Unknown,
-}
-
 impl HeightMap {
-    fn alloc_staging_buffer(
-        ctx: &mut gfx::SharedContext,
-        width: usize,
-        height: usize,
-    ) -> Result<ph::Buffer> {
-        ph::Buffer::new(
-            ctx.device.clone(),
-            &mut ctx.allocator,
-            (std::mem::size_of::<f16>() * width * height) as u64,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            MemoryType::CpuToGpu,
-        )
-    }
-
-    fn upload(
-        mut ctx: gfx::SharedContext,
-        buffer: &ph::BufferView,
-        width: u32,
-        height: u32,
-    ) -> Result<PairedImageView> {
-        trace!("Uploading heightmap data");
-        let image = ph::Image::new(
-            ctx.device.clone(),
-            &mut ctx.allocator,
-            width as u32,
-            height as u32,
-            vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
-            vk::Format::R16_SFLOAT,
-            vk::SampleCountFlags::TYPE_1,
-        )?;
-        let image = PairedImageView::new(image, vk::ImageAspectFlags::COLOR)?;
-
-        // Copy buffer to image
-        let cmd = ctx
-            .exec
-            .on_domain::<Transfer>(None, None)?
-            .transition_image(
-                &image.view,
-                PipelineStage::TOP_OF_PIPE,
-                PipelineStage::TRANSFER,
-                vk::ImageLayout::UNDEFINED,
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                vk::AccessFlags2::NONE,
-                vk::AccessFlags2::TRANSFER_WRITE,
-            )
-            .copy_buffer_to_image(&buffer, &image.view)?
-            .transition_image(
-                &image.view,
-                PipelineStage::TRANSFER,
-                PipelineStage::BOTTOM_OF_PIPE,
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                vk::AccessFlags2::TRANSFER_WRITE,
-                vk::AccessFlags2::NONE,
-            )
-            .finish()?;
-        // We are inside a rayon task, so this is the best option for us
-        ctx.exec.submit(cmd)?.wait_and_yield()?;
-        Ok(image)
-    }
-
     // Normalizes height values in the height map to [-1, 1] based on the most extreme value
     fn normalize_height(data: &mut [f16]) {
         trace!("Normalizing heightmap data");
@@ -104,18 +37,17 @@ impl HeightMap {
         });
     }
 
-    fn load_png(buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
-        let mut reader = image::io::Reader::new(Cursor::new(buffer));
-        reader.set_format(ImageFormat::Png);
+    fn load_image(buffer: &[u8], mut ctx: gfx::SharedContext) -> Result<PairedImageView> {
+        let reader = image::io::Reader::new(Cursor::new(buffer)).with_guessed_format()?;
         let image = reader.decode()?;
-        let width = image.width();
-        let height = image.height();
-        trace!("png: heightmap size is {width}x{height}");
-        trace!("png: heightmap color type is {:?}", image.color());
+        let width = image.width() as usize;
+        let height = image.height() as usize;
+        trace!("heightmap size is {width}x{height}");
+        trace!("heightmap color type is {:?}", image.color());
         let image = image.into_luma16();
-        let staging_buffer = Self::alloc_staging_buffer(&mut ctx, width as usize, height as usize)?;
-        let mut staging_view = staging_buffer.view_full();
-        let data_slice = staging_view.mapped_slice::<f16>()?;
+        let mut staging_buffer =
+            StagingBuffer::new(&mut ctx, width * height * std::mem::size_of::<f16>())?;
+        let data_slice = staging_buffer.mapped_slice::<f16>()?;
         data_slice
             .par_iter_mut()
             .zip(image.as_raw().as_slice().par_iter())
@@ -123,7 +55,16 @@ impl HeightMap {
                 *dst = f16::from_f32(*src as f32);
             });
         Self::normalize_height(data_slice);
-        let image = Self::upload(ctx, &staging_view, width, height)?;
+        trace!("Uploading heightmap data");
+        let image = upload_image_from_buffer(
+            ctx,
+            staging_buffer,
+            width as u32,
+            height as u32,
+            vk::Format::R16_SFLOAT,
+            vk::ImageUsageFlags::SAMPLED,
+        )
+        .block_and_take()?;
         Ok(image)
     }
 
@@ -147,12 +88,12 @@ impl HeightMap {
         let height = var.dimensions().get(0).unwrap().len();
         trace!("netcdf: heightmap size is {}x{}", width, height);
 
-        let staging_buffer = Self::alloc_staging_buffer(&mut ctx, width, height)?;
-        let mut staging_view = staging_buffer.view_full();
-        let data_slice = staging_view.mapped_slice::<u8>()?;
+        let mut staging_buffer =
+            StagingBuffer::new(&mut ctx, width * height * std::mem::size_of::<f16>())?;
+        let data_slice = staging_buffer.mapped_slice::<u8>()?;
         var.raw_values(data_slice, ..)?;
         // Get the data slice as the correct type, then reverse it (because the heightmap loads upside down)
-        let data_slice = staging_view.mapped_slice::<i16>()?;
+        let data_slice = staging_buffer.mapped_slice::<i16>()?;
         // Since our data is now in contiguous rows, we split in each half of the image first
         let (top, bottom) = data_slice.split_at_mut(data_slice.len() / 2);
         // Each chunk returned by this iterator is one row, we zip both halves together and swap each element.
@@ -172,7 +113,7 @@ impl HeightMap {
         // SAFETY: Each invocation of for_each accesses a different offset of this pointer, so
         // we can safely iterate over it in parallel.
         let src_ptr = unsafe { SendSyncPtr::new(data_slice.as_ptr()) };
-        let f16_slice = staging_view.mapped_slice::<f16>()?;
+        let f16_slice = staging_buffer.mapped_slice::<f16>()?;
         trace!("netcdf: converting data to floating point");
         f16_slice
             .par_iter_mut()
@@ -185,16 +126,24 @@ impl HeightMap {
             });
         // Normalize all height values to [-1, 1]
         Self::normalize_height(f16_slice);
-        let image = Self::upload(ctx, &staging_view, width as u32, height as u32)?;
+        let image = upload_image_from_buffer(
+            ctx,
+            staging_buffer,
+            width as u32,
+            height as u32,
+            vk::Format::R16_SFLOAT,
+            vk::ImageUsageFlags::SAMPLED,
+        )
+        .block_and_take()?;
         // Cleanup is performed already, we're done.
         Ok(image)
     }
 
     pub fn from_buffer(ty: FileType, buffer: &[u8], ctx: gfx::SharedContext) -> Result<Self> {
         let image = match ty {
-            FileType::Png => Self::load_png(buffer, ctx),
+            FileType::Png => Self::load_image(buffer, ctx),
             FileType::NetCDF => bail!("netcdf: cannot load from in-memory buffer"),
-            FileType::Unknown => bail!("Unrecognized file type."),
+            FileType::Unknown(ext) => bail!("Unrecognized file type {ext}."),
         }?;
 
         Ok(Self {

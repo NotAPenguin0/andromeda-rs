@@ -10,36 +10,36 @@ use crate::gfx::renderer::postprocess::tonemap::Tonemap;
 use crate::gfx::resource::normal_map::NormalMap;
 use crate::gfx::util::graph::FrameGraph;
 use crate::gfx::util::targets::{RenderTargets, SizeGroup};
+use crate::gui::util::image_provider::RenderTargetImageProvider;
+use crate::gui::util::integration::UIIntegration;
 use crate::hot_reload::IntoDynamic;
 use crate::state::world::World;
 
-#[derive(Debug)]
-pub struct RenderOptions {
-    pub tessellation_level: u32,
-    pub wireframe: bool,
-}
-
-impl Default for RenderOptions {
-    fn default() -> Self {
-        Self {
-            tessellation_level: 8,
-            wireframe: false,
-        }
-    }
-}
-
+/// Stores world state in a format that the renderer needs, such as
+/// normalized direction vectors instead of rotations,
+/// camera view and projection matrices, etc.
 #[derive(Debug, Default)]
 pub struct RenderState {
+    /// Camera view matrix
     pub view: Mat4,
+    /// Camera projection matrix
     pub projection: Mat4,
+    /// Premultiplied `projection * view` matrix
     pub projection_view: Mat4,
+    /// Inverse of the projection matrix
     pub inverse_projection: Mat4,
+    /// Inverse of `projection * view`
     pub inverse_projection_view: Mat4,
+    /// Inverse of the camera's view matrix with the translation component removed
     pub inverse_view_rotation: Mat4,
+    /// Direction vector pointing away from the sun
     pub sun_direction: Vec3,
+    /// Camera position in world space
     pub cam_position: Vec3,
 }
 
+/// The world renderer is responsible for all the rendering logic
+/// of the scene.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorldRenderer {
@@ -52,6 +52,9 @@ pub struct WorldRenderer {
 }
 
 impl WorldRenderer {
+    /// Initialize the world renderer.
+    /// This will create pipelines, initialize render targets and create
+    /// other necessary objects.
     pub fn new(ctx: gfx::SharedContext) -> Result<Self> {
         ph::PipelineBuilder::new("flat_draw")
             .vertex_input(0, vk::VertexInputRate::VERTEX)
@@ -107,26 +110,40 @@ impl WorldRenderer {
         })
     }
 
+    /// Name of the rendertarget that is the final output of the
+    /// scene rendering.
     pub fn output_name() -> &'static str {
         Tonemap::output_name()
     }
 
+    /// Get an `ImageView` pointing to the final output of scene rendering.
     pub fn output_image(&self) -> ph::ImageView {
         self.targets.get_target_view(Self::output_name()).unwrap()
     }
 
+    /// Update deferred deletion queues.
     pub fn new_frame(&mut self) {
         self.targets.next_frame();
     }
 
+    /// Get the current render aspect ratio.
     pub fn aspect_ratio(&self) -> f32 {
         self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
-    pub fn targets(&mut self) -> &mut RenderTargets {
-        &mut self.targets
+    /// Create an image provider that points to this renderer's render targets.
+    pub fn image_provider<'s, 'i>(
+        &'s mut self,
+        ui: &'i mut UIIntegration,
+    ) -> RenderTargetImageProvider<'s, 'i, 'static> {
+        RenderTargetImageProvider {
+            targets: &mut self.targets,
+            integration: ui,
+            name: Self::output_name(),
+        }
     }
 
+    /// Updates the internal render state with data from the world.
     fn update_render_state(&mut self, world: &World) -> Result<()> {
         let camera = world.camera.read().unwrap();
         self.state.view = camera.matrix();
@@ -145,6 +162,8 @@ impl WorldRenderer {
         Ok(())
     }
 
+    /// Redraw the world. Returns a frame graph and physical resource bindings that
+    /// can be submitted to the GPU.
     pub fn redraw_world<'s: 'e + 'q, 'world: 'e + 'q, 'q, 'e>(
         &'s mut self,
         world: &'world World,

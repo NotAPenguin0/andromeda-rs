@@ -15,8 +15,8 @@ use crate::gfx::resource::terrain::Terrain;
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::editor::Editor;
 use crate::math::Position;
+use crate::state::camera::Camera;
 use crate::state::world::World;
-use crate::state::Camera;
 
 /// Main application driver. Holds core modules such as the renderer,
 /// window and input systems. Feed this all winit events using [`Driver::process_event`] to run the application.

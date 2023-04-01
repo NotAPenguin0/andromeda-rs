@@ -1,21 +1,23 @@
 use anyhow::Result;
 use phobos::domain::Transfer;
-use phobos::{
-    vk, Buffer, Image, IncompleteCmdBuffer, MemoryType, PipelineStage, TransferCmdBuffer,
-};
+use phobos::{vk, Image, IncompleteCmdBuffer, PipelineStage, TransferCmdBuffer};
 use poll_promise::Promise;
 
+use crate::gfx::util::staging_buffer::StagingBuffer;
 use crate::gfx::{PairedImageView, SharedContext};
 
-pub fn upload_image(
+pub fn upload_image_from_buffer(
     mut ctx: SharedContext,
-    data: Vec<u8>,
+    data: StagingBuffer,
     width: u32,
     height: u32,
     format: vk::Format,
     usage: vk::ImageUsageFlags,
 ) -> Promise<Result<PairedImageView>> {
     Promise::spawn_blocking(move || {
+        // Explicitly take ownership of staging buffer, this is required or
+        // otherwise it is destroyed.
+        let data = data;
         let image = Image::new(
             ctx.device.clone(),
             &mut ctx.allocator,
@@ -26,16 +28,6 @@ pub fn upload_image(
             vk::SampleCountFlags::TYPE_1,
         )?;
         let image = PairedImageView::new(image, vk::ImageAspectFlags::COLOR)?;
-
-        let buffer = Buffer::new(
-            ctx.device.clone(),
-            &mut ctx.allocator,
-            data.len() as u64,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            MemoryType::CpuToGpu,
-        )?;
-        let mut view = buffer.view_full();
-        view.mapped_slice()?.copy_from_slice(data.as_slice());
 
         let cmd = ctx
             .exec
@@ -49,7 +41,7 @@ pub fn upload_image(
                 vk::AccessFlags2::NONE,
                 vk::AccessFlags2::TRANSFER_WRITE,
             )
-            .copy_buffer_to_image(&view, &image.view)?
+            .copy_buffer_to_image(&data.view, &image.view)?
             .transition_image(
                 &image.view,
                 PipelineStage::TRANSFER,
@@ -63,5 +55,21 @@ pub fn upload_image(
         ctx.exec.submit(cmd)?.wait()?;
 
         Ok(image)
+    })
+}
+
+pub fn upload_image(
+    mut ctx: SharedContext,
+    data: Vec<u8>,
+    width: u32,
+    height: u32,
+    format: vk::Format,
+    usage: vk::ImageUsageFlags,
+) -> Promise<Result<PairedImageView>> {
+    Promise::spawn_blocking(move || {
+        let mut buffer = StagingBuffer::new(&mut ctx, data.len())?;
+        buffer.mapped_slice()?.copy_from_slice(data.as_slice());
+        return upload_image_from_buffer(ctx, buffer, width, height, format, usage)
+            .block_and_take();
     })
 }

@@ -1,5 +1,4 @@
-pub use camera::*;
-
 pub mod atmosphere;
-mod camera;
+pub mod camera;
+pub mod render_options;
 pub mod world;

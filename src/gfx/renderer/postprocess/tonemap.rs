@@ -32,7 +32,6 @@ impl Tonemap {
         targets.register_color_target(
             Self::output_name(),
             SizeGroup::OutputResolution,
-            ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::R8G8B8A8_SRGB,
         )?;

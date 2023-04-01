@@ -71,13 +71,12 @@ impl WorldRenderer {
 
         NormalMap::init_pipelines(ctx.clone())?;
 
-        let mut targets = RenderTargets::new()?;
+        let mut targets = RenderTargets::new(ctx.clone())?;
         targets.set_output_resolution(1, 1)?;
 
         targets.register_multisampled_color_target(
             "scene_output",
             SizeGroup::OutputResolution,
-            ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT,
             vk::Format::R32G32B32A32_SFLOAT,
             vk::SampleCountFlags::TYPE_8,
@@ -86,7 +85,6 @@ impl WorldRenderer {
         targets.register_multisampled_depth_target(
             "depth",
             SizeGroup::OutputResolution,
-            ctx.clone(),
             vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT,
             vk::Format::D32_SFLOAT,
             vk::SampleCountFlags::TYPE_8,
@@ -95,7 +93,6 @@ impl WorldRenderer {
         targets.register_color_target(
             "resolved_output",
             SizeGroup::OutputResolution,
-            ctx.clone(),
             vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
             vk::Format::R32G32B32A32_SFLOAT,
         )?;

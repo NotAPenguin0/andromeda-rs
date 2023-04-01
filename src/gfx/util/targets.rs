@@ -5,6 +5,7 @@ use phobos as ph;
 use phobos::vk;
 
 use crate::gfx;
+use crate::gfx::SharedContext;
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct TargetSize {
@@ -41,6 +42,7 @@ struct RenderTargetEntry {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct RenderTargets {
+    ctx: SharedContext,
     targets: HashMap<String, RenderTargetEntry>,
     deferred_delete: ph::DeletionQueue<gfx::PairedImageView>,
     output_resolution: TargetSize,
@@ -48,8 +50,9 @@ pub struct RenderTargets {
 }
 
 impl RenderTargets {
-    pub fn new() -> Result<Self> {
+    pub fn new(ctx: SharedContext) -> Result<Self> {
         Ok(RenderTargets {
+            ctx,
             targets: Default::default(),
             deferred_delete: ph::DeletionQueue::new(4),
             output_resolution: TargetSize::default(),
@@ -76,21 +79,22 @@ impl RenderTargets {
         todo!()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn register_simple_target(
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        ctx: gfx::SharedContext,
         usage: vk::ImageUsageFlags,
         format: vk::Format,
         aspect: vk::ImageAspectFlags,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        let alloc = ctx.allocator.clone();
+        let alloc = self.ctx.allocator.clone();
+        let device = self.ctx.device.clone();
         self.register_target(name, size, move |size| {
             gfx::PairedImageView::new(
                 ph::Image::new(
-                    ctx.device.clone(),
+                    device.clone(),
                     &mut alloc.clone(),
                     size.width,
                     size.height,
@@ -107,14 +111,12 @@ impl RenderTargets {
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        ctx: gfx::SharedContext,
         usage: vk::ImageUsageFlags,
         format: vk::Format,
     ) -> Result<()> {
         self.register_simple_target(
             name,
             size,
-            ctx,
             usage,
             format,
             vk::ImageAspectFlags::COLOR,
@@ -127,14 +129,12 @@ impl RenderTargets {
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        ctx: gfx::SharedContext,
         usage: vk::ImageUsageFlags,
         format: vk::Format,
     ) -> Result<()> {
         self.register_simple_target(
             name,
             size,
-            ctx,
             usage,
             format,
             vk::ImageAspectFlags::DEPTH,
@@ -146,40 +146,22 @@ impl RenderTargets {
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        ctx: gfx::SharedContext,
         usage: vk::ImageUsageFlags,
         format: vk::Format,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        self.register_simple_target(
-            name,
-            size,
-            ctx,
-            usage,
-            format,
-            vk::ImageAspectFlags::COLOR,
-            samples,
-        )
+        self.register_simple_target(name, size, usage, format, vk::ImageAspectFlags::COLOR, samples)
     }
 
     pub fn register_multisampled_depth_target(
         &mut self,
         name: impl Into<String>,
         size: SizeGroup,
-        ctx: gfx::SharedContext,
         usage: vk::ImageUsageFlags,
         format: vk::Format,
         samples: vk::SampleCountFlags,
     ) -> Result<()> {
-        self.register_simple_target(
-            name,
-            size,
-            ctx,
-            usage,
-            format,
-            vk::ImageAspectFlags::DEPTH,
-            samples,
-        )
+        self.register_simple_target(name, size, usage, format, vk::ImageAspectFlags::DEPTH, samples)
     }
 
     pub fn register_target(

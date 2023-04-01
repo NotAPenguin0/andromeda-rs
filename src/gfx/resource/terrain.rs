@@ -77,7 +77,7 @@ impl Terrain {
             }?;
 
             info!("Generating normal map from heightmap {heightmap_path:?}");
-            let normal = NormalMap::generate_from_heights(ctx3, &height)?;
+            let normal = NormalMap::from_heights(ctx3, &height)?;
             info!("Normal map from heightmap {heightmap_path:?} generated successfully");
 
             Ok((height, normal))

@@ -5,8 +5,6 @@ use anyhow::Result;
 use poll_promise::Promise;
 use tokio::io::AsyncReadExt;
 
-use crate::thread::promise::SpawnPromise;
-
 /// Reads an entire file into a byte buffer and returns the promised result.
 /// Runs asynchronously in a tokio task.
 pub fn read_file_async<P: Into<PathBuf> + Send + 'static>(path: P) -> Promise<Result<Vec<u8>>> {
@@ -20,9 +18,11 @@ pub fn read_file_async<P: Into<PathBuf> + Send + 'static>(path: P) -> Promise<Re
     })
 }
 
+/// Reads an entire file into a byte buffer and returns the promised result. Runs in a blocking
+/// tokio task.
 #[allow(dead_code)]
 pub fn read_file<P: Into<PathBuf> + Send + 'static>(path: P) -> Promise<Result<Vec<u8>>> {
-    Promise::spawn(move || {
+    Promise::spawn_blocking(move || {
         let path = path.into();
         let mut file = std::fs::File::open(&path)?;
         let metadata = std::fs::metadata(&path)?;

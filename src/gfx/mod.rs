@@ -33,6 +33,7 @@ fn fill_app_settings<W: WindowInterface>(window: &W) -> ph::AppSettings<W> {
     // Allows wireframe polygon mode
     features.fill_mode_non_solid = vk::TRUE;
     features.tessellation_shader = vk::TRUE;
+    features.sampler_anisotropy = vk::TRUE;
 
     ph::AppBuilder::new()
         .version((0, 0, 1))

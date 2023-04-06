@@ -55,8 +55,8 @@ impl AppRenderer {
     pub fn new_frame(&mut self, window: &Window) {
         self.ui.new_frame(window);
         self.renderer.new_frame();
-        self.gfx.pipelines.lock().unwrap().next_frame();
-        self.gfx.descriptors.lock().unwrap().next_frame();
+        self.gfx.pipelines.next_frame();
+        self.gfx.descriptors.next_frame();
     }
 
     /// Render a single frame to the window. This will render both the UI and the scene.

@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::sync::{Arc, RwLock};
 use std::{env, fs};
 
 use anyhow::{ensure, Result};
@@ -28,7 +28,7 @@ struct ShaderInfo {
 
 #[derive(Debug)]
 pub struct ShaderReloadInner {
-    pipelines: Arc<Mutex<ph::PipelineCache>>,
+    pipelines: ph::PipelineCache,
     shaders: HashMap<PathBuf, ShaderInfo>,
     watch_tasks: Vec<JoinHandle<Result<()>>>,
 }
@@ -40,7 +40,7 @@ pub struct ShaderReload {
 
 impl ShaderReload {
     pub fn new(
-        pipelines: Arc<Mutex<ph::PipelineCache>>,
+        pipelines: ph::PipelineCache,
         path: impl Into<PathBuf>,
         recursive: bool,
     ) -> Result<Self> {
@@ -78,8 +78,7 @@ impl ShaderReload {
                 });
             }
         };
-        let mut pipelines = inner.pipelines.lock().unwrap();
-        self.reload_pipeline(path.as_path(), &pipeline, &mut pipelines, stage)
+        self.reload_pipeline(path.as_path(), &pipeline, &mut inner.pipelines, stage)
             .safe_unwrap();
     }
 
@@ -178,7 +177,7 @@ impl ShaderReload {
         &self,
         shader: &Path,
         pipeline: &str,
-        pipelines: &mut MutexGuard<ph::PipelineCache>,
+        pipelines: &mut ph::PipelineCache,
         stage: vk::ShaderStageFlags,
     ) -> Result<()> {
         info!("Reloading pipeline {pipeline:?}");
@@ -224,7 +223,7 @@ impl ShaderReload {
     fn reload_file(&self, path: PathBuf) -> Result<()> {
         // If our shader was an included shader, we naively reload all pipelines
         let inner = self.inner.write().unwrap();
-        let mut pipelines = inner.pipelines.lock().unwrap();
+        let mut pipelines = inner.pipelines.clone();
         if path.to_str().unwrap().contains("shaders\\include\\") {
             info!(
                 "Included shader {:?} changed. Reloading all pipelines.",

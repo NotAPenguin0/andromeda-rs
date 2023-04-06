@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::Result;
 use ph::vk;
@@ -20,11 +20,11 @@ pub mod util;
 pub struct SharedContext<A: Allocator = DefaultAllocator> {
     pub allocator: A,
     pub exec: ph::ExecutionManager,
-    pub pipelines: Arc<Mutex<ph::PipelineCache>>,
-    pub descriptors: Arc<Mutex<ph::DescriptorCache>>,
+    pub pipelines: ph::PipelineCache,
+    pub descriptors: ph::DescriptorCache,
     pub debug_messenger: Option<Arc<ph::DebugMessenger>>,
     pub instance: Arc<ph::VkInstance>,
-    pub device: Arc<ph::Device>,
+    pub device: ph::Device,
     pub shader_reload: ShaderReload,
 }
 

@@ -64,9 +64,9 @@ impl TerrainRenderer {
     /// * `depth` - The name of the depth attachment to use. The latest version will be queried from the graph.
     /// * `world` - The world state with parameters for rendering.
     /// * `state` - The render state with camera settings and global rendering options.
-    pub fn render<'cb: 'q, 'q, A: Allocator>(
+    pub fn render<'cb, A: Allocator>(
         &'cb mut self,
-        graph: &mut FrameGraph<'cb, 'q, A>,
+        graph: &mut FrameGraph<'cb, A>,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
         world: &'cb World,
@@ -88,7 +88,7 @@ impl TerrainRenderer {
                     stencil: 0,
                 }),
             )?
-            .execute(|cmd, ifc, _bindings, stats: &mut RendererStatistics| {
+            .execute_fn(|cmd, ifc, _bindings, stats: &mut RendererStatistics| {
                 let cmd = cmd.begin_section(stats, "terrain")?;
                 let cmd = if let Some(terrain) = world.terrain.value() {
                     let mut cam_ubo =
@@ -104,15 +104,11 @@ impl TerrainRenderer {
                     let tess_factor: u32 = world.options.tessellation_level;
                     cmd.bind_graphics_pipeline("terrain")?
                         .full_viewport_scissor()
-                        .push_constants(
-                            vk::ShaderStageFlags::TESSELLATION_CONTROL,
-                            0,
-                            std::slice::from_ref(&tess_factor),
-                        )
-                        .push_constants(
+                        .push_constant(vk::ShaderStageFlags::TESSELLATION_CONTROL, 0, &tess_factor)
+                        .push_constant(
                             vk::ShaderStageFlags::TESSELLATION_EVALUATION,
                             4,
-                            std::slice::from_ref(&world.terrain_options.vertical_scale),
+                            &world.terrain_options.vertical_scale,
                         )
                         .bind_uniform_buffer(0, 0, &cam_ubo)?
                         .bind_sampled_image(

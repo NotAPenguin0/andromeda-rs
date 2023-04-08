@@ -69,6 +69,7 @@ impl Driver {
 
     /// Process one frame. This will update the UI and render the world.
     async fn process_frame(&mut self) -> Result<()> {
+        self.window.request_redraw();
         self.window
             .new_frame(|window, ifc| {
                 self.world.poll_all();
@@ -199,7 +200,7 @@ impl Driver {
             }
             Event::RedrawRequested(_) => {
                 // TODO: Multi-window
-                block_on(self.process_frame())?
+                block_on(self.process_frame())?;
             }
             _ => (),
         };

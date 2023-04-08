@@ -54,9 +54,9 @@ impl Tonemap {
     ///
     /// * `graph` - The frame graph to add the tonemapper passes to.
     /// * `input` - The input resource that must be tonemapped. The latest version will be queried from the graph.
-    pub fn render<'s: 'e + 'q, 'q, 'e, A: Allocator>(
-        &'s self,
-        graph: &mut FrameGraph<'e, 'q, A>,
+    pub fn render<'cb, A: Allocator>(
+        &'cb self,
+        graph: &mut FrameGraph<'cb, A>,
         input: &ph::VirtualResource,
     ) -> Result<()> {
         let input = graph.latest_version(input)?;
@@ -70,7 +70,7 @@ impl Tonemap {
                 }),
             )?
             .sample_image(&input, ph::PipelineStage::FRAGMENT_SHADER)
-            .execute(move |mut cmd, _ifc, bindings, stats: &mut RendererStatistics| {
+            .execute_fn(move |mut cmd, _ifc, bindings, stats: &mut RendererStatistics| {
                 cmd = cmd
                     .begin_section(stats, "tonemap")?
                     .bind_graphics_pipeline("tonemap")?

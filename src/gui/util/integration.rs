@@ -62,11 +62,11 @@ impl UIIntegration {
         self.to_unregister.retain(|_, ttl| *ttl != 0);
     }
 
-    pub fn render<'s: 'e + 'q, 'e, 'q>(
-        &'s mut self,
+    pub fn render<'cb>(
+        &'cb mut self,
         window: &Window,
         swapchain: ph::VirtualResource,
-        graph: &mut FrameGraph<'e, 'q>,
+        graph: &mut FrameGraph<'cb>,
     ) -> Result<()> {
         self.integration.resize(window.width(), window.height());
 

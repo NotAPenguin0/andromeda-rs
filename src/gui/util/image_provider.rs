@@ -7,13 +7,13 @@ pub trait ImageProvider {
     fn get_image(&mut self, size: impl Into<USize>) -> Option<Image>;
 }
 
-pub struct RenderTargetImageProvider<'r, 'i, 's> {
-    pub targets: &'r mut RenderTargets,
-    pub integration: &'i mut UIIntegration,
-    pub name: &'s str,
+pub struct RenderTargetImageProvider<'a> {
+    pub targets: &'a mut RenderTargets,
+    pub integration: &'a mut UIIntegration,
+    pub name: &'a str,
 }
 
-impl ImageProvider for RenderTargetImageProvider<'_, '_, '_> {
+impl ImageProvider for RenderTargetImageProvider<'_> {
     fn get_image(&mut self, size: impl Into<USize>) -> Option<Image> {
         // Make sure next frames output with our requested size
         let size = size.into();

@@ -130,10 +130,10 @@ impl WorldRenderer {
     }
 
     /// Create an image provider that points to this renderer's render targets.
-    pub fn image_provider<'s, 'i>(
-        &'s mut self,
-        ui: &'i mut UIIntegration,
-    ) -> RenderTargetImageProvider<'s, 'i, 'static> {
+    pub fn image_provider<'a>(
+        &'a mut self,
+        ui: &'a mut UIIntegration,
+    ) -> RenderTargetImageProvider<'a> {
         RenderTargetImageProvider {
             targets: &mut self.targets,
             integration: ui,
@@ -162,10 +162,10 @@ impl WorldRenderer {
 
     /// Redraw the world. Returns a frame graph and physical resource bindings that
     /// can be submitted to the GPU.
-    pub fn redraw_world<'cb: 'q, 'q>(
+    pub fn redraw_world<'cb>(
         &'cb mut self,
         world: &'cb World,
-    ) -> Result<(FrameGraph<'cb, 'q>, ph::PhysicalResourceBindings)> {
+    ) -> Result<(FrameGraph<'cb>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = FrameGraph::new();
         self.targets.bind_targets(&mut bindings);

@@ -52,9 +52,9 @@ impl AtmosphereRenderer {
     /// * `depth` - The name of the depth attachment to use. The latest version will be queried from the graph.
     /// * `world` - The world state with parameters for rendering.
     /// * `state` - The render state with camera settings and global rendering options.
-    pub fn render<'cb: 'q, 'q, A: Allocator>(
+    pub fn render<'cb, A: Allocator>(
         &'cb mut self,
-        graph: &mut FrameGraph<'cb, 'q, A>,
+        graph: &mut FrameGraph<'cb, A>,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
         world: &'cb World,
@@ -63,7 +63,7 @@ impl AtmosphereRenderer {
         let pass = ph::PassBuilder::render("atmosphere")
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
             .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
-            .execute(|mut cmd, ifc, _bindings, stats: &mut RendererStatistics| {
+            .execute_fn(|mut cmd, ifc, _bindings, stats: &mut RendererStatistics| {
                 #[repr(C)]
                 struct Camera {
                     pv: Mat4,

@@ -7,7 +7,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
-use crate::gfx::renderer::statistics::{RendererStatistics, StatisticsProvider};
+use crate::gfx::renderer::statistics::{RendererStatistics, TimedCommandBuffer};
 use crate::gfx::renderer::world_renderer::WorldRenderer;
 use crate::gfx::SharedContext;
 use crate::gui::util::image_provider::RenderTargetImageProvider;
@@ -86,8 +86,9 @@ impl AppRenderer {
             Some(self.gfx.descriptors.clone()),
         )?;
 
+        let cmd = cmd.begin_section(statistics, "all_render")?;
         let cmd =
             graph.record(cmd, &bindings, &mut ifc, self.gfx.debug_messenger.clone(), statistics)?;
-        cmd.finish()
+        cmd.end_section(statistics, "all_render")?.finish()
     }
 }

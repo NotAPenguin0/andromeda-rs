@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use phobos::domain::ExecutionDomain;
@@ -8,6 +8,7 @@ use phobos::wsi::frame::FRAMES_IN_FLIGHT;
 use phobos::{vk, IncompleteCommandBuffer, PipelineStage};
 
 use crate::gfx::SharedContext;
+use crate::util::ring_buffer::{Iter, RingBuffer};
 use crate::util::safe_error::SafeUnwrap;
 
 #[derive(Debug, Default, Hash, Eq, PartialEq, Copy, Clone)]
@@ -15,6 +16,8 @@ struct SectionQuery {
     start_query: u32,
     end_query: u32,
 }
+
+const FRAMETIME_SAMPLES: usize = 256;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -27,6 +30,9 @@ pub struct RendererStatistics {
     timing_results: HashMap<String, Duration>,
     interval: u32,
     frames_until_measure: u32,
+    last_frame: Instant,
+    delta_time: Duration,
+    frame_times: RingBuffer<Duration, FRAMETIME_SAMPLES>,
 }
 
 impl RendererStatistics {
@@ -55,6 +61,9 @@ impl RendererStatistics {
             timing_results: Default::default(),
             interval: measure_interval,
             frames_until_measure: measure_interval + 1,
+            last_frame: Instant::now(),
+            delta_time: Default::default(),
+            frame_times: Default::default(),
         })
     }
 
@@ -106,6 +115,13 @@ impl RendererStatistics {
         } else {
             self.frames_until_measure -= 1;
         }
+
+        let time = Instant::now();
+        self.delta_time = time.duration_since(self.last_frame);
+        self.last_frame = time;
+
+        self.frame_times.next();
+        *self.frame_times.current_mut() = self.delta_time;
 
         // If enough frames have elapsed, poll results
         if self.frames_until_measure == self.interval - FRAMES_IN_FLIGHT as u32 - 1 {
@@ -162,11 +178,39 @@ impl<D: ExecutionDomain> TimedCommandBuffer for IncompleteCommandBuffer<'_, D> {
 }
 
 pub trait StatisticsProvider {
+    type FrameTimeIterator<'a>: Iterator<Item = &'a Duration>
+    where
+        Self: 'a;
+
     fn section_timings(&self) -> &HashMap<String, Duration>;
+    fn frame_time(&self) -> Duration;
+    fn average_frame_time(&self) -> Duration;
+    fn last_frame_times(&self) -> Self::FrameTimeIterator<'_>;
+    fn frame_time_samples(&self) -> usize;
 }
 
 impl StatisticsProvider for &RendererStatistics {
+    type FrameTimeIterator<'a> = Iter<'a, Duration, FRAMETIME_SAMPLES> where Self: 'a;
+
     fn section_timings(&self) -> &HashMap<String, Duration> {
         &self.timing_results
+    }
+
+    fn frame_time(&self) -> Duration {
+        self.delta_time
+    }
+
+    fn average_frame_time(&self) -> Duration {
+        let total: u128 = self.frame_times.iter().map(|time| time.as_nanos()).sum();
+        let average = total as f64 / FRAMETIME_SAMPLES as f64;
+        Duration::from_nanos(average as u64)
+    }
+
+    fn last_frame_times(&self) -> Self::FrameTimeIterator<'_> {
+        self.frame_times.iter_fifo()
+    }
+
+    fn frame_time_samples(&self) -> usize {
+        FRAMETIME_SAMPLES
     }
 }

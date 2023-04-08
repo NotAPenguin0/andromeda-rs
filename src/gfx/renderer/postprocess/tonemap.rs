@@ -3,6 +3,7 @@ use phobos as ph;
 use phobos::{vk, Allocator, GraphicsCmdBuffer};
 
 use crate::gfx;
+use crate::gfx::renderer::statistics::{RendererStatistics, TimedCommandBuffer};
 use crate::gfx::util::graph::FrameGraph;
 use crate::gfx::util::targets::{RenderTargets, SizeGroup};
 use crate::hot_reload::IntoDynamic;
@@ -69,12 +70,14 @@ impl Tonemap {
                 }),
             )?
             .sample_image(&input, ph::PipelineStage::FRAGMENT_SHADER)
-            .execute(move |mut cmd, _ifc, bindings| {
+            .execute(move |mut cmd, _ifc, bindings, stats: &mut RendererStatistics| {
                 cmd = cmd
+                    .begin_section(stats, "tonemap")?
                     .bind_graphics_pipeline("tonemap")?
                     .full_viewport_scissor()
                     .resolve_and_bind_sampled_image(0, 0, &input, &self.sampler, bindings)?
-                    .draw(6, 1, 0, 0)?;
+                    .draw(6, 1, 0, 0)?
+                    .end_section(stats, "tonemap")?;
                 Ok(cmd)
             })
             .build();

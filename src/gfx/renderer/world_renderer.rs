@@ -40,15 +40,14 @@ pub struct RenderState {
 
 /// The world renderer is responsible for all the rendering logic
 /// of the scene.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct WorldRenderer {
     targets: RenderTargets,
     ctx: gfx::SharedContext,
-    state: RenderState,
     tonemap: Tonemap,
     atmosphere: AtmosphereRenderer,
     terrain: TerrainRenderer,
+    state: RenderState,
 }
 
 impl WorldRenderer {
@@ -97,13 +96,15 @@ impl WorldRenderer {
             vk::Format::R32G32B32A32_SFLOAT,
         )?;
 
+        let state = RenderState::default();
+
         Ok(Self {
             ctx: ctx.clone(),
-            state: RenderState::default(),
             tonemap: Tonemap::new(ctx.clone(), &mut targets)?,
             atmosphere: AtmosphereRenderer::new(ctx.clone())?,
-            terrain: TerrainRenderer::new(ctx)?,
+            terrain: TerrainRenderer::new(ctx.clone())?,
             targets,
+            state,
         })
     }
 
@@ -161,10 +162,10 @@ impl WorldRenderer {
 
     /// Redraw the world. Returns a frame graph and physical resource bindings that
     /// can be submitted to the GPU.
-    pub fn redraw_world<'s: 'e + 'q, 'world: 'e + 'q, 'q, 'e>(
-        &'s mut self,
-        world: &'world World,
-    ) -> Result<(FrameGraph<'e, 'q>, ph::PhysicalResourceBindings)> {
+    pub fn redraw_world<'cb: 'q, 'q>(
+        &'cb mut self,
+        world: &'cb World,
+    ) -> Result<(FrameGraph<'cb, 'q>, ph::PhysicalResourceBindings)> {
         let mut bindings = ph::PhysicalResourceBindings::new();
         let mut graph = FrameGraph::new();
         self.targets.bind_targets(&mut bindings);
@@ -178,10 +179,10 @@ impl WorldRenderer {
 
         // 1. Render terrain
         self.terrain
-            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
+            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
         // 2. Render atmosphere
         self.atmosphere
-            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
+            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
         // 3. Resolve MSAA
         let resolve = ph::PassBuilder::render("msaa_resolve")
             .color_attachment(

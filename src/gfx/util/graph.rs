@@ -4,11 +4,13 @@ use anyhow::{anyhow, Result};
 use phobos::graph::pass_graph::BuiltPassGraph;
 use phobos::{prelude as ph, Allocator, DefaultAllocator};
 
+use crate::gfx::renderer::statistics::RendererStatistics;
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct FrameGraph<'e, 'q, A: Allocator = DefaultAllocator> {
     #[derivative(Debug = "ignore")]
-    passes: HashMap<String, ph::Pass<'e, 'q, ph::domain::All, A>>,
+    passes: HashMap<String, ph::Pass<'e, 'q, ph::domain::All, RendererStatistics, A>>,
     aliases: HashMap<String, ph::VirtualResource>,
 }
 
@@ -25,7 +27,7 @@ impl<'e, 'q, A: Allocator> FrameGraph<'e, 'q, A> {
         ph::VirtualResource::image("swapchain")
     }
 
-    pub fn add_pass(&mut self, pass: ph::Pass<'e, 'q, ph::domain::All, A>) {
+    pub fn add_pass(&mut self, pass: ph::Pass<'e, 'q, ph::domain::All, RendererStatistics, A>) {
         self.passes.insert(pass.name().to_owned(), pass);
     }
 
@@ -62,7 +64,7 @@ impl<'e, 'q, A: Allocator> FrameGraph<'e, 'q, A> {
             .ok_or(anyhow!("No such resource {resource:?}"))
     }
 
-    pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All, A>> {
+    pub fn build(self) -> Result<BuiltPassGraph<'e, 'q, ph::domain::All, RendererStatistics, A>> {
         let mut graph = ph::PassGraph::new(Some(&self.swapchain_resource()));
         for (_, pass) in self.passes {
             graph = graph.add_pass(pass)?;

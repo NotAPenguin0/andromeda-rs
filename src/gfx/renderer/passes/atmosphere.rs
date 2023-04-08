@@ -5,6 +5,7 @@ use phobos as ph;
 use phobos::{Allocator, GraphicsCmdBuffer};
 
 use crate::gfx;
+use crate::gfx::renderer::statistics::{RendererStatistics, TimedCommandBuffer};
 use crate::gfx::renderer::world_renderer::RenderState;
 use crate::gfx::util::graph::FrameGraph;
 use crate::hot_reload::IntoDynamic;
@@ -51,18 +52,18 @@ impl AtmosphereRenderer {
     /// * `depth` - The name of the depth attachment to use. The latest version will be queried from the graph.
     /// * `world` - The world state with parameters for rendering.
     /// * `state` - The render state with camera settings and global rendering options.
-    pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
-        &'s mut self,
-        graph: &mut FrameGraph<'e, 'q, A>,
+    pub fn render<'cb: 'q, 'q, A: Allocator>(
+        &'cb mut self,
+        graph: &mut FrameGraph<'cb, 'q, A>,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
-        world: &'world World,
-        state: &'state RenderState,
+        world: &'cb World,
+        state: &'cb RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("atmosphere")
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
             .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
-            .execute(|mut cmd, ifc, _bindings| {
+            .execute(|mut cmd, ifc, _bindings, stats: &mut RendererStatistics| {
                 #[repr(C)]
                 struct Camera {
                     pv: Mat4,
@@ -114,13 +115,14 @@ impl AtmosphereRenderer {
                 let pc = Vec4::from((state.sun_direction, 0.0));
 
                 cmd = cmd
+                    .begin_section(stats, "atmosphere")?
                     .bind_graphics_pipeline("atmosphere")?
                     .full_viewport_scissor()
                     .bind_uniform_buffer(0, 0, &camera)?
                     .bind_uniform_buffer(0, 1, &atmosphere)?
                     .push_constants(vk::ShaderStageFlags::FRAGMENT, 0, std::slice::from_ref(&pc))
-                    .draw(6, 1, 0, 0)?;
-
+                    .draw(6, 1, 0, 0)?
+                    .end_section(stats, "atmosphere")?;
                 Ok(cmd)
             })
             .build();

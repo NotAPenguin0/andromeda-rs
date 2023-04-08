@@ -5,6 +5,7 @@ use phobos::prelude as ph;
 use phobos::prelude::traits::*;
 
 use crate::gfx;
+use crate::gfx::renderer::statistics::{RendererStatistics, TimedCommandBuffer};
 use crate::gfx::renderer::world_renderer::RenderState;
 use crate::gfx::util::graph::FrameGraph;
 use crate::gfx::util::sampler::{create_linear_sampler, create_raw_sampler};
@@ -63,13 +64,13 @@ impl TerrainRenderer {
     /// * `depth` - The name of the depth attachment to use. The latest version will be queried from the graph.
     /// * `world` - The world state with parameters for rendering.
     /// * `state` - The render state with camera settings and global rendering options.
-    pub fn render<'s: 'e + 'q, 'state: 'e + 'q, 'world: 'e + 'q, 'e, 'q, A: Allocator>(
-        &'s mut self,
-        graph: &mut FrameGraph<'e, 'q, A>,
+    pub fn render<'cb: 'q, 'q, A: Allocator>(
+        &'cb mut self,
+        graph: &mut FrameGraph<'cb, 'q, A>,
         color: &ph::VirtualResource,
         depth: &ph::VirtualResource,
-        world: &'world World,
-        state: &'state RenderState,
+        world: &'cb World,
+        state: &'cb RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::render("terrain")
             .color_attachment(
@@ -87,8 +88,9 @@ impl TerrainRenderer {
                     stencil: 0,
                 }),
             )?
-            .execute(|cmd, ifc, _bindings| {
-                if let Some(terrain) = world.terrain.value() {
+            .execute(|cmd, ifc, _bindings, stats: &mut RendererStatistics| {
+                let cmd = cmd.begin_section(stats, "terrain")?;
+                let cmd = if let Some(terrain) = world.terrain.value() {
                     let mut cam_ubo =
                         ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
                     cam_ubo
@@ -102,7 +104,6 @@ impl TerrainRenderer {
                     let tess_factor: u32 = world.options.tessellation_level;
                     cmd.bind_graphics_pipeline("terrain")?
                         .full_viewport_scissor()
-                        // .set_polygon_mode(vk::PolygonMode::LINE)?
                         .push_constants(
                             vk::ShaderStageFlags::TESSELLATION_CONTROL,
                             0,
@@ -140,10 +141,11 @@ impl TerrainRenderer {
                         })?
                         .bind_vertex_buffer(0, &terrain.mesh.vertices_view)
                         .bind_index_buffer(&terrain.mesh.indices_view, vk::IndexType::UINT32)
-                        .draw_indexed(terrain.mesh.index_count, 1, 0, 0, 0)
+                        .draw_indexed(terrain.mesh.index_count, 1, 0, 0, 0)?
                 } else {
-                    Ok(cmd)
-                }
+                    cmd
+                };
+                stats.end_section(cmd, "terrain")
             })
             .build();
         graph.add_pass(pass);

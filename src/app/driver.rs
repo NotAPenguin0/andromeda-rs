@@ -11,6 +11,7 @@ use crate::app::input::*;
 use crate::app::renderer::AppRenderer;
 use crate::app::window::AppWindow;
 use crate::gfx;
+use crate::gfx::renderer::statistics::RendererStatistics;
 use crate::gfx::resource::terrain::Terrain;
 use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
 use crate::gui::editor::Editor;
@@ -23,11 +24,12 @@ use crate::state::world::World;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    window: AppWindow,
-    renderer: AppRenderer,
+    statistics: RendererStatistics,
     world: World,
     input: Arc<RwLock<Input>>,
     editor: Editor,
+    renderer: AppRenderer,
+    window: AppWindow,
 }
 
 impl Driver {
@@ -53,7 +55,7 @@ impl Driver {
             gfx.clone(),
         ));
 
-        let editor = Editor::new(renderer.ui(), gfx, camera_controller);
+        let editor = Editor::new(renderer.ui(), gfx.clone(), camera_controller);
 
         Ok(Driver {
             window,
@@ -61,6 +63,7 @@ impl Driver {
             world,
             input,
             editor,
+            statistics: RendererStatistics::new(gfx, 32, 60)?,
         })
     }
 
@@ -70,11 +73,13 @@ impl Driver {
             .new_frame(|window, ifc| {
                 self.world.poll_all();
                 self.renderer.new_frame(window);
+                self.statistics.new_frame();
 
                 self.editor
-                    .show(&mut self.world, self.renderer.image_provider());
+                    .show(&mut self.world, self.renderer.image_provider(), &self.statistics);
 
-                self.renderer.render(window, &self.world, ifc)
+                self.renderer
+                    .render(window, &self.world, &mut self.statistics, ifc)
             })
             .await?;
         Ok(())

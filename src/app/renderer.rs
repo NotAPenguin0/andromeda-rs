@@ -7,6 +7,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
+use crate::gfx::renderer::statistics::{RendererStatistics, StatisticsProvider};
 use crate::gfx::renderer::world_renderer::WorldRenderer;
 use crate::gfx::SharedContext;
 use crate::gui::util::image_provider::RenderTargetImageProvider;
@@ -27,7 +28,7 @@ impl AppRenderer {
         Ok(Self {
             renderer: WorldRenderer::new(gfx.clone())?,
             ui: UIIntegration::new(event_loop, window, gfx.clone())?,
-            gfx,
+            gfx: gfx.clone(),
         })
     }
 
@@ -65,6 +66,7 @@ impl AppRenderer {
         &mut self,
         window: &Window,
         world: &World,
+        statistics: &mut RendererStatistics,
         mut ifc: InFlightContext,
     ) -> Result<CommandBuffer<All>> {
         let (mut graph, mut bindings) = self.renderer.redraw_world(world)?;
@@ -83,7 +85,9 @@ impl AppRenderer {
             Some(self.gfx.pipelines.clone()),
             Some(self.gfx.descriptors.clone()),
         )?;
-        let cmd = graph.record(cmd, &bindings, &mut ifc, self.gfx.debug_messenger.clone())?;
+
+        let cmd =
+            graph.record(cmd, &bindings, &mut ifc, self.gfx.debug_messenger.clone(), statistics)?;
         cmd.finish()
     }
 }

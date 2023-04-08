@@ -1,12 +1,14 @@
 use std::sync::{Arc, RwLock};
 
 use crate::gfx;
+use crate::gfx::renderer::statistics::StatisticsProvider;
 use crate::gui::editor::camera_controller::CameraController;
 use crate::gui::util::image_provider::ImageProvider;
 use crate::state::world::World;
 
 pub mod camera_controller;
 pub mod environment;
+pub mod performance;
 pub mod render_options;
 pub mod terrain_options;
 pub mod world_view;
@@ -31,7 +33,12 @@ impl Editor {
         }
     }
 
-    pub fn show(&self, world: &mut World, image_provider: impl ImageProvider) {
+    pub fn show(
+        &self,
+        world: &mut World,
+        image_provider: impl ImageProvider,
+        statistics: impl StatisticsProvider,
+    ) {
         egui::CentralPanel::default().show(&self.context, |ui| {
             ui.heading("Editor");
 
@@ -39,6 +46,7 @@ impl Editor {
             environment::show(&self.context, world);
             render_options::show(&self.context, world);
             terrain_options::show(&self.context, self.gfx.clone(), world);
+            performance::show(&self.context, statistics);
         });
     }
 }

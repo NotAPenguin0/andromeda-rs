@@ -94,7 +94,7 @@ pub fn init_graphics(
         FrameManager::new(device.clone(), allocator.clone(), &settings, swapchain)?
     };
 
-    let pipelines = ph::PipelineCache::new(device.clone())?;
+    let pipelines = ph::PipelineCache::new(device.clone(), allocator.clone())?;
     let descriptors = ph::DescriptorCache::new(device.clone())?;
     let shader_reload = ShaderReload::new(pipelines.clone(), "shaders/", true)?;
 

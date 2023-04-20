@@ -215,6 +215,18 @@ impl ShaderReload {
                 // Register as new pipeline, this will update the PCI
                 pipelines.create_named_compute_pipeline(pci)?;
             }
+            Some(PipelineType::RayTracing) => {
+                let mut pci = pipelines
+                    .raytracing_pipeline_info(pipeline)
+                    .unwrap()
+                    .clone();
+                // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
+                pci.shaders.retain(|shader| shader.stage() != stage);
+                pci.shaders
+                    .push(ph::ShaderCreateInfo::from_spirv(stage, binary));
+                // Register as new pipeline, this will update the PCI
+                pipelines.create_named_raytracing_pipeline(pci)?;
+            }
         }
 
         Ok(())

@@ -60,7 +60,7 @@ impl AtmosphereRenderer {
         world: &'cb World,
         state: &'cb RenderState,
     ) -> Result<()> {
-        let pass = ph::PassBuilder::render("atmosphere")
+        let pass = ph::PassBuilder::<_, _, A>::render("atmosphere")
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
             .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
             .execute_fn(|mut cmd, ifc, _bindings, stats: &mut RendererStatistics| {

@@ -42,7 +42,7 @@ impl NormalMap {
 
         let cmd = ctx
             .exec
-            .on_domain::<Compute>(Some(ctx.pipelines.clone()), Some(ctx.descriptors.clone()))?;
+            .on_domain::<Compute, _>(Some(ctx.pipelines.clone()), Some(ctx.descriptors.clone()))?;
 
         let dispatches_x = (image.width() as f32 / 32.0).ceil() as u32;
         let dispatches_y = (image.height() as f32 / 32.0).ceil() as u32;

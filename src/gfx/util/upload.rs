@@ -1,6 +1,6 @@
 use anyhow::Result;
 use phobos::domain::Transfer;
-use phobos::{vk, Image, IncompleteCmdBuffer, PipelineStage, TransferCmdBuffer};
+use phobos::{vk, DefaultAllocator, Image, IncompleteCmdBuffer, PipelineStage, TransferCmdBuffer};
 use poll_promise::Promise;
 
 use crate::gfx::util::staging_buffer::StagingBuffer;
@@ -31,7 +31,7 @@ pub fn upload_image_from_buffer(
 
         let cmd = ctx
             .exec
-            .on_domain::<Transfer>(None, None)?
+            .on_domain::<Transfer, DefaultAllocator>(None, None)?
             .transition_image(
                 &image.view,
                 PipelineStage::TOP_OF_PIPE,

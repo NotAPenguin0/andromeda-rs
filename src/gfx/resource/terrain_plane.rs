@@ -90,7 +90,7 @@ impl TerrainPlane {
         trace!("Uploading terrain mesh to GPU");
         let cmd = gfx
             .exec
-            .on_domain::<Transfer>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
+            .on_domain::<Transfer, _>(Some(gfx.pipelines.clone()), Some(gfx.descriptors.clone()))?;
 
         let (cmd, vertices, _vert_staging) = Self::copy_buffer(
             gfx.clone(),

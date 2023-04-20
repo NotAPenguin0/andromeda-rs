@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use phobos::domain::ExecutionDomain;
 use phobos::query_pool::{PipelineStatisticsQuery, QueryPool, QueryPoolCreateInfo, TimestampQuery};
 use phobos::wsi::frame::FRAMES_IN_FLIGHT;
-use phobos::{vk, IncompleteCommandBuffer, PipelineStage};
+use phobos::{vk, Allocator, IncompleteCommandBuffer, PipelineStage};
 
 use crate::gfx::SharedContext;
 use crate::util::ring_buffer::{Iter, RingBuffer};
@@ -67,11 +67,11 @@ impl RendererStatistics {
         })
     }
 
-    pub fn begin_section<'q, D: ExecutionDomain>(
+    pub fn begin_section<'q, D: ExecutionDomain, A: Allocator>(
         &mut self,
-        cmd: IncompleteCommandBuffer<'q, D>,
+        cmd: IncompleteCommandBuffer<'q, D, A>,
         name: impl Into<String>,
-    ) -> Result<IncompleteCommandBuffer<'q, D>> {
+    ) -> Result<IncompleteCommandBuffer<'q, D, A>> {
         if !self.measure_this_frame() {
             return Ok(cmd);
         }
@@ -88,11 +88,11 @@ impl RendererStatistics {
         Ok(cmd)
     }
 
-    pub fn end_section<'q, D: ExecutionDomain>(
+    pub fn end_section<'q, D: ExecutionDomain, A: Allocator>(
         &mut self,
-        cmd: IncompleteCommandBuffer<'q, D>,
+        cmd: IncompleteCommandBuffer<'q, D, A>,
         name: &str,
-    ) -> Result<IncompleteCommandBuffer<'q, D>> {
+    ) -> Result<IncompleteCommandBuffer<'q, D, A>> {
         if !self.measure_this_frame() {
             return Ok(cmd);
         }
@@ -159,7 +159,7 @@ pub trait TimedCommandBuffer {
         Self: Sized;
 }
 
-impl<D: ExecutionDomain> TimedCommandBuffer for IncompleteCommandBuffer<'_, D> {
+impl<D: ExecutionDomain, A: Allocator> TimedCommandBuffer for IncompleteCommandBuffer<'_, D, A> {
     fn begin_section(
         self,
         timings: &mut RendererStatistics,

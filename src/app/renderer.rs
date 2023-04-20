@@ -81,7 +81,7 @@ impl AppRenderer {
         // Bind the swapchain resource.
         bindings.bind_image("swapchain", ifc.swapchain_image.as_ref().unwrap());
         // Record this frame.
-        let cmd = self.gfx.exec.on_domain::<All>(
+        let cmd = self.gfx.exec.on_domain::<All, _>(
             Some(self.gfx.pipelines.clone()),
             Some(self.gfx.descriptors.clone()),
         )?;

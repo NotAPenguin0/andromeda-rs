@@ -72,7 +72,7 @@ impl TerrainRenderer {
         world: &'cb World,
         state: &'cb RenderState,
     ) -> Result<()> {
-        let pass = ph::PassBuilder::render("terrain")
+        let pass = ph::PassBuilder::<_, _, A>::render("terrain")
             .color_attachment(
                 color,
                 vk::AttachmentLoadOp::CLEAR,

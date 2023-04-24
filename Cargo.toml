@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
-atomic_enum = "0.2.0"
 derivative = "2.2.0"
 egui = "0.21.0"
 egui-winit-phobos = { git = "https://github.com/NotAPenguin0/egui-winit-phobos" }
+# TODO: use std futures
 futures = "0.3.26"
 glam = "0.23.0"
 half = "2.2.1"
@@ -25,9 +25,9 @@ poll-promise = { version = "0.2.0", features = ["tokio"] }
 pretty_env_logger = "0.4.0"
 raw-window-handle = "0.5.0"
 rayon = "1.7.0"
-shaderc = "0.8.2"
 tokio = { version = "1.25.0", features = ["full"] }
 winit = "0.28.1"
+dyn_inject = { git = "https://github.com/NotAPenguin0/dyn_inject" }
 
 [profile.release-with-debug]
 inherits = "release"

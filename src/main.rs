@@ -17,6 +17,7 @@ use crate::app::*;
 use crate::util::safe_error::SafeUnwrap;
 
 mod app;
+mod core;
 mod gfx;
 mod gui;
 mod hot_reload;

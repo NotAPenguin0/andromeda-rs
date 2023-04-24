@@ -220,7 +220,8 @@ impl ShaderReload {
                     .raytracing_pipeline_info(pipeline)
                     .unwrap()
                     .clone();
-                // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
+                // TODO: THIS IS WRONG, THE INDICES HAVE TO BE RETAINED AND THERE CAN BE MULTIPLE SHADERS WITH THE SAME STAGE
+                panic!("FIX");
                 pci.shaders.retain(|shader| shader.stage() != stage);
                 pci.shaders
                     .push(ph::ShaderCreateInfo::from_spirv(stage, binary));

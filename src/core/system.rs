@@ -3,9 +3,10 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Result};
 use dyn_inject::Registry;
 
-use crate::caller::Caller;
-use crate::handler::Handler;
-use crate::{Event, EventBus};
+use crate::core::bus::EventBus;
+use crate::core::caller::Caller;
+use crate::core::event::Event;
+use crate::core::handler::Handler;
 
 /// A system must implement this to subscribe to events on the bus
 pub trait System {

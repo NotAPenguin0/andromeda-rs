@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::event::Event;
+use crate::core::event::Event;
 
 /// Event handlers must implement this trait. It is implemented for
 /// `Fn(&mut S, &E)` already.

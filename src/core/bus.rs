@@ -1,10 +1,10 @@
 use anyhow::Result;
 use dyn_inject::Registry;
 
-use crate::caller::Caller;
-use crate::event::Event;
-use crate::handler::Handler;
-use crate::system::{StoredSystem, System};
+use crate::core::caller::Caller;
+use crate::core::event::Event;
+use crate::core::handler::Handler;
+use crate::core::system::{StoredSystem, System};
 
 struct TypedEventBus<E: Event> {
     systems: Vec<Box<dyn Caller<E>>>,

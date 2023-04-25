@@ -5,7 +5,7 @@ use dyn_inject::Registry;
 
 use crate::core::bus::EventBus;
 use crate::core::caller::Caller;
-use crate::core::event::Event;
+use crate::core::event::{Event, EventContext};
 use crate::core::handler::Handler;
 
 /// A system must implement this to subscribe to events on the bus
@@ -21,12 +21,12 @@ struct StoredSystemInner<S> {
 }
 
 impl<S: 'static> StoredSystemInner<S> {
-    fn handle<E: Event + 'static>(&mut self, event: &E) -> Result<()> {
+    fn handle<E: Event + 'static>(&mut self, event: &E, context: &mut EventContext) -> Result<()> {
         let handler = self
             .handlers
             .get_dyn::<dyn Handler<S, E>>()
             .ok_or(anyhow!("No handler for this event"))?;
-        handler.handle(&mut self.state, event)
+        handler.handle(&mut self.state, event, context)
     }
 }
 
@@ -57,7 +57,7 @@ impl<S: 'static> StoredSystem<S> {
 }
 
 impl<S: 'static, E: Event + 'static> Caller<E> for StoredSystem<S> {
-    fn call(&mut self, event: &E) -> Result<()> {
-        self.0.lock().unwrap().handle(event)
+    fn call(&mut self, event: &E, context: &mut EventContext) -> Result<()> {
+        self.0.lock().unwrap().handle(event, context)
     }
 }

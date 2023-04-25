@@ -4,32 +4,32 @@ use std::sync::{Arc, Mutex, RwLock};
 use anyhow::Result;
 use dyn_inject::Registry;
 
-use crate::core::caller::Caller;
-use crate::core::event::{Event, EventContext};
-use crate::core::handler::Handler;
-use crate::core::system::{StoredSystem, System};
+use crate::caller::Caller;
+use crate::event::{Event, EventContext};
+use crate::handler::Handler;
+use crate::system::{StoredSystem, System};
 
-struct TypedEventBus<E: Event> {
-    systems: Vec<Box<dyn Caller<E>>>,
+struct TypedEventBus<E: Event, T> {
+    systems: Vec<Box<dyn Caller<E, T>>>,
 }
 
-impl<E: Event + 'static> TypedEventBus<E> {
-    pub(crate) fn new() -> Self {
+impl<E: Event + 'static, T: 'static> TypedEventBus<E, T> {
+    pub fn new() -> Self {
         Self {
             systems: vec![],
         }
     }
 
-    pub(crate) fn register_system<S: 'static>(
+    pub fn register_system<S: 'static>(
         &mut self,
         mut system: StoredSystem<S>,
-        handler: impl Handler<S, E> + 'static,
+        handler: impl Handler<S, E, T> + 'static,
     ) {
         system.subscribe(handler);
         self.systems.push(Box::new(system));
     }
 
-    fn publish(&mut self, event: &E, context: &mut EventContext) -> Result<()> {
+    fn publish(&mut self, event: &E, context: &mut EventContext<T>) -> Result<()> {
         for system in &mut self.systems {
             system.call(&event, context)?;
         }
@@ -37,59 +37,74 @@ impl<E: Event + 'static> TypedEventBus<E> {
     }
 }
 
-struct SyncEventBus<E: Event>(Arc<Mutex<TypedEventBus<E>>>);
+struct SyncEventBus<E: Event, T>(Arc<Mutex<TypedEventBus<E, T>>>);
 
-impl<E: Event> Clone for SyncEventBus<E> {
+impl<E: Event, T> Clone for SyncEventBus<E, T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<E: Event + 'static> SyncEventBus<E> {
+impl<E: Event + 'static, T: 'static> SyncEventBus<E, T> {
     fn new() -> Self {
         Self(Arc::new(Mutex::new(TypedEventBus::new())))
     }
 }
 
-impl<E: Event> Deref for SyncEventBus<E> {
-    type Target = Arc<Mutex<TypedEventBus<E>>>;
+impl<E: Event, T> Deref for SyncEventBus<E, T> {
+    type Target = Arc<Mutex<TypedEventBus<E, T>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
+#[derive(Debug)]
 struct EventBusInner {
     buses: Registry,
 }
 
 /// The main event bus, stores systems and their handlers for each event.
-#[derive(Clone)]
-pub struct EventBus(Arc<RwLock<EventBusInner>>);
+#[derive(Debug, Clone)]
+pub struct EventBus<T> {
+    inner: Arc<RwLock<EventBusInner>>,
+    data: T,
+}
 
-impl EventBus {
-    fn get_or_create_bus<'a, E: Event + 'static>(&mut self) -> SyncEventBus<E> {
-        let lock = self.0.read().unwrap();
-        if lock.buses.get::<SyncEventBus<E>>().is_some() {
-            lock.buses.get::<SyncEventBus<E>>().cloned().unwrap()
+impl<T: Clone + Send + Sync + 'static> EventBus<T> {
+    fn get_or_create_bus<'a, E: Event + 'static>(&mut self) -> SyncEventBus<E, T> {
+        let lock = self.inner.read().unwrap();
+        if lock.buses.get::<SyncEventBus<E, T>>().is_some() {
+            lock.buses.get::<SyncEventBus<E, T>>().cloned().unwrap()
         } else {
             drop(lock);
-            let mut lock = self.0.write().unwrap();
-            lock.buses.put(SyncEventBus::<E>::new());
-            lock.buses.get::<SyncEventBus<E>>().cloned().unwrap()
+            let mut lock = self.inner.write().unwrap();
+            lock.buses.put(SyncEventBus::<E, T>::new());
+            lock.buses.get::<SyncEventBus<E, T>>().cloned().unwrap()
         }
     }
 
+    pub fn data(&self) -> &T {
+        &self.data
+    }
+
+    pub fn data_mut(&mut self) -> &mut T {
+        &mut self.data
+    }
+
     /// Create a new event bus
-    pub fn new() -> Self {
-        Self(Arc::new(RwLock::new(EventBusInner {
-            buses: Registry::new(),
-        })))
+    pub fn new(data: T) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(EventBusInner {
+                buses: Registry::new(),
+            })),
+            data,
+        }
     }
 
     /// Add a system to the event bus. Calls the system's initialize function to register
     /// handler callbacks
-    pub fn add_system<S: System + 'static>(&mut self, system: S) {
+    pub fn add_system<S: System<T> + 'static>(&mut self, system: S) {
         let stored = StoredSystem::new(system);
         S::initialize(self, &stored);
     }
@@ -98,7 +113,7 @@ impl EventBus {
     pub fn subscribe<S: 'static, E: Event + 'static>(
         &mut self,
         system: &StoredSystem<S>,
-        handler: impl Handler<S, E> + 'static,
+        handler: impl Handler<S, E, T> + 'static,
     ) {
         let bus = self.get_or_create_bus::<E>();
         bus.lock().unwrap().register_system(system.clone(), handler);

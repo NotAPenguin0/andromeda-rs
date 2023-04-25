@@ -1,0 +1,9 @@
+[package]
+name = "util"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.70"
+log = "0.4.17"
+glam = "0.23.0"

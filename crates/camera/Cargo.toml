@@ -1,0 +1,12 @@
+[package]
+name = "camera"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.23.0"
+anyhow = "1.0.70"
+math = { path = "../math" }
+scheduler = { path = "../scheduler" }
+input = { path = "../input" }
+inject = { path = "../inject" }

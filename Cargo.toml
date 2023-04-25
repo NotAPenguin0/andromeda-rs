@@ -6,11 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.69"
+anyhow = "1.0.70"
 derivative = "2.2.0"
 egui = "0.21.0"
 egui-winit-phobos = { git = "https://github.com/NotAPenguin0/egui-winit-phobos" }
-# TODO: use std futures
 futures = "0.3.26"
 glam = "0.23.0"
 half = "2.2.1"
@@ -28,6 +27,21 @@ rayon = "1.7.0"
 tokio = { version = "1.25.0", features = ["full"] }
 winit = "0.28.1"
 dyn_inject = { git = "https://github.com/NotAPenguin0/dyn_inject" }
+
+[workspace]
+members = [
+    ".",
+    "crates/scheduler",
+    "crates/app",
+    "crates/camera",
+    "crates/math",
+    "crates/hot_reload",
+    "crates/util",
+    "crates/thread",
+    "crates/world",
+    "crates/input",
+    "crates/inject",
+]
 
 [profile.release-with-debug]
 inherits = "release"

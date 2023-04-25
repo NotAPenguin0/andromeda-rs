@@ -3,14 +3,14 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Result};
 use dyn_inject::Registry;
 
-use crate::core::bus::EventBus;
-use crate::core::caller::Caller;
-use crate::core::event::{Event, EventContext};
-use crate::core::handler::Handler;
+use crate::bus::EventBus;
+use crate::caller::Caller;
+use crate::event::{Event, EventContext};
+use crate::handler::Handler;
 
 /// A system must implement this to subscribe to events on the bus
-pub trait System {
-    fn initialize(event_bus: &mut EventBus, system: &StoredSystem<Self>)
+pub trait System<T> {
+    fn initialize(event_bus: &mut EventBus<T>, system: &StoredSystem<Self>)
     where
         Self: Sized;
 }
@@ -21,10 +21,14 @@ struct StoredSystemInner<S> {
 }
 
 impl<S: 'static> StoredSystemInner<S> {
-    fn handle<E: Event + 'static>(&mut self, event: &E, context: &mut EventContext) -> Result<()> {
+    fn handle<E: Event + 'static, T: 'static>(
+        &mut self,
+        event: &E,
+        context: &mut EventContext<T>,
+    ) -> Result<()> {
         let handler = self
             .handlers
-            .get_dyn::<dyn Handler<S, E>>()
+            .get_dyn::<dyn Handler<S, E, T>>()
             .ok_or(anyhow!("No handler for this event"))?;
         handler.handle(&mut self.state, event, context)
     }
@@ -47,17 +51,20 @@ impl<S: 'static> StoredSystem<S> {
         })))
     }
 
-    pub(crate) fn subscribe<E: Event + 'static>(&mut self, handler: impl Handler<S, E> + 'static) {
+    pub(crate) fn subscribe<E: Event + 'static, T: 'static>(
+        &mut self,
+        handler: impl Handler<S, E, T> + 'static,
+    ) {
         self.0
             .lock()
             .unwrap()
             .handlers
-            .put_dyn::<dyn Handler<S, E>>(handler);
+            .put_dyn::<dyn Handler<S, E, T>>(handler);
     }
 }
 
-impl<S: 'static, E: Event + 'static> Caller<E> for StoredSystem<S> {
-    fn call(&mut self, event: &E, context: &mut EventContext) -> Result<()> {
+impl<S: 'static, E: Event + 'static, T: 'static> Caller<E, T> for StoredSystem<S> {
+    fn call(&mut self, event: &E, context: &mut EventContext<T>) -> Result<()> {
         self.0.lock().unwrap().handle(event, context)
     }
 }

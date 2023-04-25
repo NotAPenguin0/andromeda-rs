@@ -1,0 +1,7 @@
+[package]
+name = "inject"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dyn_inject = { git = "https://github.com/NotAPenguin0/dyn_inject" }

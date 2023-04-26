@@ -1,21 +1,25 @@
-use anyhow::Result;
-use futures::executor::block_on;
-use glam::Vec3;
 use std::sync::{Arc, RwLock};
+
+use anyhow::Result;
+use assets::Terrain;
+use derivative::Derivative;
+use futures::executor::block_on;
+use gfx::SharedContext;
+use glam::Vec3;
+use gui::editor::Editor;
+use inject::DI;
+use input::{
+    ButtonState, Input, InputEvent, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
+};
+use math::{Position, Rotation};
+use scheduler::EventBus;
+use statistics::RendererStatistics;
 use winit::event::{Event, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
+use world::World;
 
-use crate::gfx;
-use crate::gfx::renderer::statistics::RendererStatistics;
-use crate::gfx::resource::terrain::Terrain;
-use crate::gui::editor::camera_controller::{CameraController, CameraInputListener};
-use crate::gui::editor::Editor;
-use crate::input::*;
-use crate::math::Position;
 use crate::renderer::AppRenderer;
-use crate::state::camera::Camera;
-use crate::state::world::World;
 use crate::window::AppWindow;
 
 /// Main application driver. Holds core modules such as the renderer,
@@ -23,10 +27,9 @@ use crate::window::AppWindow;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    statistics: RendererStatistics,
     world: World,
-    input: Arc<RwLock<Input>>,
     editor: Editor,
+    bus: EventBus<DI>,
     renderer: AppRenderer,
     window: AppWindow,
 }
@@ -34,35 +37,43 @@ pub struct Driver {
 impl Driver {
     /// Initialize the application driver with a window and event loop.
     pub fn init(event_loop: &EventLoop<()>, window: Window) -> Result<Driver> {
-        let (gfx, window, renderer) = gfx::init_graphics(window, event_loop)?;
+        // Create event bus and dependency injection module.
+        let inject = DI::new();
+        let mut bus = EventBus::new(inject.clone());
 
-        let input = Arc::new(RwLock::new(Input::default()));
-        let mut camera = Camera::default();
-        camera.set_position(Position(Vec3::new(0.0, 200.0, 0.0)));
-        let camera = Arc::new(RwLock::new(camera));
-        let camera_controller = Arc::new(RwLock::new(CameraController::new(camera.clone())));
-        input
-            .write()
-            .unwrap()
-            .add_listener(CameraInputListener::new(camera_controller.clone()));
-        let mut world = World::new(camera);
+        // Initialize subsystems
+        let (frame, surface) = gfx::initialize(&window, &bus)?;
+        input::initialize(&bus);
+        camera::initialize(
+            Position(Vec3::new(0.0, 200.0, 0.0)),
+            Rotation(Vec3::new(0.0, 0.0, 0.0)),
+            90.0f32,
+            &mut bus,
+        )?;
+        let mut world = World::new();
 
         world.terrain.promise(Terrain::from_new_heightmap(
             "data/heightmaps/mountain.png",
             "data/textures/blank.png",
             world.terrain_options,
-            gfx.clone(),
+            bus.clone(),
         ));
 
-        let editor = Editor::new(renderer.ui(), gfx.clone(), camera_controller);
+        let mut inject = inject.write().unwrap();
+        let ctx = inject.get::<SharedContext>().cloned().unwrap();
+        let renderer = AppRenderer::new(ctx.clone(), &window, event_loop, bus.clone())?;
+        let window = AppWindow::new(frame, window, surface, ctx.clone());
+        let editor = Editor::new(renderer.ui(), bus.clone());
+
+        let statistics = RendererStatistics::new(ctx, 32, 60)?;
+        inject.put::<RendererStatistics>(statistics);
 
         Ok(Driver {
-            window,
-            renderer,
             world,
-            input,
             editor,
-            statistics: RendererStatistics::new(gfx, 32, 60)?,
+            bus,
+            renderer,
+            window,
         })
     }
 
@@ -73,13 +84,15 @@ impl Driver {
             .new_frame(|window, ifc| {
                 self.world.poll_all();
                 self.renderer.new_frame(window);
-                self.statistics.new_frame();
 
-                self.editor
-                    .show(&mut self.world, self.renderer.image_provider(), &self.statistics);
+                {
+                    let mut inject = self.bus.data().write().unwrap();
+                    inject.get_mut::<RendererStatistics>().unwrap().new_frame();
+                }
 
+                self.editor.show(&mut self.world);
                 self.renderer
-                    .render(window, &self.world, &mut self.statistics, ifc)
+                    .render(window, &self.world, self.bus.clone(), ifc)
             })
             .await?;
         Ok(())
@@ -94,7 +107,8 @@ impl Driver {
                 window_id,
             } => {
                 self.renderer.process_event(&event);
-                let mut input = self.input.write().unwrap();
+                let mut inject = self.bus.data().write().unwrap();
+                let input = inject.get_mut::<Input>().unwrap();
                 match event {
                     WindowEvent::Resized(_) => {}
                     WindowEvent::Moved(_) => {}
@@ -118,12 +132,12 @@ impl Driver {
                             input.process_event(InputEvent::Button(KeyState {
                                 state: ButtonState::Pressed,
                                 button: Key::Shift,
-                            }));
+                            }))?;
                         } else {
                             input.process_event(InputEvent::Button(KeyState {
                                 state: ButtonState::Released,
                                 button: Key::Shift,
-                            }));
+                            }))?;
                         }
                     }
                     WindowEvent::Ime(_) => {}
@@ -134,7 +148,7 @@ impl Driver {
                         input.process_event(InputEvent::MousePosition(MousePosition {
                             x: position.x,
                             y: position.y,
-                        }));
+                        }))?;
                     }
                     WindowEvent::CursorEntered {
                         ..
@@ -151,13 +165,13 @@ impl Driver {
                                 input.process_event(InputEvent::Scroll(ScrollInfo {
                                     delta_x: x,
                                     delta_y: y,
-                                }));
+                                }))?;
                             }
                             MouseScrollDelta::PixelDelta(px) => {
                                 input.process_event(InputEvent::Scroll(ScrollInfo {
                                     delta_x: px.x as f32,
                                     delta_y: px.y as f32,
-                                }));
+                                }))?;
                             }
                         };
                     }
@@ -169,7 +183,7 @@ impl Driver {
                         input.process_event(InputEvent::MouseButton(MouseButtonState {
                             state: state.into(),
                             button: button.into(),
-                        }));
+                        }))?;
                     }
                     WindowEvent::TouchpadMagnify {
                         ..

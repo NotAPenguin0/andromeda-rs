@@ -8,7 +8,7 @@ use input::{ButtonState, Input, InputEvent, Key, MouseButton, MouseDelta, Scroll
 use math::{Position, Rotation};
 use scheduler::{EventBus, EventContext, StoredSystem, System};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct CameraState {
     position: Position,
     rotation: Rotation,
@@ -24,6 +24,17 @@ impl Deref for Camera {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Camera {
+    pub fn new(position: Position, rotation: Rotation, fov: f32) -> Self {
+        Self(Arc::new(RwLock::new(CameraState {
+            position,
+            rotation,
+            fov,
+            enable_controls: true,
+        })))
     }
 }
 
@@ -159,8 +170,8 @@ impl CameraState {
     }
 }
 
-impl<T> System<T> for Camera {
-    fn initialize(event_bus: &mut EventBus<T>, system: &StoredSystem<Self>)
+impl System<DI> for Camera {
+    fn initialize(event_bus: &mut EventBus<DI>, system: &StoredSystem<Self>)
     where
         Self: Sized, {
         event_bus.subscribe(system, handle_input_event);
@@ -173,6 +184,21 @@ fn handle_input_event(
     ctx: &mut EventContext<DI>,
 ) -> Result<()> {
     let mut state = camera.write().unwrap();
-    let input = ctx.read().unwrap().get::<Input>().unwrap();
+    let di = ctx.read().unwrap();
+    let input = di.get::<Input>().unwrap();
     state.handle_event(event, input)
+}
+
+pub fn initialize(
+    position: Position,
+    rotation: Rotation,
+    fov: f32,
+    bus: &mut EventBus<DI>,
+) -> Result<()> {
+    // Create the camera state object and register it into the DI system
+    let camera = Camera::new(position, rotation, fov);
+    bus.data_mut().write().unwrap().put(camera.clone());
+    // Then also add the camera system to the event bus
+    bus.add_system(camera);
+    Ok(())
 }

@@ -1,14 +1,15 @@
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 
-pub struct Iter<'a, T, const SIZE: usize> {
+pub struct Iter<'a, T> {
     ptr: *const T,
     index: usize,
     last_index: usize,
+    size: usize,
     _marker: PhantomData<&'a T>,
 }
 
-impl<'a, T, const SIZE: usize> Iterator for Iter<'a, T, SIZE> {
+impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -18,7 +19,7 @@ impl<'a, T, const SIZE: usize> Iterator for Iter<'a, T, SIZE> {
             // SAFETY: We just checked self.index is not the last index, and because of the wrapping behaviour we
             // are always in range.
             let item = unsafe { self.ptr.add(self.index).as_ref().unwrap() };
-            self.index = (self.index + 1) % SIZE;
+            self.index = (self.index + 1) % self.size;
             Some(item)
         }
     }
@@ -58,7 +59,7 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
         self.current = (self.current + 1) % SIZE;
     }
 
-    pub fn iter(&self) -> Iter<'_, T, SIZE> {
+    pub fn iter(&self) -> Iter<'_, T> {
         let last = if self.current == 0 {
             SIZE - 1
         } else {
@@ -68,13 +69,14 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
             ptr: self.buffer.as_ptr(),
             index: self.current,
             last_index: last,
+            size: SIZE,
             _marker: PhantomData,
         }
     }
 
     /// Iterate over the values, starting at the value that has not been returned from current()
     /// in the longest time. (So starting at old values)
-    pub fn iter_fifo(&self) -> Iter<'_, T, SIZE> {
+    pub fn iter_fifo(&self) -> Iter<'_, T> {
         let start = (self.current + 1) % SIZE;
         let last = if start == 0 {
             SIZE - 1
@@ -86,6 +88,7 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
             ptr: self.buffer.as_ptr(),
             index: start,
             last_index: last,
+            size: SIZE,
             _marker: PhantomData,
         }
     }

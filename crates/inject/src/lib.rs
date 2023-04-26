@@ -6,6 +6,10 @@ use dyn_inject::Registry;
 #[derive(Debug, Clone)]
 pub struct DI(Arc<RwLock<Registry>>);
 
+unsafe impl Send for DI {}
+
+unsafe impl Sync for DI {}
+
 impl DI {
     pub fn new() -> Self {
         Self(Arc::new(RwLock::new(Registry::new())))

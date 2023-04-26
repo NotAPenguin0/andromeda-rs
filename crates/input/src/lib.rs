@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use anyhow::Result;
-use derivative::Derivative;
 use inject::DI;
 use scheduler::{Event, EventBus};
 
@@ -139,4 +138,11 @@ impl Input {
             .cloned()
             .unwrap_or(ButtonState::Released)
     }
+}
+
+/// Initialize the input system
+pub fn initialize(bus: &EventBus<DI>) {
+    let input = Input::new(bus.clone());
+    let mut di = bus.data().write().unwrap();
+    di.put(input);
 }

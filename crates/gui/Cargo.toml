@@ -1,0 +1,17 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.23.0"
+anyhow = "1.0.70"
+egui = "0.21.0"
+inject = { path = "../inject" }
+math = { path = "../math" }
+scheduler = { path = "../scheduler" }
+camera = { path = "../camera" }
+world = { path = "../world" }
+assets = { path = "../assets" }
+util = { path = "../util" }
+statistics = { path = "../statistics" }

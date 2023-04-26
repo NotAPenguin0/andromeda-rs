@@ -71,6 +71,10 @@ pub struct EventBus<T> {
     data: T,
 }
 
+unsafe impl<T: Send> Send for EventBus<T> {}
+
+unsafe impl<T: Sync> Sync for EventBus<T> {}
+
 impl<T: Clone + Send + Sync + 'static> EventBus<T> {
     fn get_or_create_bus<'a, E: Event + 'static>(&mut self) -> SyncEventBus<E, T> {
         let lock = self.inner.read().unwrap();

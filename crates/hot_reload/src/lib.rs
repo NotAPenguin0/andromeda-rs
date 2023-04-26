@@ -11,14 +11,24 @@ use std::{env, fs};
 
 use anyhow::{ensure, Result};
 pub use dynamic_pipeline_builder::*;
+use inject::DI;
 use log::info;
 use notify::EventKind;
-use phobos::{prelude as ph, vk, PipelineType};
+use phobos::{prelude as ph, vk, PipelineCache, PipelineType};
+use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 use tokio::task::JoinHandle;
 use util::safe_error::SafeUnwrap;
 
 pub mod dynamic_pipeline_builder;
 mod file_watcher;
+
+pub struct AddShaderEvent {
+    path: PathBuf,
+    stage: vk::ShaderStageFlags,
+    pipeline: String,
+}
+
+impl Event for AddShaderEvent {}
 
 #[derive(Debug, Clone)]
 struct ShaderInfo {
@@ -63,7 +73,7 @@ impl ShaderReload {
         Ok(this)
     }
 
-    pub fn add_shader(&mut self, path: PathBuf, stage: vk::ShaderStageFlags, pipeline: String) {
+    pub fn add_shader(&mut self, path: &PathBuf, stage: vk::ShaderStageFlags, pipeline: &String) {
         let mut inner = self.inner.write().unwrap();
         info!("Pipeline {pipeline:?} added to watch for shader {path:?}");
         let entry = inner.shaders.entry(fs::canonicalize(path.clone()).unwrap());
@@ -266,4 +276,34 @@ impl ShaderReload {
         }
         Ok(())
     }
+}
+
+impl System<DI> for ShaderReload {
+    fn initialize(event_bus: &mut EventBus<DI>, system: &StoredSystem<Self>)
+    where
+        Self: Sized, {
+        event_bus.subscribe(system, handle_add_shader);
+    }
+}
+
+fn handle_add_shader(
+    state: &mut ShaderReload,
+    event: &AddShaderEvent,
+    _ctx: &mut EventContext<DI>,
+) -> Result<()> {
+    state.add_shader(&event.path, event.stage, &event.pipeline);
+    Ok(())
+}
+
+pub fn initialize(
+    pipelines: PipelineCache,
+    path: impl Into<PathBuf>,
+    recursive: bool,
+    bus: &mut EventBus<DI>,
+) -> Result<()> {
+    let state = ShaderReload::new(pipelines, path, recursive)?;
+    bus.add_system(state.clone());
+    let mut di = bus.data().write().unwrap();
+    di.put(state);
+    Ok(())
 }

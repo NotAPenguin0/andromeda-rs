@@ -9,3 +9,22 @@ glam = "0.23.0"
 winit = "0.28.3"
 derivative = "2.2.0"
 futures = "0.3.28"
+pretty_env_logger = "0.4.0"
+tokio = { version = "1.27.0", features = ["full"] }
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+egui = "0.21.0"
+
+world = { path = "../world" }
+renderer = { path = "../renderer" }
+gui = { path = "../gui" }
+scheduler = { path = "../scheduler" }
+inject = { path = "../inject" }
+assets = { path = "../assets" }
+gfx = { path = "../gfx" }
+hot_reload = { path = "../hot_reload" }
+input = { path = "../input" }
+camera = { path = "../camera" }
+events = { path = "../events" }
+math = { path = "../math" }
+statistics = { path = "../statistics" }
+util = { path = "../util" }

@@ -3,13 +3,13 @@ name = "hot_reload"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "1.0.70"
 tokio = { version = "1.25.0", features = ["full"] }
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs" }
 notify = "5.1.0"
 log = "0.4.17"
-util = { path = "../util" }
 futures = "0.3.28"
+util = { path = "../util" }
+inject = { path = "../inject" }
+scheduler = { path = "../scheduler" }

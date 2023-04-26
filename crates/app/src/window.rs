@@ -1,10 +1,9 @@
 use anyhow::Result;
-use phobos::{Allocator, CommandBuffer, DefaultAllocator, FrameManager, InFlightContext, Surface};
+use gfx::SharedContext;
 use phobos::domain::ExecutionDomain;
+use phobos::{Allocator, CommandBuffer, DefaultAllocator, FrameManager, InFlightContext, Surface};
 use winit::event_loop::{EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder, WindowId};
-
-use crate::gfx::SharedContext;
 
 /// Create the winit window and event loop.
 pub fn create_window() -> Result<(EventLoop<()>, Window)> {

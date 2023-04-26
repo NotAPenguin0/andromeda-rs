@@ -1,13 +1,15 @@
-use anyhow::Result;
-use futures::{SinkExt, StreamExt};
-use futures::channel::mpsc::{channel, Receiver};
-use log::{error, info};
-use notify::Watcher;
 use std::fmt::Debug;
 use std::fs;
 use std::path::Path;
 
-pub fn create_async_watcher() -> Result<(notify::RecommendedWatcher, Receiver<Result<notify::Event>>)> {
+use anyhow::Result;
+use futures::channel::mpsc::{channel, Receiver};
+use futures::{SinkExt, StreamExt};
+use log::{error, info};
+use notify::Watcher;
+
+pub fn create_async_watcher(
+) -> Result<(notify::RecommendedWatcher, Receiver<Result<notify::Event>>)> {
     let (mut tx, rx) = channel(1);
 
     let watcher = notify::RecommendedWatcher::new(
@@ -25,9 +27,9 @@ pub fn create_async_watcher() -> Result<(notify::RecommendedWatcher, Receiver<Re
 }
 
 pub async fn async_watch<P, F>(path: P, recursive: bool, callback: F) -> Result<()>
-    where
-        P: AsRef<Path> + Debug,
-        F: Fn(notify::Event), {
+where
+    P: AsRef<Path> + Debug,
+    F: Fn(notify::Event), {
     let (mut watcher, mut rx) = create_async_watcher()?;
 
     info!("Starting file watcher for path {path:?}, recursive = {recursive:?}");

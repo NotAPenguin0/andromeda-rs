@@ -41,6 +41,12 @@ members = [
     "crates/world",
     "crates/input",
     "crates/inject",
+    "crates/gui",
+    "crates/renderer",
+    "crates/events",
+    "crates/assets",
+    "crates/gfx",
+    "crates/statistics"
 ]
 
 [profile.release-with-debug]

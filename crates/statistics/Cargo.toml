@@ -1,0 +1,14 @@
+[package]
+name = "statistics"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+derivative = "2.2.0"
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+anyhow = "1.0.70"
+inject = { path = "../inject" }
+scheduler = { path = "../scheduler" }
+events = { path = "../events" }
+util = { path = "../util" }
+gfx = { path = "../gfx" }

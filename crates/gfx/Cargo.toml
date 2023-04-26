@@ -1,0 +1,13 @@
+[package]
+name = "gfx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+poll-promise = { version = "0.2.0", features = ["tokio"] }
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+anyhow = "1.0.70"
+winit = "0.28.3"
+inject = { path = "../inject" }
+scheduler = { path = "../scheduler" }
+events = { path = "../events" }

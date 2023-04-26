@@ -1,7 +1,8 @@
-use anyhow::Result;
-use poll_promise::Promise;
 use std::io::Read;
 use std::path::PathBuf;
+
+use anyhow::Result;
+use poll_promise::Promise;
 use tokio::io::AsyncReadExt;
 
 /// Reads an entire file into a byte buffer and returns the promised result.

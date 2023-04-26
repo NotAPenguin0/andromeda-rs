@@ -1,0 +1,19 @@
+[package]
+name = "assets"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.70"
+half = "2.2.1"
+rayon = "1.7.0"
+log = "0.4.17"
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+poll-promise = { version = "0.2.0", features = ["tokio"] }
+image = "0.24.6"
+gfx = { path = "../gfx" }
+thread = { path = "../thread" }
+scheduler = { path = "../scheduler" }
+inject = { path = "../inject" }
+util = { path = "../util" }
+hot_reload = { path = "../hot_reload" }

@@ -4,7 +4,6 @@ use std::path::Path;
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub enum FileType {
     Png,
-    NetCDF,
     Unknown(String),
 }
 
@@ -14,8 +13,6 @@ impl<P: AsRef<Path>> From<P> for FileType {
         let extension = path.extension().unwrap_or(OsStr::new(""));
         if extension == OsStr::new("png") {
             FileType::Png
-        } else if extension == OsStr::new("nc") {
-            FileType::NetCDF
         } else {
             FileType::Unknown(extension.to_str().unwrap_or("").to_string())
         }

@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use inject::DI;
 use phobos::{vk, ComputePipelineBuilder, PipelineBuilder, PipelineCache};
+use scheduler::EventBus;
 
-use crate::ShaderReload;
+use crate::AddShaderEvent;
 
 pub trait IntoDynamic {
     type Target;
@@ -41,7 +43,8 @@ impl DynamicPipelineBuilder {
     }
 
     /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
-    pub fn build(self, mut hot_reload: ShaderReload, mut cache: PipelineCache) -> Result<()> {
+    pub fn build(self, bus: &mut EventBus<DI>, mut cache: PipelineCache) -> Result<()> {
+        // TODO: Add pipeline cache to DI?
         let pci = self.inner.build();
         cache.create_named_pipeline(pci)?;
 
@@ -49,7 +52,12 @@ impl DynamicPipelineBuilder {
             .shaders
             .into_iter()
             .map(|shader| {
-                hot_reload.add_shader(shader.path, shader.stage, shader.pipeline);
+                bus.publish(&AddShaderEvent {
+                    path: shader.path,
+                    stage: shader.stage,
+                    pipeline: shader.pipeline,
+                })
+                .unwrap();
             })
             .collect::<Vec<_>>();
 
@@ -78,12 +86,16 @@ impl DynamicComputePipelineBuilder {
         self
     }
 
-    pub fn build(self, mut hot_reload: ShaderReload, mut cache: PipelineCache) -> Result<()> {
+    pub fn build(self, bus: &mut EventBus<DI>, mut cache: PipelineCache) -> Result<()> {
         let pci = self.inner.build();
         cache.create_named_compute_pipeline(pci)?;
 
         let shader = self.shader.expect("Must set a shader");
-        hot_reload.add_shader(shader.path, shader.stage, shader.pipeline);
+        bus.publish(&AddShaderEvent {
+            path: shader.path,
+            stage: shader.stage,
+            pipeline: shader.pipeline,
+        })?;
         Ok(())
     }
 }

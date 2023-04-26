@@ -1,0 +1,24 @@
+[package]
+name = "renderer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+anyhow = "1.0.70"
+glam = "0.23.0"
+winit = "0.28.3"
+derivative = "2.2.0"
+egui = "0.21.0"
+egui-winit-phobos = { git = "https://github.com/NotAPenguin0/egui-winit-phobos" }
+assets = { path = "../assets" }
+camera = { path = "../camera" }
+events = { path = "../events" }
+inject = { path = "../inject" }
+scheduler = { path = "../scheduler" }
+hot_reload = { path = "../hot_reload" }
+gfx = { path = "../gfx" }
+gui = { path = "../gui" }
+world = { path = "../world" }
+util = { path = "../util" }
+statistics = { path = "../statistics" }

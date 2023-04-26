@@ -6,6 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.70"
 glam = "0.23.0"
 math = { path = "../math" }
 thread = { path = "../thread" }
+scheduler = { path = "../scheduler" }
+inject = { path = "../inject" }
+assets = { path = "../assets" }

@@ -4,6 +4,8 @@ use inject::DI;
 use scheduler::EventBus;
 use world::World;
 
+use crate::util::image::Image;
+
 pub mod camera_controller;
 pub mod environment;
 pub mod performance;
@@ -25,11 +27,11 @@ impl Editor {
         }
     }
 
-    pub fn show(&self, world: &mut World) {
+    pub fn show(&self, world: &mut World, target: Option<Image>) {
         egui::CentralPanel::default().show(&self.context, |ui| {
             ui.heading("Editor");
 
-            world_view::show(&self.context, &self.bus);
+            world_view::show(&self.context, &self.bus, target);
             environment::show(&self.context, world);
             render_options::show(&self.context, world);
             terrain_options::show(&self.context, &self.bus, world);

@@ -90,16 +90,16 @@ pub struct Input {
     mouse: MousePosition,
     mouse_buttons: HashMap<MouseButton, ButtonState>,
     kb_buttons: HashMap<Key, ButtonState>,
-    bus: EventBus<DI>,
+    buffered_events: Vec<InputEvent>,
 }
 
 impl Input {
-    pub fn new(bus: EventBus<DI>) -> Self {
+    pub fn new() -> Self {
         Self {
             mouse: Default::default(),
             mouse_buttons: Default::default(),
             kb_buttons: Default::default(),
-            bus,
+            buffered_events: vec![],
         }
     }
 
@@ -121,7 +121,7 @@ impl Input {
             InputEvent::Scroll(_) => {}
             InputEvent::MouseMove(_) => {}
         };
-        self.bus.publish(&event)?;
+        self.buffered_events.push(event);
         Ok(())
     }
 
@@ -138,11 +138,22 @@ impl Input {
             .cloned()
             .unwrap_or(ButtonState::Released)
     }
+
+    pub fn flush(&self, mut bus: EventBus<DI>) -> Result<()> {
+        for event in &self.buffered_events {
+            bus.publish(event)?;
+        }
+        Ok(())
+    }
+
+    pub fn clear_buffer(&mut self) {
+        self.buffered_events.clear();
+    }
 }
 
 /// Initialize the input system
 pub fn initialize(bus: &EventBus<DI>) {
-    let input = Input::new(bus.clone());
+    let input = Input::new();
     let mut di = bus.data().write().unwrap();
     di.put(input);
 }

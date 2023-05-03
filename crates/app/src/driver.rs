@@ -7,6 +7,7 @@ use futures::executor::block_on;
 use gfx::SharedContext;
 use glam::Vec3;
 use gui::editor::Editor;
+use gui::util::size::USize;
 use inject::DI;
 use input::{
     ButtonState, Input, InputEvent, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
@@ -59,12 +60,19 @@ impl Driver {
             bus.clone(),
         ));
 
-        let mut inject = inject.write().unwrap();
-        let ctx = inject.get::<SharedContext>().cloned().unwrap();
+        let ctx = inject
+            .read()
+            .unwrap()
+            .get::<SharedContext>()
+            .cloned()
+            .unwrap();
+        hot_reload::initialize(ctx.pipelines.clone(), "shaders/", true, &mut bus)?;
+        assets::initialize(bus.clone())?;
         let renderer = AppRenderer::new(ctx.clone(), &window, event_loop, bus.clone())?;
         let window = AppWindow::new(frame, window, surface, ctx.clone());
         let editor = Editor::new(renderer.ui(), bus.clone());
 
+        let mut inject = inject.write().unwrap();
         let statistics = RendererStatistics::new(ctx, 32, 60)?;
         inject.put::<RendererStatistics>(statistics);
 
@@ -90,7 +98,10 @@ impl Driver {
                     inject.get_mut::<RendererStatistics>().unwrap().new_frame();
                 }
 
-                self.editor.show(&mut self.world);
+                let target = self
+                    .renderer
+                    .get_output_image(USize::new(800, 600), self.bus.clone());
+                self.editor.show(&mut self.world, target);
                 self.renderer
                     .render(window, &self.world, self.bus.clone(), ifc)
             })
@@ -217,7 +228,16 @@ impl Driver {
             }
             _ => (),
         };
-
+        {
+            let mut inject = self.bus.data().read().unwrap();
+            let input = inject.get::<Input>().unwrap();
+            input.flush(self.bus.clone())?;
+        }
+        {
+            let mut inject = self.bus.data().write().unwrap();
+            let input = inject.get_mut::<Input>().unwrap();
+            input.clear_buffer()
+        }
         Ok(ControlFlow::Wait)
     }
 }

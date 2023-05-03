@@ -1,11 +1,15 @@
 use std::collections::HashMap;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 use derivative::Derivative;
 use gfx::{PairedImageView, SharedContext};
 use gui::util::image_provider::ImageProvider;
 use gui::util::size::USize;
+use inject::DI;
 use phobos::{vk, DeletionQueue, Image, ImageView, PhysicalResourceBindings};
+use scheduler::EventBus;
 
 use crate::ui_integration::UIIntegration;
 
@@ -53,7 +57,7 @@ pub struct RenderTargets {
 
 impl RenderTargets {
     pub fn new(ctx: SharedContext) -> Result<Self> {
-        Ok(RenderTargets {
+        Ok(Self {
             ctx,
             targets: Default::default(),
             deferred_delete: DeletionQueue::new(4),
@@ -249,26 +253,5 @@ impl RenderTargets {
         deferred_delete.push(new_target);
 
         Ok(())
-    }
-}
-
-// TODO: Move to gfx module
-pub struct RenderTargetImageProvider<'a> {
-    pub targets: &'a mut RenderTargets,
-    pub integration: &'a mut UIIntegration,
-    pub name: &'a str,
-}
-
-impl ImageProvider for RenderTargetImageProvider<'_> {
-    fn get_image(&mut self, size: USize) -> Option<gui::util::image::Image> {
-        // Make sure next frames output with our requested size
-        self.targets
-            .set_output_resolution(size.x(), size.y())
-            .ok()?;
-        // Then grab our color output.
-        let image = self.targets.get_target_view(self.name).unwrap();
-        // We can re-register the same image, nothing will happen.
-        let handle = self.integration.register_texture(&image);
-        Some(handle)
     }
 }

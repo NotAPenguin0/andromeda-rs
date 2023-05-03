@@ -76,7 +76,7 @@ unsafe impl<T: Send> Send for EventBus<T> {}
 unsafe impl<T: Sync> Sync for EventBus<T> {}
 
 impl<T: Clone + Send + Sync + 'static> EventBus<T> {
-    fn get_or_create_bus<'a, E: Event + 'static>(&mut self) -> SyncEventBus<E, T> {
+    fn get_or_create_bus<'a, E: Event + 'static>(&self) -> SyncEventBus<E, T> {
         let lock = self.inner.read().unwrap();
         if lock.buses.get::<SyncEventBus<E, T>>().is_some() {
             lock.buses.get::<SyncEventBus<E, T>>().cloned().unwrap()
@@ -124,7 +124,7 @@ impl<T: Clone + Send + Sync + 'static> EventBus<T> {
     }
 
     /// Publish an event to the bus
-    pub fn publish<E: Event + 'static>(&mut self, event: &E) -> Result<()> {
+    pub fn publish<E: Event + 'static>(&self, event: &E) -> Result<()> {
         // Note: We only lock the entire bus for a short time to get access to the registry.
         // After that we only lock the individual event bus. This will cause the program to deadlock when recursively
         // triggering events, which is not something that is supported anyway.

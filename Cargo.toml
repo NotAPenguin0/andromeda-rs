@@ -3,31 +3,6 @@ name = "andromeda"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-anyhow = "1.0.70"
-derivative = "2.2.0"
-egui = "0.21.0"
-egui-winit-phobos = { git = "https://github.com/NotAPenguin0/egui-winit-phobos" }
-futures = "0.3.26"
-glam = "0.23.0"
-half = "2.2.1"
-image = "0.24.6"
-layout-rs = "0.1.1"
-log = { version = "0.4.17", features = ["std"] }
-ndarray = { version = "0.15.6", features = ["rayon"] }
-netcdf = { version = "0.8.0", features = ["static", "ndarray"] }
-notify = "5.1.0"
-phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
-poll-promise = { version = "0.2.0", features = ["tokio"] }
-pretty_env_logger = "0.4.0"
-raw-window-handle = "0.5.0"
-rayon = "1.7.0"
-tokio = { version = "1.25.0", features = ["full"] }
-winit = "0.28.1"
-dyn_inject = { git = "https://github.com/NotAPenguin0/dyn_inject" }
-
 [workspace]
 members = [
     ".",
@@ -48,6 +23,10 @@ members = [
     "crates/gfx",
     "crates/statistics"
 ]
+
+[[bin]]
+name = "andromeda"
+path = "crates/app/main.rs"
 
 [profile.release-with-debug]
 inherits = "release"

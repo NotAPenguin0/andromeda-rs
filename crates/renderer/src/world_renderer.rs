@@ -1,7 +1,8 @@
 use anyhow::Result;
-use camera::Camera;
+use camera::{Camera, CameraState};
 use gfx::SharedContext;
 use glam::{Mat3, Mat4, Vec3};
+use gui::util::size::USize;
 use hot_reload::IntoDynamic;
 use inject::DI;
 use phobos::{
@@ -15,7 +16,7 @@ use crate::passes::terrain::TerrainRenderer;
 use crate::postprocess::tonemap::Tonemap;
 use crate::ui_integration::UIIntegration;
 use crate::util::graph::FrameGraph;
-use crate::util::targets::{RenderTargetImageProvider, RenderTargets, SizeGroup};
+use crate::util::targets::{RenderTargets, SizeGroup};
 
 /// Stores world state in a format that the renderer needs, such as
 /// normalized direction vectors instead of rotations,
@@ -119,6 +120,22 @@ impl WorldRenderer {
         self.targets.get_target_view(Self::output_name()).unwrap()
     }
 
+    pub fn get_output_image(
+        &mut self,
+        ui: &mut UIIntegration,
+        size: USize,
+        bus: EventBus<DI>,
+    ) -> Option<gui::util::image::Image> {
+        self.targets
+            .set_output_resolution(size.x(), size.y())
+            .ok()?;
+        // Then grab our color output.
+        let image = self.targets.get_target_view(Self::output_name()).unwrap();
+        // We can re-register the same image, nothing will happen.
+        let handle = ui.register_texture(&image);
+        Some(handle)
+    }
+
     /// Update deferred deletion queues.
     pub fn new_frame(&mut self) {
         self.targets.next_frame();
@@ -129,23 +146,10 @@ impl WorldRenderer {
         self.output_image().width() as f32 / self.output_image().height() as f32
     }
 
-    /// Create an image provider that points to this renderer's render targets.
-    pub fn image_provider<'a>(
-        &'a mut self,
-        ui: &'a mut UIIntegration,
-    ) -> RenderTargetImageProvider<'a> {
-        RenderTargetImageProvider {
-            targets: &mut self.targets,
-            integration: ui,
-            name: Self::output_name(),
-        }
-    }
-
     /// Updates the internal render state with data from the world.
     fn update_render_state(&mut self, world: &World, bus: &EventBus<DI>) -> Result<()> {
         let di = bus.data().read().unwrap();
-        let camera = di.get::<Camera>().unwrap();
-        let camera = camera.read().unwrap();
+        let camera = di.read_sync::<CameraState>().unwrap();
         self.state.view = camera.matrix();
         self.state.projection =
             Mat4::perspective_rh(camera.fov().to_radians(), self.aspect_ratio(), 0.1, 10000000.0);

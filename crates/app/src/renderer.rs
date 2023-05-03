@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gfx::SharedContext;
+use gui::util::size::USize;
 use inject::DI;
 use phobos::domain::All;
 use phobos::{
@@ -35,6 +36,15 @@ impl AppRenderer {
             ui: UIIntegration::new(event_loop, window, gfx.clone())?,
             gfx: gfx.clone(),
         })
+    }
+
+    pub fn get_output_image(
+        &mut self,
+        size: USize,
+        bus: EventBus<DI>,
+    ) -> Option<gui::util::image::Image> {
+        // Make sure next frames output with our requested size
+        self.renderer.get_output_image(&mut self.ui, size, bus)
     }
 
     /// Get the UI context.

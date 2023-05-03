@@ -6,35 +6,32 @@ use glam::{Mat4, Vec3};
 use inject::DI;
 use input::{ButtonState, Input, InputEvent, Key, MouseButton, MouseDelta, ScrollInfo};
 use math::{Position, Rotation};
-use scheduler::{EventBus, EventContext, StoredSystem, System};
+use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 
 #[derive(Debug, Copy, Clone)]
 pub struct CameraState {
     position: Position,
     rotation: Rotation,
     fov: f32,
+}
+
+#[derive(Debug)]
+pub struct EnableCameraEvent {
+    pub enabled: bool,
+}
+
+impl Event for EnableCameraEvent {}
+
+#[derive(Debug, Clone)]
+pub struct Camera {
     enable_controls: bool,
 }
 
-#[derive(Clone)]
-pub struct Camera(Arc<RwLock<CameraState>>);
-
-impl Deref for Camera {
-    type Target = Arc<RwLock<CameraState>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl Camera {
-    pub fn new(position: Position, rotation: Rotation, fov: f32) -> Self {
-        Self(Arc::new(RwLock::new(CameraState {
-            position,
-            rotation,
-            fov,
+    pub fn new() -> Self {
+        Self {
             enable_controls: true,
-        })))
+        }
     }
 }
 
@@ -52,7 +49,6 @@ impl Default for CameraState {
             position: Default::default(),
             rotation: Default::default(),
             fov: 90.0,
-            enable_controls: false,
         }
     }
 }
@@ -120,10 +116,6 @@ impl CameraState {
         self.fov += fov;
     }
 
-    pub fn enable_controls(&mut self, enabled: bool) {
-        self.enable_controls = enabled;
-    }
-
     fn handle_move(&mut self, mouse: &MouseDelta) -> Result<()> {
         let delta = self.up() * (mouse.y as f32) + self.right() * (-mouse.x as f32);
         const SPEED: f32 = 5.0;
@@ -146,10 +138,6 @@ impl CameraState {
     }
 
     pub fn handle_event(&mut self, event: &InputEvent, input: &Input) -> Result<()> {
-        if !self.enable_controls {
-            return Ok(());
-        }
-
         match event {
             InputEvent::MouseMove(delta) => {
                 if input.get_mouse_key(MouseButton::Middle) == ButtonState::Pressed {
@@ -175,7 +163,17 @@ impl System<DI> for Camera {
     where
         Self: Sized, {
         event_bus.subscribe(system, handle_input_event);
+        event_bus.subscribe(system, handle_enabled_event);
     }
+}
+
+fn handle_enabled_event(
+    camera: &mut Camera,
+    event: &EnableCameraEvent,
+    _ctx: &mut EventContext<DI>,
+) -> Result<()> {
+    camera.enable_controls = event.enabled;
+    Ok(())
 }
 
 fn handle_input_event(
@@ -183,10 +181,13 @@ fn handle_input_event(
     event: &InputEvent,
     ctx: &mut EventContext<DI>,
 ) -> Result<()> {
-    let mut state = camera.write().unwrap();
-    let di = ctx.read().unwrap();
-    let input = di.get::<Input>().unwrap();
-    state.handle_event(event, input)
+    if camera.enable_controls {
+        let di = ctx.read().unwrap();
+        let mut state = di.write_sync::<CameraState>().unwrap();
+        let input = di.get::<Input>().unwrap();
+        state.handle_event(event, input)?;
+    }
+    Ok(())
 }
 
 pub fn initialize(
@@ -196,9 +197,13 @@ pub fn initialize(
     bus: &mut EventBus<DI>,
 ) -> Result<()> {
     // Create the camera state object and register it into the DI system
-    let camera = Camera::new(position, rotation, fov);
-    bus.data_mut().write().unwrap().put(camera.clone());
-    // Then also add the camera system to the event bus
-    bus.add_system(camera);
+    let state = CameraState {
+        position,
+        rotation,
+        fov,
+    };
+    bus.data_mut().write().unwrap().put_sync(state);
+    // Add the camera controller system
+    bus.add_system(Camera::new());
     Ok(())
 }

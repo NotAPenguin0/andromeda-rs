@@ -12,6 +12,6 @@ pub mod world;
 pub fn initialize(bus: &EventBus<DI>) -> Result<()> {
     let world = World::new();
     let mut di = bus.data().write().unwrap();
-    di.put(world);
+    di.put_sync(world);
     Ok(())
 }

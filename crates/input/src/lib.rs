@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use anyhow::Result;
 use inject::DI;
-use scheduler::{Event, EventBus};
+use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ButtonState {
@@ -86,43 +86,19 @@ impl From<winit::event::ElementState> for ButtonState {
 }
 
 #[derive(Debug)]
-pub struct Input {
+pub struct InputState {
     mouse: MousePosition,
     mouse_buttons: HashMap<MouseButton, ButtonState>,
     kb_buttons: HashMap<Key, ButtonState>,
-    buffered_events: Vec<InputEvent>,
 }
 
-impl Input {
+impl InputState {
     pub fn new() -> Self {
         Self {
             mouse: Default::default(),
             mouse_buttons: Default::default(),
             kb_buttons: Default::default(),
-            buffered_events: vec![],
         }
-    }
-
-    pub fn process_event(&mut self, event: InputEvent) -> Result<()> {
-        match event {
-            InputEvent::MousePosition(pos) => {
-                self.process_event(InputEvent::MouseMove(MouseDelta {
-                    x: pos.x - self.mouse.x,
-                    y: pos.y - self.mouse.y,
-                }))?;
-                self.mouse = pos;
-            }
-            InputEvent::MouseButton(state) => {
-                self.mouse_buttons.insert(state.button, state.state);
-            }
-            InputEvent::Button(state) => {
-                self.kb_buttons.insert(state.button, state.state);
-            }
-            InputEvent::Scroll(_) => {}
-            InputEvent::MouseMove(_) => {}
-        };
-        self.buffered_events.push(event);
-        Ok(())
     }
 
     pub fn get_key(&self, key: Key) -> ButtonState {
@@ -138,22 +114,70 @@ impl Input {
             .cloned()
             .unwrap_or(ButtonState::Released)
     }
+}
 
-    pub fn flush(&self, mut bus: EventBus<DI>) -> Result<()> {
-        for event in &self.buffered_events {
-            bus.publish(event)?;
-        }
-        Ok(())
+struct Input;
+
+impl Input {
+    pub fn process_event(
+        &mut self,
+        input_state: &mut InputState,
+        event: &InputEvent,
+    ) -> Vec<InputEvent> {
+        let mut additional_events = Vec::new();
+        match event {
+            InputEvent::MousePosition(pos) => {
+                let evt = InputEvent::MouseMove(MouseDelta {
+                    x: pos.x - input_state.mouse.x,
+                    y: pos.y - input_state.mouse.y,
+                });
+                additional_events.push(evt);
+                let other = self.process_event(input_state, additional_events.last().unwrap());
+                additional_events.extend(other.into_iter());
+                input_state.mouse = *pos;
+            }
+            InputEvent::MouseButton(state) => {
+                input_state.mouse_buttons.insert(state.button, state.state);
+            }
+            InputEvent::Button(state) => {
+                input_state.kb_buttons.insert(state.button, state.state);
+            }
+            InputEvent::Scroll(_) => {}
+            InputEvent::MouseMove(_) => {}
+        };
+        additional_events
+    }
+}
+
+impl System<DI> for Input {
+    fn initialize(event_bus: &mut EventBus<DI>, system: &StoredSystem<Self>)
+    where
+        Self: Sized, {
+        event_bus.subscribe(system, handle_input_event);
+    }
+}
+
+fn handle_input_event(
+    system: &mut Input,
+    event: &InputEvent,
+    ctx: &mut EventContext<DI>,
+) -> Result<()> {
+    let events = {
+        let inject = ctx.read().unwrap();
+        let mut state = inject.write_sync::<InputState>().unwrap();
+        system.process_event(&mut state, event)
+    };
+
+    for evt in events {
+        ctx.publish(&evt)?;
     }
 
-    pub fn clear_buffer(&mut self) {
-        self.buffered_events.clear();
-    }
+    Ok(())
 }
 
 /// Initialize the input system
 pub fn initialize(bus: &EventBus<DI>) {
-    let input = Input::new();
+    let state = InputState::new();
     let mut di = bus.data().write().unwrap();
-    di.put(input);
+    di.put_sync(state);
 }

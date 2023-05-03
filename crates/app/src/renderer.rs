@@ -96,11 +96,16 @@ impl AppRenderer {
             Some(self.gfx.descriptors.clone()),
         )?;
 
-        let mut inject = bus.data().write().unwrap();
-        let statistics = inject.get_mut::<RendererStatistics>().unwrap();
-        let cmd = cmd.begin_section(statistics, "all_render")?;
-        let cmd =
-            graph.record(cmd, &bindings, &mut ifc, self.gfx.debug_messenger.clone(), statistics)?;
-        cmd.end_section(statistics, "all_render")?.finish()
+        let mut inject = bus.data().read().unwrap();
+        let mut statistics = inject.write_sync::<RendererStatistics>().unwrap();
+        let cmd = cmd.begin_section(&mut statistics, "all_render")?;
+        let cmd = graph.record(
+            cmd,
+            &bindings,
+            &mut ifc,
+            self.gfx.debug_messenger.clone(),
+            &mut statistics,
+        )?;
+        cmd.end_section(&mut statistics, "all_render")?.finish()
     }
 }

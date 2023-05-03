@@ -1,3 +1,4 @@
+use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
@@ -10,7 +11,7 @@ use gui::editor::Editor;
 use gui::util::size::USize;
 use inject::DI;
 use input::{
-    ButtonState, Input, InputEvent, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
+    ButtonState, InputEvent, InputState, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
 };
 use math::{Position, Rotation};
 use scheduler::EventBus;
@@ -28,7 +29,6 @@ use crate::window::AppWindow;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    world: World,
     editor: Editor,
     bus: EventBus<DI>,
     renderer: AppRenderer,
@@ -51,14 +51,19 @@ impl Driver {
             90.0f32,
             &mut bus,
         )?;
-        let mut world = World::new();
+        world::initialize(&bus)?;
 
-        world.terrain.promise(Terrain::from_new_heightmap(
-            "data/heightmaps/mountain.png",
-            "data/textures/blank.png",
-            world.terrain_options,
-            bus.clone(),
-        ));
+        {
+            let inject = inject.read().unwrap();
+            let mut world = inject.write_sync::<World>().unwrap();
+            let opts = world.terrain_options;
+            world.terrain.promise(Terrain::from_new_heightmap(
+                "data/heightmaps/mountain.png",
+                "data/textures/blank.png",
+                opts,
+                bus.clone(),
+            ));
+        }
 
         let ctx = inject
             .read()
@@ -74,10 +79,9 @@ impl Driver {
 
         let mut inject = inject.write().unwrap();
         let statistics = RendererStatistics::new(ctx, 32, 60)?;
-        inject.put::<RendererStatistics>(statistics);
+        inject.put_sync::<RendererStatistics>(statistics);
 
         Ok(Driver {
-            world,
             editor,
             bus,
             renderer,
@@ -90,20 +94,25 @@ impl Driver {
         self.window.request_redraw();
         self.window
             .new_frame(|window, ifc| {
-                self.world.poll_all();
                 self.renderer.new_frame(window);
 
                 {
-                    let mut inject = self.bus.data().write().unwrap();
-                    inject.get_mut::<RendererStatistics>().unwrap().new_frame();
+                    let mut inject = self.bus.data().read().unwrap();
+                    inject
+                        .write_sync::<RendererStatistics>()
+                        .unwrap()
+                        .new_frame();
                 }
+
+                let inject = self.bus.data().read().unwrap();
+                let mut world = inject.write_sync::<World>().unwrap();
+                world.poll_all();
 
                 let target = self
                     .renderer
                     .get_output_image(USize::new(800, 600), self.bus.clone());
-                self.editor.show(&mut self.world, target);
-                self.renderer
-                    .render(window, &self.world, self.bus.clone(), ifc)
+                self.editor.show(&mut world, target);
+                self.renderer.render(window, &world, self.bus.clone(), ifc)
             })
             .await?;
         Ok(())
@@ -118,8 +127,6 @@ impl Driver {
                 window_id,
             } => {
                 self.renderer.process_event(&event);
-                let mut inject = self.bus.data().write().unwrap();
-                let input = inject.get_mut::<Input>().unwrap();
                 match event {
                     WindowEvent::Resized(_) => {}
                     WindowEvent::Moved(_) => {}
@@ -140,12 +147,12 @@ impl Driver {
                     } => {}
                     WindowEvent::ModifiersChanged(state) => {
                         if state.shift() {
-                            input.process_event(InputEvent::Button(KeyState {
+                            self.bus.publish(&InputEvent::Button(KeyState {
                                 state: ButtonState::Pressed,
                                 button: Key::Shift,
                             }))?;
                         } else {
-                            input.process_event(InputEvent::Button(KeyState {
+                            self.bus.publish(&InputEvent::Button(KeyState {
                                 state: ButtonState::Released,
                                 button: Key::Shift,
                             }))?;
@@ -156,7 +163,7 @@ impl Driver {
                         position,
                         ..
                     } => {
-                        input.process_event(InputEvent::MousePosition(MousePosition {
+                        self.bus.publish(&InputEvent::MousePosition(MousePosition {
                             x: position.x,
                             y: position.y,
                         }))?;
@@ -173,13 +180,13 @@ impl Driver {
                     } => {
                         match delta {
                             MouseScrollDelta::LineDelta(x, y) => {
-                                input.process_event(InputEvent::Scroll(ScrollInfo {
+                                self.bus.publish(&InputEvent::Scroll(ScrollInfo {
                                     delta_x: x,
                                     delta_y: y,
                                 }))?;
                             }
                             MouseScrollDelta::PixelDelta(px) => {
-                                input.process_event(InputEvent::Scroll(ScrollInfo {
+                                self.bus.publish(&InputEvent::Scroll(ScrollInfo {
                                     delta_x: px.x as f32,
                                     delta_y: px.y as f32,
                                 }))?;
@@ -191,10 +198,11 @@ impl Driver {
                         button,
                         ..
                     } => {
-                        input.process_event(InputEvent::MouseButton(MouseButtonState {
-                            state: state.into(),
-                            button: button.into(),
-                        }))?;
+                        self.bus
+                            .publish(&InputEvent::MouseButton(MouseButtonState {
+                                state: state.into(),
+                                button: button.into(),
+                            }))?;
                     }
                     WindowEvent::TouchpadMagnify {
                         ..
@@ -228,16 +236,6 @@ impl Driver {
             }
             _ => (),
         };
-        {
-            let mut inject = self.bus.data().read().unwrap();
-            let input = inject.get::<Input>().unwrap();
-            input.flush(self.bus.clone())?;
-        }
-        {
-            let mut inject = self.bus.data().write().unwrap();
-            let input = inject.get_mut::<Input>().unwrap();
-            input.clear_buffer()
-        }
         Ok(ControlFlow::Wait)
     }
 }

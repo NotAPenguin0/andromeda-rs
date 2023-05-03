@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::Result;
 use glam::{Mat4, Vec3};
 use inject::DI;
-use input::{ButtonState, Input, InputEvent, Key, MouseButton, MouseDelta, ScrollInfo};
+use input::{ButtonState, InputEvent, InputState, Key, MouseButton, MouseDelta, ScrollInfo};
 use math::{Position, Rotation};
 use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 
@@ -137,7 +137,7 @@ impl CameraState {
         Ok(())
     }
 
-    pub fn handle_event(&mut self, event: &InputEvent, input: &Input) -> Result<()> {
+    pub fn handle_event(&mut self, event: &InputEvent, input: &InputState) -> Result<()> {
         match event {
             InputEvent::MouseMove(delta) => {
                 if input.get_mouse_key(MouseButton::Middle) == ButtonState::Pressed {
@@ -184,8 +184,8 @@ fn handle_input_event(
     if camera.enable_controls {
         let di = ctx.read().unwrap();
         let mut state = di.write_sync::<CameraState>().unwrap();
-        let input = di.get::<Input>().unwrap();
-        state.handle_event(event, input)?;
+        let input = di.read_sync::<InputState>().unwrap();
+        state.handle_event(event, &input)?;
     }
     Ok(())
 }

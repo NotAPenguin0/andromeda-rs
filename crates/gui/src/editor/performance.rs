@@ -15,7 +15,7 @@ fn show_duration(ui: &mut Ui, duration: &Duration) {
 
 pub fn show(context: &egui::Context, bus: &EventBus<DI>) {
     let di = bus.data().read().unwrap();
-    let stats = di.get::<RendererStatistics>().unwrap();
+    let stats = di.read_sync::<RendererStatistics>().unwrap();
     egui::Window::new("Performance")
         .resizable(true)
         .movable(true)

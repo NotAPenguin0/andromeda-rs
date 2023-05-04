@@ -2,7 +2,6 @@ use std::fmt::Debug;
 use std::path::Path;
 
 use anyhow::{bail, Result};
-use gfx::SharedContext;
 use inject::DI;
 use log::{info, trace};
 use poll_promise::Promise;

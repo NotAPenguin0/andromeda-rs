@@ -24,6 +24,33 @@ members = [
     "crates/statistics"
 ]
 
+[dependencies]
+anyhow = "1.0.70"
+glam = "0.23.0"
+winit = "0.28.3"
+derivative = "2.2.0"
+futures = "0.3.28"
+pretty_env_logger = "0.4.0"
+tokio = { version = "1.27.0", features = ["full"] }
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+egui = "0.21.0"
+
+
+world = { path = "crates/world" }
+renderer = { path = "crates/renderer" }
+gui = { path = "crates/gui" }
+scheduler = { path = "crates/scheduler" }
+inject = { path = "crates/inject" }
+assets = { path = "crates/assets" }
+gfx = { path = "crates/gfx" }
+hot_reload = { path = "crates/hot_reload" }
+input = { path = "crates/input" }
+camera = { path = "crates/camera" }
+events = { path = "crates/events" }
+math = { path = "crates/math" }
+statistics = { path = "crates/statistics" }
+util = { path = "crates/util" }
+
 [[bin]]
 name = "andromeda"
 path = "crates/app/src/main.rs"

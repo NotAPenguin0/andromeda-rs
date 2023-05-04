@@ -9,12 +9,16 @@ pub struct SendSyncPtr<T> {
 }
 
 impl<T> SendSyncPtr<T> {
+    /// # Safety
+    /// The caller must guarantee this pointer is accessed in a safe manner
     pub unsafe fn new(pointer: *const T) -> Self {
         Self {
             pointer,
         }
     }
 
+    /// # Safety
+    /// The caller must guarantee this pointer is accessed in a safe manner
     pub unsafe fn get(&self) -> *const T {
         self.pointer
     }

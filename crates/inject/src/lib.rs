@@ -10,9 +10,15 @@ unsafe impl Send for DI {}
 
 unsafe impl Sync for DI {}
 
+impl Default for DI {
+    fn default() -> Self {
+        Self(Arc::new(RwLock::new(Registry::new())))
+    }
+}
+
 impl DI {
     pub fn new() -> Self {
-        Self(Arc::new(RwLock::new(Registry::new())))
+        Self::default()
     }
 }
 

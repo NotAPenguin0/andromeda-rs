@@ -45,7 +45,7 @@ impl RendererStatistics {
         )?;
 
         let statistics = QueryPool::new(
-            ctx.device.clone(),
+            ctx.device,
             QueryPoolCreateInfo {
                 count: section_capacity,
                 // etc

@@ -15,9 +15,9 @@ pub struct World {
     pub terrain_options: TerrainOptions,
 }
 
-impl World {
-    pub fn new() -> Self {
-        World {
+impl Default for World {
+    fn default() -> Self {
+        Self {
             sun_direction: Rotation(Vec3::new(45f32.to_radians(), 0.0, 0.0)),
             atmosphere: AtmosphereInfo::earth(),
             terrain: PromisedValue::new(),
@@ -28,6 +28,12 @@ impl World {
                 patch_resolution: 32,
             },
         }
+    }
+}
+
+impl World {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn poll_all(&mut self) {

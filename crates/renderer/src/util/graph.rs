@@ -6,7 +6,7 @@ use phobos::graph::pass_graph::BuiltPassGraph;
 use phobos::{domain, Allocator, DefaultAllocator, Pass, PassGraph, VirtualResource};
 use statistics::RendererStatistics;
 
-#[derive(Derivative)]
+#[derive(Derivative, Default)]
 #[derivative(Debug)]
 pub struct FrameGraph<'cb, A: Allocator = DefaultAllocator> {
     #[derivative(Debug = "ignore")]

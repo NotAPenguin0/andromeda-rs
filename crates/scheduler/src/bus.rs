@@ -31,7 +31,7 @@ impl<E: Event + 'static, T: 'static> TypedEventBus<E, T> {
 
     fn publish(&mut self, event: &E, context: &mut EventContext<T>) -> Result<()> {
         for system in &mut self.systems {
-            system.call(&event, context)?;
+            system.call(event, context)?;
         }
         Ok(())
     }
@@ -76,7 +76,7 @@ unsafe impl<T: Send> Send for EventBus<T> {}
 unsafe impl<T: Sync> Sync for EventBus<T> {}
 
 impl<T: Clone + Send + Sync + 'static> EventBus<T> {
-    fn get_or_create_bus<'a, E: Event + 'static>(&self) -> SyncEventBus<E, T> {
+    fn get_or_create_bus<E: Event + 'static>(&self) -> SyncEventBus<E, T> {
         let lock = self.inner.read().unwrap();
         if lock.buses.get::<SyncEventBus<E, T>>().is_some() {
             lock.buses.get::<SyncEventBus<E, T>>().cloned().unwrap()

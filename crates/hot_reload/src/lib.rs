@@ -88,7 +88,7 @@ impl ShaderReload {
                 });
             }
         };
-        self.reload_pipeline(path.as_path(), &pipeline, &mut inner.pipelines, stage)
+        self.reload_pipeline(path.as_path(), pipeline, &mut inner.pipelines, stage)
             .safe_unwrap();
     }
 
@@ -148,6 +148,7 @@ impl ShaderReload {
         Ok(Vec::from(binary))
     }
 
+    #[allow(clippy::suspicious_command_arg_space)]
     fn compile_hlsl(path: &Path, stage: vk::ShaderStageFlags) -> Result<Vec<u32>> {
         let out = Self::get_output_path(path)?;
         let dxc = Self::get_dxc_path()?;
@@ -207,7 +208,7 @@ impl ShaderReload {
         match pipelines.pipeline_type(pipeline) {
             None => {}
             Some(PipelineType::Graphics) => {
-                let mut pci = pipelines.pipeline_info(pipeline).unwrap().clone();
+                let mut pci = pipelines.pipeline_info(pipeline).unwrap();
                 // Update the used shader. We do this by first removing the shader with the reloaded stage, then pushing the new shader
                 pci.shaders.retain(|shader| shader.stage() != stage);
                 pci.shaders
@@ -218,7 +219,7 @@ impl ShaderReload {
                 pipelines.create_named_pipeline(pci)?;
             }
             Some(PipelineType::Compute) => {
-                let mut pci = pipelines.compute_pipeline_info(pipeline).unwrap().clone();
+                let mut pci = pipelines.compute_pipeline_info(pipeline).unwrap();
                 // Replace shader, compute shaders only have one shader so this is easy
                 pci.shader =
                     Some(ph::ShaderCreateInfo::from_spirv(vk::ShaderStageFlags::COMPUTE, binary));

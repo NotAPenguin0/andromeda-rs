@@ -19,16 +19,14 @@ pub struct EnableCameraEvent {
 
 impl Event for EnableCameraEvent {}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Camera {
     enable_controls: bool,
 }
 
 impl Camera {
     pub fn new() -> Self {
-        Self {
-            enable_controls: true,
-        }
+        Self::default()
     }
 }
 

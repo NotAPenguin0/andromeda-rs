@@ -13,13 +13,19 @@ pub struct PromisedValue<T: Send + 'static> {
     deletion_queue: DeletionQueue<T>,
 }
 
-impl<T: Send + 'static> PromisedValue<T> {
-    pub fn new() -> Self {
+impl<T: Send + 'static> Default for PromisedValue<T> {
+    fn default() -> Self {
         Self {
             present: None,
             future: None,
             deletion_queue: DeletionQueue::new(4),
         }
+    }
+}
+
+impl<T: Send + 'static> PromisedValue<T> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[allow(dead_code)]

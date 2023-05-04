@@ -15,7 +15,7 @@ where
 
 impl<T> ByteSize for &[T] {
     fn byte_size(&self) -> usize {
-        self.len() * std::mem::size_of::<T>()
+        std::mem::size_of_val(*self)
     }
 }
 

@@ -105,7 +105,7 @@ impl WorldRenderer {
         Ok(Self {
             tonemap,
             atmosphere: AtmosphereRenderer::new(ctx.clone(), &mut bus)?,
-            terrain: TerrainRenderer::new(ctx.clone(), &mut bus)?,
+            terrain: TerrainRenderer::new(ctx, &mut bus)?,
             bus,
             state,
         })
@@ -200,10 +200,10 @@ impl WorldRenderer {
 
         // 1. Render terrain
         self.terrain
-            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
+            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
         // 2. Render atmosphere
         self.atmosphere
-            .render(&mut graph, &scene_output, &depth, &world, &self.state)?;
+            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
         // 3. Resolve MSAA
         let resolve = PassBuilder::render("msaa_resolve")
             .color_attachment(

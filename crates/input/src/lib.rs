@@ -85,7 +85,7 @@ impl From<winit::event::ElementState> for ButtonState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InputState {
     mouse: MousePosition,
     mouse_buttons: HashMap<MouseButton, ButtonState>,

@@ -33,7 +33,7 @@ impl AppRenderer {
         Ok(Self {
             renderer: WorldRenderer::new(gfx.clone(), bus)?,
             ui: UIIntegration::new(event_loop, window, gfx.clone())?,
-            gfx: gfx.clone(),
+            gfx,
         })
     }
 

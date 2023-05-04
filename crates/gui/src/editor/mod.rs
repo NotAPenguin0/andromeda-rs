@@ -27,11 +27,11 @@ impl Editor {
         }
     }
 
-    pub fn show(&self, world: &mut World, target: Option<Image>) {
+    pub fn show(&self, world: &mut World) {
         egui::CentralPanel::default().show(&self.context, |ui| {
             ui.heading("Editor");
 
-            world_view::show(&self.context, &self.bus, target);
+            world_view::show(&self.context, &self.bus);
             environment::show(&self.context, world);
             render_options::show(&self.context, world);
             terrain_options::show(&self.context, &self.bus, world);

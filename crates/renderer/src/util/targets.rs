@@ -1,17 +1,9 @@
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 use derivative::Derivative;
 use gfx::{PairedImageView, SharedContext};
-use gui::util::image_provider::ImageProvider;
-use gui::util::size::USize;
-use inject::DI;
 use phobos::{vk, DeletionQueue, Image, ImageView, PhysicalResourceBindings};
-use scheduler::EventBus;
-
-use crate::ui_integration::UIIntegration;
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct TargetSize {

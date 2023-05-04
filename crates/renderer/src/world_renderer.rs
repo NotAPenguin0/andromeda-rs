@@ -2,6 +2,7 @@ use anyhow::Result;
 use camera::{Camera, CameraState};
 use gfx::SharedContext;
 use glam::{Mat3, Mat4, Vec3};
+use gui::util::image_provider::ImageProvider;
 use gui::util::size::USize;
 use hot_reload::IntoDynamic;
 use inject::DI;
@@ -45,7 +46,6 @@ pub struct RenderState {
 /// of the scene.
 #[derive(Debug)]
 pub struct WorldRenderer {
-    targets: RenderTargets,
     bus: EventBus<DI>,
     tonemap: Tonemap,
     atmosphere: AtmosphereRenderer,
@@ -98,13 +98,18 @@ impl WorldRenderer {
         )?;
 
         let state = RenderState::default();
+        let tonemap = Tonemap::new(ctx.clone(), &mut targets, &mut bus)?;
+
+        {
+            let mut inject = bus.data().write().unwrap();
+            inject.put_sync(targets);
+        }
 
         Ok(Self {
-            tonemap: Tonemap::new(ctx.clone(), &mut targets, &mut bus)?,
+            tonemap,
             atmosphere: AtmosphereRenderer::new(ctx.clone(), &mut bus)?,
             terrain: TerrainRenderer::new(ctx.clone(), &mut bus)?,
             bus,
-            targets,
             state,
         })
     }
@@ -115,40 +120,47 @@ impl WorldRenderer {
         Tonemap::output_name()
     }
 
-    /// Get an `ImageView` pointing to the final output of scene rendering.
-    pub fn output_image(&self) -> ImageView {
-        self.targets.get_target_view(Self::output_name()).unwrap()
-    }
-
-    pub fn get_output_image(
-        &mut self,
-        ui: &mut UIIntegration,
-        size: USize,
-        bus: EventBus<DI>,
-    ) -> Option<gui::util::image::Image> {
-        self.targets
-            .set_output_resolution(size.x(), size.y())
-            .ok()?;
+    /// Updates the output image used in the UI to have the correct size.
+    /// # DI Access
+    /// - Write [`RenderTargets`]
+    /// - Write [`ImageProvider`]
+    pub fn update_output_image(&mut self, ui: &mut UIIntegration) -> Result<()> {
+        let inject = self.bus.data().read().unwrap();
+        let mut targets = inject.write_sync::<RenderTargets>().unwrap();
+        let mut provider = inject.write_sync::<ImageProvider>().unwrap();
+        targets.set_output_resolution(provider.size.x(), provider.size.y())?;
         // Then grab our color output.
-        let image = self.targets.get_target_view(Self::output_name()).unwrap();
+        let image = targets.get_target_view(Self::output_name()).unwrap();
         // We can re-register the same image, nothing will happen.
         let handle = ui.register_texture(&image);
-        Some(handle)
+        provider.handle = Some(handle);
+        Ok(())
     }
 
     /// Update deferred deletion queues.
+    /// # DI Access
+    /// - Write [`RenderTargets`]
     pub fn new_frame(&mut self) {
-        self.targets.next_frame();
+        let inject = self.bus.data().read().unwrap();
+        let mut targets = inject.write_sync::<RenderTargets>().unwrap();
+        targets.next_frame();
     }
 
     /// Get the current render aspect ratio.
+    /// # DI Access
+    /// - Read [`RenderTargets`]
     pub fn aspect_ratio(&self) -> f32 {
-        self.output_image().width() as f32 / self.output_image().height() as f32
+        let inject = self.bus.data().read().unwrap();
+        let targets = inject.read_sync::<RenderTargets>().unwrap();
+        let resolution = targets.size_group_resolution(SizeGroup::OutputResolution);
+        resolution.width as f32 / resolution.height as f32
     }
 
     /// Updates the internal render state with data from the world.
-    fn update_render_state(&mut self, world: &World, bus: &EventBus<DI>) -> Result<()> {
-        let di = bus.data().read().unwrap();
+    /// # DI Access
+    /// - Read [`CameraState`]
+    fn update_render_state(&mut self, world: &World) -> Result<()> {
+        let di = self.bus.data().read().unwrap();
         let camera = di.read_sync::<CameraState>().unwrap();
         self.state.view = camera.matrix();
         self.state.projection =
@@ -168,16 +180,21 @@ impl WorldRenderer {
 
     /// Redraw the world. Returns a frame graph and physical resource bindings that
     /// can be submitted to the GPU.
+    /// # DI Access
+    /// - Read [`RenderTargets`]
     pub fn redraw_world<'cb>(
         &'cb mut self,
         world: &'cb World,
-        bus: &EventBus<DI>,
     ) -> Result<(FrameGraph<'cb>, PhysicalResourceBindings)> {
         let mut bindings = PhysicalResourceBindings::new();
         let mut graph = FrameGraph::new();
-        self.targets.bind_targets(&mut bindings);
+        {
+            let inject = self.bus.data().read().unwrap();
+            let targets = inject.read_sync::<RenderTargets>().unwrap();
+            targets.bind_targets(&mut bindings);
+        }
 
-        self.update_render_state(world, bus)?;
+        self.update_render_state(world)?;
 
         let scene_output = VirtualResource::image("scene_output");
         let depth = VirtualResource::image("depth");

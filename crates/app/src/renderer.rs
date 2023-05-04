@@ -38,15 +38,6 @@ impl AppRenderer {
         })
     }
 
-    pub fn get_output_image(
-        &mut self,
-        size: USize,
-        bus: EventBus<DI>,
-    ) -> Option<gui::util::image::Image> {
-        // Make sure next frames output with our requested size
-        self.renderer.get_output_image(&mut self.ui, size, bus)
-    }
-
     /// Get the UI context.
     pub fn ui(&self) -> egui::Context {
         self.ui.context()
@@ -79,7 +70,8 @@ impl AppRenderer {
         bus: EventBus<DI>,
         mut ifc: InFlightContext,
     ) -> Result<CommandBuffer<All>> {
-        let (mut graph, mut bindings) = self.renderer.redraw_world(world, &bus)?;
+        self.renderer.update_output_image(&mut self.ui)?;
+        let (mut graph, mut bindings) = self.renderer.redraw_world(world)?;
         let swapchain = graph.swapchain_resource();
         // Record UI commands
         self.ui.render(window, swapchain.clone(), &mut graph)?;

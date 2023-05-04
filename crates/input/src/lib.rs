@@ -3,6 +3,7 @@ use std::fmt::Debug;
 
 use anyhow::Result;
 use inject::DI;
+use log::trace;
 use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -114,26 +115,18 @@ impl InputState {
             .cloned()
             .unwrap_or(ButtonState::Released)
     }
+
+    pub fn mouse(&self) -> MousePosition {
+        self.mouse
+    }
 }
 
 struct Input;
 
 impl Input {
-    pub fn process_event(
-        &mut self,
-        input_state: &mut InputState,
-        event: &InputEvent,
-    ) -> Vec<InputEvent> {
-        let mut additional_events = Vec::new();
+    pub fn process_event(&mut self, input_state: &mut InputState, event: &InputEvent) {
         match event {
             InputEvent::MousePosition(pos) => {
-                let evt = InputEvent::MouseMove(MouseDelta {
-                    x: pos.x - input_state.mouse.x,
-                    y: pos.y - input_state.mouse.y,
-                });
-                additional_events.push(evt);
-                let other = self.process_event(input_state, additional_events.last().unwrap());
-                additional_events.extend(other.into_iter());
                 input_state.mouse = *pos;
             }
             InputEvent::MouseButton(state) => {
@@ -145,7 +138,6 @@ impl Input {
             InputEvent::Scroll(_) => {}
             InputEvent::MouseMove(_) => {}
         };
-        additional_events
     }
 }
 
@@ -162,21 +154,15 @@ fn handle_input_event(
     event: &InputEvent,
     ctx: &mut EventContext<DI>,
 ) -> Result<()> {
-    let events = {
-        let inject = ctx.read().unwrap();
-        let mut state = inject.write_sync::<InputState>().unwrap();
-        system.process_event(&mut state, event)
-    };
-
-    for evt in events {
-        ctx.publish(&evt)?;
-    }
-
+    let inject = ctx.read().unwrap();
+    let mut state = inject.write_sync::<InputState>().unwrap();
+    system.process_event(&mut state, event);
     Ok(())
 }
 
 /// Initialize the input system
-pub fn initialize(bus: &EventBus<DI>) {
+pub fn initialize(bus: &mut EventBus<DI>) {
+    bus.add_system(Input);
     let state = InputState::new();
     let mut di = bus.data().write().unwrap();
     di.put_sync(state);

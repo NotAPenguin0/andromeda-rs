@@ -11,7 +11,8 @@ use gui::editor::Editor;
 use gui::util::size::USize;
 use inject::DI;
 use input::{
-    ButtonState, InputEvent, InputState, Key, KeyState, MouseButtonState, MousePosition, ScrollInfo,
+    ButtonState, InputEvent, InputState, Key, KeyState, MouseButtonState, MouseDelta,
+    MousePosition, ScrollInfo,
 };
 use math::{Position, Rotation};
 use scheduler::EventBus;
@@ -44,7 +45,7 @@ impl Driver {
 
         // Initialize subsystems
         let (frame, surface) = gfx::initialize(&window, &bus)?;
-        input::initialize(&bus);
+        input::initialize(&mut bus);
         camera::initialize(
             Position(Vec3::new(0.0, 200.0, 0.0)),
             Rotation(Vec3::new(0.0, 0.0, 0.0)),
@@ -52,6 +53,7 @@ impl Driver {
             &mut bus,
         )?;
         world::initialize(&bus)?;
+        gui::initialize(&bus);
 
         {
             let inject = inject.read().unwrap();
@@ -108,10 +110,7 @@ impl Driver {
                 let mut world = inject.write_sync::<World>().unwrap();
                 world.poll_all();
 
-                let target = self
-                    .renderer
-                    .get_output_image(USize::new(800, 600), self.bus.clone());
-                self.editor.show(&mut world, target);
+                self.editor.show(&mut world);
                 self.renderer.render(window, &world, self.bus.clone(), ifc)
             })
             .await?;
@@ -163,9 +162,22 @@ impl Driver {
                         position,
                         ..
                     } => {
+                        let prev = self
+                            .bus
+                            .data()
+                            .read()
+                            .unwrap()
+                            .read_sync::<InputState>()
+                            .unwrap()
+                            .mouse();
+                        // Publish two events: One for the absolute mouse position, one for the mouse movement
                         self.bus.publish(&InputEvent::MousePosition(MousePosition {
                             x: position.x,
                             y: position.y,
+                        }))?;
+                        self.bus.publish(&InputEvent::MouseMove(MouseDelta {
+                            x: position.x - prev.x,
+                            y: position.y - prev.y,
                         }))?;
                     }
                     WindowEvent::CursorEntered {

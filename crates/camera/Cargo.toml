@@ -10,3 +10,4 @@ math = { path = "../math" }
 scheduler = { path = "../scheduler" }
 input = { path = "../input" }
 inject = { path = "../inject" }
+log = "0.4.17"

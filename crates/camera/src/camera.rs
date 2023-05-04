@@ -5,6 +5,7 @@ use anyhow::Result;
 use glam::{Mat4, Vec3};
 use inject::DI;
 use input::{ButtonState, InputEvent, InputState, Key, MouseButton, MouseDelta, ScrollInfo};
+use log::trace;
 use math::{Position, Rotation};
 use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 

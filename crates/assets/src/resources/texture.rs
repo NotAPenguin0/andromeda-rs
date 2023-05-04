@@ -24,7 +24,7 @@ impl Texture {
         path: P,
         bus: EventBus<DI>,
     ) -> Promise<Result<Self>> {
-        let mut ctx = bus
+        let ctx = bus
             .data()
             .read()
             .unwrap()

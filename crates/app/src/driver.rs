@@ -1,6 +1,3 @@
-use std::ops::DerefMut;
-use std::sync::{Arc, RwLock};
-
 use anyhow::Result;
 use assets::Terrain;
 use derivative::Derivative;
@@ -8,7 +5,6 @@ use futures::executor::block_on;
 use gfx::SharedContext;
 use glam::Vec3;
 use gui::editor::Editor;
-use gui::util::size::USize;
 use inject::DI;
 use input::{
     ButtonState, InputEvent, InputState, Key, KeyState, MouseButtonState, MouseDelta,
@@ -99,7 +95,7 @@ impl Driver {
                 self.renderer.new_frame(window);
 
                 {
-                    let mut inject = self.bus.data().read().unwrap();
+                    let inject = self.bus.data().read().unwrap();
                     inject
                         .write_sync::<RendererStatistics>()
                         .unwrap()

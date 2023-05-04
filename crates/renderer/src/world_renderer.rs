@@ -1,14 +1,11 @@
 use anyhow::Result;
-use camera::{Camera, CameraState};
+use camera::CameraState;
 use gfx::SharedContext;
 use glam::{Mat3, Mat4, Vec3};
 use gui::util::image_provider::ImageProvider;
-use gui::util::size::USize;
 use hot_reload::IntoDynamic;
 use inject::DI;
-use phobos::{
-    vk, ImageView, PassBuilder, PhysicalResourceBindings, PipelineBuilder, VirtualResource,
-};
+use phobos::{vk, PassBuilder, PhysicalResourceBindings, PipelineBuilder, VirtualResource};
 use scheduler::EventBus;
 use world::World;
 

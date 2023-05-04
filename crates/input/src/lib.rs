@@ -3,7 +3,6 @@ use std::fmt::Debug;
 
 use anyhow::Result;
 use inject::DI;
-use log::trace;
 use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

@@ -1,6 +1,5 @@
 use anyhow::Result;
 use gfx::SharedContext;
-use gui::util::size::USize;
 use inject::DI;
 use phobos::domain::All;
 use phobos::{
@@ -88,7 +87,7 @@ impl AppRenderer {
             Some(self.gfx.descriptors.clone()),
         )?;
 
-        let mut inject = bus.data().read().unwrap();
+        let inject = bus.data().read().unwrap();
         let mut statistics = inject.write_sync::<RendererStatistics>().unwrap();
         let cmd = cmd.begin_section(&mut statistics, "all_render")?;
         let cmd = graph.record(

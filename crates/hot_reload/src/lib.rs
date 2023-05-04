@@ -226,17 +226,7 @@ impl ShaderReload {
                 pipelines.create_named_compute_pipeline(pci)?;
             }
             Some(PipelineType::RayTracing) => {
-                let mut pci = pipelines
-                    .raytracing_pipeline_info(pipeline)
-                    .unwrap()
-                    .clone();
-                // TODO: THIS IS WRONG, THE INDICES HAVE TO BE RETAINED AND THERE CAN BE MULTIPLE SHADERS WITH THE SAME STAGE
-                panic!("FIX");
-                pci.shaders.retain(|shader| shader.stage() != stage);
-                pci.shaders
-                    .push(ph::ShaderCreateInfo::from_spirv(stage, binary));
-                // Register as new pipeline, this will update the PCI
-                pipelines.create_named_raytracing_pipeline(pci)?;
+                todo!()
             }
         }
 

@@ -1,10 +1,6 @@
-use std::sync::{Arc, RwLock};
-
 use inject::DI;
 use scheduler::EventBus;
 use world::World;
-
-use crate::util::image::Image;
 
 pub mod camera_controller;
 pub mod environment;

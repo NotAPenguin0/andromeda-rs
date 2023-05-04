@@ -1,5 +1,5 @@
 use anyhow::Result;
-use camera::{Camera, EnableCameraEvent};
+use camera::EnableCameraEvent;
 use inject::DI;
 use scheduler::EventBus;
 

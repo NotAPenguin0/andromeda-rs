@@ -30,6 +30,7 @@ fn normalize_height(data: &mut [f16]) {
     });
 }
 
+#[allow(dead_code)]
 fn flip_image_vertical<T: Send>(data: &mut [T], row_length: impl Into<usize>) {
     let width = row_length.into();
     let (top, bottom) = data.split_at_mut(data.len() / 2);

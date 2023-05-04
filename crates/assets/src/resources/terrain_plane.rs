@@ -49,7 +49,7 @@ impl TerrainPlane {
     }
 
     pub fn generate(options: TerrainOptions, bus: EventBus<DI>) -> Result<Self> {
-        let mut gfx = bus
+        let gfx = bus
             .data()
             .read()
             .unwrap()

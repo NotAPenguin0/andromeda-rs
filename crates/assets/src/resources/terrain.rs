@@ -39,13 +39,6 @@ impl Terrain {
         options: TerrainOptions,
         bus: EventBus<DI>,
     ) -> Promise<Result<Terrain>> {
-        let mut ctx = bus
-            .data()
-            .read()
-            .unwrap()
-            .get::<SharedContext>()
-            .cloned()
-            .unwrap();
         let bus2 = bus.clone();
         let bus3 = bus.clone();
         trace!("Loading new heightmap from file: {heightmap_path:?}");

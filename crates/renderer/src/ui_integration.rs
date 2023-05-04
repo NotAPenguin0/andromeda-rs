@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use derivative::Derivative;

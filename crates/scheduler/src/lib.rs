@@ -1,3 +1,5 @@
+#![feature(associated_type_defaults)]
+
 pub use bus::*;
 pub use caller::*;
 pub use event::*;

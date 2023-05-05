@@ -66,7 +66,7 @@ impl AppRenderer {
         &mut self,
         window: &Window,
         world: &World,
-        bus: EventBus<DI>,
+        bus: &EventBus<DI>,
         mut ifc: InFlightContext,
     ) -> Result<CommandBuffer<All>> {
         self.renderer.update_output_image(&mut self.ui)?;

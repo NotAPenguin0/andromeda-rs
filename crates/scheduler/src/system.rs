@@ -25,7 +25,7 @@ impl<S: 'static> StoredSystemInner<S> {
         &mut self,
         event: &E,
         context: &mut EventContext<T>,
-    ) -> Result<()> {
+    ) -> Result<E::Result> {
         let handler = self
             .handlers
             .get_dyn::<dyn Handler<S, E, T>>()
@@ -64,7 +64,7 @@ impl<S: 'static> StoredSystem<S> {
 }
 
 impl<S: 'static, E: Event + 'static, T: 'static> Caller<E, T> for StoredSystem<S> {
-    fn call(&mut self, event: &E, context: &mut EventContext<T>) -> Result<()> {
+    fn call(&mut self, event: &E, context: &mut EventContext<T>) -> Result<E::Result> {
         self.0.lock().unwrap().handle(event, context)
     }
 }

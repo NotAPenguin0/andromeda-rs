@@ -106,7 +106,7 @@ impl Driver {
                 let mut world = inject.write_sync::<World>().unwrap();
                 world.poll_all();
 
-                self.renderer.render(window, &world, self.bus.clone(), ifc)
+                self.renderer.render(window, &world, &self.bus, ifc)
             })
             .await?;
         Ok(())

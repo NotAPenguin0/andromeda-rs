@@ -5,7 +5,9 @@ use anyhow::Result;
 use crate::bus::EventBus;
 
 /// Trait to signal that this is an event type.
-pub trait Event {}
+pub trait Event {
+    type Result = ();
+}
 
 pub struct EventContext<T> {
     bus: EventBus<T>,
@@ -18,8 +20,12 @@ impl<T: Clone + Send + Sync + 'static> EventContext<T> {
         }
     }
 
-    pub fn publish<E: Event + 'static>(&mut self, event: &E) -> Result<()> {
+    pub fn publish<E: Event + 'static>(&mut self, event: &E) -> Result<Vec<E::Result>> {
         self.bus.publish(event)
+    }
+
+    pub fn bus(&self) -> &EventBus<T> {
+        &self.bus
     }
 }
 

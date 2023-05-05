@@ -29,11 +29,12 @@ impl<E: Event + 'static, T: 'static> TypedEventBus<E, T> {
         self.systems.push(Box::new(system));
     }
 
-    fn publish(&mut self, event: &E, context: &mut EventContext<T>) -> Result<()> {
+    fn publish(&mut self, event: &E, context: &mut EventContext<T>) -> Result<Vec<E::Result>> {
+        let mut results = Vec::with_capacity(self.systems.len());
         for system in &mut self.systems {
-            system.call(event, context)?;
+            results.push(system.call(event, context)?);
         }
-        Ok(())
+        Ok(results)
     }
 }
 
@@ -124,7 +125,7 @@ impl<T: Clone + Send + Sync + 'static> EventBus<T> {
     }
 
     /// Publish an event to the bus
-    pub fn publish<E: Event + 'static>(&self, event: &E) -> Result<()> {
+    pub fn publish<E: Event + 'static>(&self, event: &E) -> Result<Vec<E::Result>> {
         // Note: We only lock the entire bus for a short time to get access to the registry.
         // After that we only lock the individual event bus. This will cause the program to deadlock when recursively
         // triggering events, which is not something that is supported anyway.

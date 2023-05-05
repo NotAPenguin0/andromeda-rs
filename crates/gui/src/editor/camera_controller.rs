@@ -8,5 +8,6 @@ pub fn enable_camera_over(response: &egui::Response, bus: &EventBus<DI>) -> Resu
     let hover = response.hovered();
     bus.publish(&EnableCameraEvent {
         enabled: hover,
-    })
+    })?;
+    Ok(())
 }

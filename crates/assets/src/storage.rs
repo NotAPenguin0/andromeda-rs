@@ -1,9 +1,6 @@
-use std::cell::{Cell, Ref, RefCell};
-use std::marker::PhantomData;
-use std::ops::Deref;
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use dyn_inject::Registry;
 use inject::DI;
 use poll_promise::Promise;
@@ -19,57 +16,10 @@ enum AssetEntry<A: Send + 'static> {
     Ready(A),
 }
 
-pub enum AssetRef<'a, A: Send + 'static> {
-    Invalid,
-    Failed(anyhow::Error),
+pub enum AssetRef<'a, A> {
+    Failed(&'a anyhow::Error),
     Pending,
     Ready(&'a A),
-}
-
-pub struct AssetReadLock<'a, A: Send + 'static> {
-    lock: RwLockReadGuard<'a, AssetContainer<A>>,
-    handle: Handle<A>,
-    asset: RefCell<Option<AssetRef<'a, A>>>,
-}
-
-impl<'a, A: Send + 'static> AssetReadLock<'a, A> {
-    fn poll_entry(entry: &AssetEntry<A>) -> AssetRef<A> {
-        match entry {
-            AssetEntry::Pending(_) => AssetRef::Pending,
-            AssetEntry::Failed(err) => AssetRef::Failed(anyhow!("{err}")),
-            AssetEntry::Ready(asset) => AssetRef::Ready(asset),
-        }
-    }
-
-    fn lookup(&self) {
-        // If we have not looked this up yet, perform a lookup and
-        // exchange the value inside
-        if self.asset.borrow().is_none() {
-            let entry = self.lock.items.get(self.handle);
-            let asset_ref = match entry {
-                None => AssetRef::Invalid,
-                Some(entry) => Self::poll_entry(entry),
-            };
-            self.asset.replace(Some(asset_ref));
-        }
-    }
-
-    pub fn new(lock: RwLockReadGuard<'a, AssetContainer<A>>, handle: Handle<A>) -> Self {
-        Self {
-            lock,
-            handle,
-            asset: RefCell::new(None),
-        }
-    }
-}
-
-impl<'a, A: Send + 'static> Deref for AssetReadLock<'a, A> {
-    type Target = AssetRef<'a, A>;
-
-    fn deref(&self) -> &Self::Target {
-        self.lookup();
-        self.asset.borrow().as_ref().unwrap()
-    }
 }
 
 struct AssetContainer<A: Send + 'static> {
@@ -95,24 +45,67 @@ struct AssetStorageInner {
     containers: Registry,
 }
 
+impl AssetStorageInner {
+    // Does not insert a new container if none existed
+    fn with_container<'a, A, F, R>(&'a self, f: F) -> R
+    where
+        A: Send + 'static,
+        F: FnOnce(RwLockReadGuard<'a, AssetContainer<A>>) -> R, {
+        let container = self.containers.read_sync::<AssetContainer<A>>().unwrap();
+        f(container)
+    }
+
+    fn with_new_container<'a, A, F, R>(&'a mut self, f: F) -> R
+    where
+        A: Send + 'static,
+        F: FnOnce(RwLockReadGuard<'a, AssetContainer<A>>) -> R, {
+        self.containers
+            .put_sync::<AssetContainer<A>>(AssetContainer::new());
+        let container = self.containers.read_sync::<AssetContainer<A>>().unwrap();
+        f(container)
+    }
+
+    fn with_mut_container<'a, A, F, R>(&'a mut self, f: F) -> R
+    where
+        A: Send + 'static,
+        F: FnOnce(RwLockWriteGuard<'a, AssetContainer<A>>) -> R, {
+        if self.containers.read_sync::<AssetContainer<A>>().is_none() {
+            self.containers
+                .put_sync::<AssetContainer<A>>(AssetContainer::new());
+        }
+        let container = self.containers.write_sync::<AssetContainer<A>>().unwrap();
+        f(container)
+    }
+}
+
 pub struct AssetStorage {
     inner: RwLock<AssetStorageInner>,
     bus: EventBus<DI>,
 }
 
 impl AssetStorage {
-    fn get_or_create_container<A: Send + 'static>(&self) -> RwLockReadGuard<AssetContainer<A>> {
+    fn poll_entry<A: Send>(entry: &AssetEntry<A>) -> AssetRef<A> {
+        match entry {
+            AssetEntry::Pending(_) => AssetRef::Pending,
+            AssetEntry::Failed(error) => AssetRef::Failed(error),
+            AssetEntry::Ready(asset) => AssetRef::Ready(asset),
+        }
+    }
+
+    fn with_container<A, F, R>(&self, f: F) -> R
+    where
+        A: Send + 'static,
+        F: FnOnce(RwLockReadGuard<AssetContainer<A>>) -> R, {
         let lock = self.inner.read().unwrap();
-        if lock.containers.read_sync::<AssetContainer<A>>().is_some() {
-            lock.containers.read_sync::<AssetContainer<A>>().unwrap()
-        } else {
-            drop(lock);
-            let mut lock = self.inner.write().unwrap();
-            lock.containers.put_sync(AssetContainer::<A>::new());
-            lock.containers
-                .get::<SyncAssetContainer<A>>()
-                .cloned()
-                .unwrap()
+        let maybe_container = lock.containers.read_sync::<AssetContainer<A>>();
+        match maybe_container {
+            None => {
+                drop(maybe_container);
+                drop(lock);
+                let mut lock = self.inner.write().unwrap();
+                lock.with_new_container(f)
+            }
+            Some(container) => f(container),
         }
     }
 
@@ -123,17 +116,43 @@ impl AssetStorage {
         }
     }
 
-    pub fn get<A: Asset + Send + 'static>(&self, handle: Handle<A>) -> AssetReadLock<A> {
-        let container = self.get_or_create_container::<A>();
-        AssetReadLock::new(container.read().unwrap(), handle)
+    /// Calls the provided callback function with the asset corresponding to given handle and return its
+    /// result.
+    /// Does not call the function if the asset was not found, and returns None instead.
+    pub fn with<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
+    where
+        A: Asset + Send + 'static,
+        F: FnOnce(AssetRef<A>) -> R, {
+        self.with_container(|container| {
+            let entry = container.items.get(handle);
+            entry.map(|entry| {
+                let asset = Self::poll_entry(entry);
+                f(asset)
+            })
+        })
+    }
+
+    pub fn with_if_ready<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
+    where
+        A: Asset + Send + 'static,
+        F: FnOnce(&A) -> R, {
+        self.with(handle, |asset| {
+            match asset {
+                // Failed assets will be collected by the asset garbage collector
+                AssetRef::Failed(_) => None,
+                AssetRef::Pending => None,
+                AssetRef::Ready(asset) => Some(f(asset)),
+            }
+        })
+        .flatten()
     }
 
     pub fn load<A: Asset + Send + 'static>(&self, info: A::LoadInfo) -> Handle<A> {
         let bus = self.bus.clone();
         let promise = Promise::spawn_blocking(|| A::load(info, bus));
-        let container = self.get_or_create_container::<A>();
-        let mut container = container.write().unwrap();
-        let key = container.items.insert(AssetEntry::Pending(promise));
-        key
+        let mut lock = self.inner.write().unwrap();
+        lock.with_mut_container::<A, _, _>(|mut container| {
+            container.items.insert(AssetEntry::Pending(promise))
+        })
     }
 }

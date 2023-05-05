@@ -171,6 +171,9 @@ fn handle_enabled_event(
     Ok(())
 }
 
+/// # DI Access
+/// - Write [`CameraState`]
+/// - Read [`ÌnputState`]
 fn handle_input_event(
     camera: &mut Camera,
     event: &InputEvent,

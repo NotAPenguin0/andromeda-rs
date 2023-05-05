@@ -1,10 +1,10 @@
 use anyhow::Result;
 use assets::Terrain;
 use derivative::Derivative;
+use events::Tick;
 use futures::executor::block_on;
 use gfx::SharedContext;
 use glam::Vec3;
-use gui::editor::Editor;
 use inject::DI;
 use input::{
     ButtonState, InputEvent, InputState, Key, KeyState, MouseButtonState, MouseDelta,
@@ -26,7 +26,6 @@ use crate::window::AppWindow;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    editor: Editor,
     bus: EventBus<DI>,
     renderer: AppRenderer,
     window: AppWindow,
@@ -49,7 +48,6 @@ impl Driver {
             &mut bus,
         )?;
         world::initialize(&bus)?;
-        gui::initialize(&bus);
 
         {
             let inject = inject.read().unwrap();
@@ -73,14 +71,14 @@ impl Driver {
         assets::initialize(bus.clone())?;
         let renderer = AppRenderer::new(ctx.clone(), &window, event_loop, bus.clone())?;
         let window = AppWindow::new(frame, window, surface, ctx.clone());
-        let editor = Editor::new(renderer.ui(), bus.clone());
+
+        gui::initialize(renderer.ui(), &mut bus);
 
         let mut inject = inject.write().unwrap();
         let statistics = RendererStatistics::new(ctx, 32, 60)?;
         inject.put_sync::<RendererStatistics>(statistics);
 
         Ok(Driver {
-            editor,
             bus,
             renderer,
             window,
@@ -102,11 +100,12 @@ impl Driver {
                         .new_frame();
                 }
 
+                self.bus.publish(&Tick)?;
+
                 let inject = self.bus.data().read().unwrap();
                 let mut world = inject.write_sync::<World>().unwrap();
                 world.poll_all();
 
-                self.editor.show(&mut world);
                 self.renderer.render(window, &world, self.bus.clone(), ifc)
             })
             .await?;

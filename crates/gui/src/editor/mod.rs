@@ -1,5 +1,7 @@
+use anyhow::Result;
+use events::Tick;
 use inject::DI;
-use scheduler::EventBus;
+use scheduler::{EventBus, EventContext, StoredSystem, System};
 use world::World;
 
 pub mod camera_controller;
@@ -34,4 +36,25 @@ impl Editor {
             performance::show(&self.context, &self.bus);
         });
     }
+}
+
+impl System<DI> for Editor {
+    fn initialize(event_bus: &mut EventBus<DI>, system: &StoredSystem<Self>)
+    where
+        Self: Sized, {
+        event_bus.subscribe(system, handle_editor_tick);
+    }
+}
+
+/// # DI Access
+/// - Write [`World`]
+fn handle_editor_tick(
+    editor: &mut Editor,
+    _event: &Tick,
+    ctx: &mut EventContext<DI>,
+) -> Result<()> {
+    let inject = ctx.read().unwrap();
+    let mut world = inject.write_sync::<World>().unwrap();
+    editor.show(&mut world);
+    Ok(())
 }

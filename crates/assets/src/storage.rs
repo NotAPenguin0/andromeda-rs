@@ -209,7 +209,7 @@ impl AssetStorage {
     /// * `true` if the asset is currently ready
     /// * `false` if the asset is still pending
     /// * `false` if the asset failed to load.
-    pub fn is_ready<A>(&self, handle: Handle<A>) -> bool {
+    pub fn is_ready<A: Asset + Send + 'static>(&self, handle: Handle<A>) -> bool {
         // Since `with_if_ready` only calls the closure if the asset is Ready with a non-failure status,
         // we can simply check if the closure was called using `is_some()`.
         self.with_if_ready(handle, |_| {}).is_some()
@@ -266,7 +266,7 @@ mod tests {
         // Wait for load to be completed
         sleep(Duration::from_secs(1)).await;
         // Should be successful now
-        assert!(assets.with_if_ready(handle, |_| {}).is_some());
+        assert!(assets.is_ready(handle));
     }
 
     #[tokio::test(flavor = "multi_thread")]

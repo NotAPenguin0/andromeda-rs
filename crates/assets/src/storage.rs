@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use anyhow::Result;
 use dyn_inject::Registry;
-use log::error;
 use inject::DI;
+use log::error;
 use poll_promise::Promise;
 use scheduler::EventBus;
 use slotmap::HopSlotMap;
@@ -14,12 +14,19 @@ use crate::handle::Handle;
 
 enum AssetEntry<A: Send + 'static> {
     Pending(Option<Promise<Result<A>>>),
-    Failed(anyhow::Error),
     Ready(A),
 }
 
+impl<A: Send + 'static> AssetEntry<A> {
+    pub fn as_ref(&self) -> AssetRef<A> {
+        match self {
+            AssetEntry::Pending(_) => AssetRef::Pending,
+            AssetEntry::Ready(asset) => AssetRef::Ready(asset),
+        }
+    }
+}
+
 pub enum AssetRef<'a, A> {
-    Failed(&'a anyhow::Error),
     Pending,
     Ready(&'a A),
 }
@@ -75,57 +82,49 @@ pub struct AssetStorage {
 }
 
 impl AssetStorage {
-    fn poll_entry<A: Send>(entry: &AssetEntry<A>) -> AssetRef<A> {
-        match entry {
-            AssetEntry::Pending(_) => AssetRef::Pending,
-            AssetEntry::Failed(error) => AssetRef::Failed(error),
-            AssetEntry::Ready(asset) => AssetRef::Ready(asset),
-        }
-    }
-
-    fn resolve_promises<A: Send + 'static>(container: &mut RwLockWriteGuard<AssetContainer<A>>) {
-        container.items.values_mut().for_each(|asset| {
-            if let AssetEntry::Pending(promise) = asset {
-                if promise.as_ref().unwrap().ready().is_some() {
-                    let promise = promise.take().unwrap();
-                    let result = promise.block_and_take();
-                    *asset = match result {
-                        Err(error) => AssetEntry::Failed(error),
-                        Ok(value) => AssetEntry::Ready(value),
-                    };
-                }
-            }
-        });
-    }
-
     fn report_failure(error: &anyhow::Error) {
         error!("Error loading asset: {error}");
     }
 
-    fn report_and_remove_failed<A: Send + 'static>(container: &mut RwLockWriteGuard<AssetContainer<A>>) {
-        container.items.retain(|_, asset| {
-            match asset {
-                AssetEntry::Pending(_) => { true }
-                AssetEntry::Failed(error) => {
-                    Self::report_failure(error);
-                    false
+    fn poll_and_report<A: Send + 'static>(asset: &mut AssetEntry<A>) -> bool {
+        if let AssetEntry::Pending(promise) = asset {
+            if promise.as_ref().unwrap().ready().is_some() {
+                let promise = promise.take().unwrap();
+                let result = promise.block_and_take();
+                match result {
+                    Err(error) => {
+                        Self::report_failure(&error);
+                        // Remove asset if completed with failure
+                        false
+                    }
+                    Ok(value) => {
+                        *asset = AssetEntry::Ready(value);
+                        // Retain asset if completed successfully
+                        true
+                    }
                 }
-                AssetEntry::Ready(_) => { true }
+            } else {
+                // Retain asset if pending promise
+                true
             }
-        });
+        } else {
+            // Retain asset if ready
+            true
+        }
     }
 
     fn garbage_collect<A: Send + 'static>(&self) {
         self.with_mut_container::<A, _, _>(|mut container| {
-            Self::resolve_promises(&mut container);
-            Self::report_and_remove_failed(&mut container);
+            container
+                .items
+                .retain(|_, asset| Self::poll_and_report(asset));
         });
     }
 
     async fn asset_gc_task<A: Send + 'static>(bus: EventBus<DI>) {
-        const RESOLVE_INTERVAL_MS: u64 = 500;
+        const RESOLVE_INTERVAL_MS: u64 = 250;
         loop {
-            tokio::time::sleep(Duration::from_secs(RESOLVE_INTERVAL_MS)).await;
+            tokio::time::sleep(Duration::from_millis(RESOLVE_INTERVAL_MS)).await;
             let inject = bus.data().read().unwrap();
             let assets = inject.get::<AssetStorage>().unwrap();
             assets.garbage_collect::<A>();
@@ -172,11 +171,13 @@ impl AssetStorage {
         }
     }
 
-    pub fn new(bus: EventBus<DI>) -> Self {
-        Self {
+    /// Create a new instance of the asset manager and register it inside the DI system
+    pub fn new_in_inject(bus: EventBus<DI>) {
+        let this = Self {
             inner: RwLock::new(AssetStorageInner::default()),
-            bus,
-        }
+            bus: bus.clone(),
+        };
+        bus.data().write().unwrap().put(this);
     }
 
     /// Calls the provided callback function with the asset corresponding to given handle and return its
@@ -188,10 +189,7 @@ impl AssetStorage {
         F: FnOnce(AssetRef<A>) -> R, {
         self.with_container(|container| {
             let entry = container.items.get(handle);
-            entry.map(|entry| {
-                let asset = Self::poll_entry(entry);
-                f(asset)
-            })
+            entry.map(|entry| f(entry.as_ref()))
         })
     }
 
@@ -199,15 +197,22 @@ impl AssetStorage {
     where
         A: Asset + Send + 'static,
         F: FnOnce(&A) -> R, {
-        self.with(handle, |asset| {
-            match asset {
-                // Failed assets will be collected by the asset garbage collector
-                AssetRef::Failed(_) => None,
-                AssetRef::Pending => None,
-                AssetRef::Ready(asset) => Some(f(asset)),
-            }
+        self.with(handle, |asset| match asset {
+            AssetRef::Pending => None,
+            AssetRef::Ready(asset) => Some(f(asset)),
         })
         .flatten()
+    }
+
+    /// Check if an asset is ready or still pending
+    /// # Returns
+    /// * `true` if the asset is currently ready
+    /// * `false` if the asset is still pending
+    /// * `false` if the asset failed to load.
+    pub fn is_ready<A>(&self, handle: Handle<A>) -> bool {
+        // Since `with_if_ready` only calls the closure if the asset is Ready with a non-failure status,
+        // we can simply check if the closure was called using `is_some()`.
+        self.with_if_ready(handle, |_| {}).is_some()
     }
 
     pub fn load<A: Asset + Send + 'static>(&self, info: A::LoadInfo) -> Handle<A> {
@@ -216,5 +221,65 @@ impl AssetStorage {
         self.with_mut_container::<A, _, _>(|mut container| {
             container.items.insert(AssetEntry::Pending(Some(promise)))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+    use anyhow::bail;
+    use log::info;
+    use tokio::time::sleep;
+    use inject::DI;
+    use scheduler::EventBus;
+
+    use crate::asset::Asset;
+    use crate::storage::AssetStorage;
+
+    struct MyAsset {
+        data: String,
+    }
+
+    impl Asset for MyAsset {
+        type LoadInfo = String;
+
+        fn load(info: Self::LoadInfo, bus: EventBus<DI>) -> anyhow::Result<Self> {
+            info!("Hi");
+            if info == "fail" {
+                bail!("invalid load info");
+            } else {
+                Ok(MyAsset {
+                    data: info,
+                })
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_load_success() {
+        let inject = DI::new();
+        let bus = EventBus::new(inject.clone());
+        AssetStorage::new_in_inject(bus);
+        let di = inject.read().unwrap();
+        let assets = di.get::<AssetStorage>().unwrap();
+        let handle = assets.load::<MyAsset>("success".to_owned());
+        // Wait for load to be completed
+        sleep(Duration::from_secs(1)).await;
+        // Should be successful now
+        assert!(assets.with_if_ready(handle, |_| {}).is_some());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_load_fail() {
+        let inject = DI::new();
+        let bus = EventBus::new(inject.clone());
+        AssetStorage::new_in_inject(bus);
+        let di = inject.read().unwrap();
+        let assets = di.get::<AssetStorage>().unwrap();
+        let handle = assets.load::<MyAsset>("fail".to_owned());
+        // Wait for load to be completed
+        sleep(Duration::from_secs(1)).await;
+        // Should have failed by now
+        assert!(assets.with_if_ready(handle, |_| {}).is_none());
     }
 }

@@ -86,30 +86,28 @@ impl AssetStorage {
         error!("Error loading asset: {error}");
     }
 
+    fn take_promise_result<A: Send + 'static>(promise: Promise<Result<A>>) -> Result<AssetEntry<A>> {
+        let result = promise.block_and_take();
+        result.map(|asset| AssetEntry::Ready(asset))
+    }
+
     fn poll_and_report<A: Send + 'static>(asset: &mut AssetEntry<A>) -> bool {
-        if let AssetEntry::Pending(promise) = asset {
-            if promise.as_ref().unwrap().ready().is_some() {
-                let promise = promise.take().unwrap();
-                let result = promise.block_and_take();
-                match result {
-                    Err(error) => {
-                        Self::report_failure(&error);
-                        // Remove asset if completed with failure
-                        false
-                    }
-                    Ok(value) => {
-                        *asset = AssetEntry::Ready(value);
-                        // Retain asset if completed successfully
-                        true
-                    }
-                }
-            } else {
-                // Retain asset if pending promise
+        // Only need to poll if this entry is a promise
+        let AssetEntry::Pending(promise) = asset else { return true; };
+        // Keep all pending promises
+        if promise.as_ref().unwrap().poll().is_pending() { return true; }
+        let result = Self::take_promise_result(promise.take().unwrap());
+        match result {
+            Err(error) => {
+                Self::report_failure(&error);
+                // Remove asset if completed with failure
+                false
+            }
+            Ok(value) => {
+                *asset = value;
+                // Retain asset if completed successfully
                 true
             }
-        } else {
-            // Retain asset if ready
-            true
         }
     }
 
@@ -122,9 +120,9 @@ impl AssetStorage {
     }
 
     async fn asset_gc_task<A: Send + 'static>(bus: EventBus<DI>) {
-        const RESOLVE_INTERVAL_MS: u64 = 250;
+        const GC_PERIOD: u64 = 250;
         loop {
-            tokio::time::sleep(Duration::from_millis(RESOLVE_INTERVAL_MS)).await;
+            tokio::time::sleep(Duration::from_millis(GC_PERIOD)).await;
             let inject = bus.data().read().unwrap();
             let assets = inject.get::<AssetStorage>().unwrap();
             assets.garbage_collect::<A>();

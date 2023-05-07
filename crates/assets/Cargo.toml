@@ -11,6 +11,7 @@ log = "0.4.17"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
 dyn_inject = { git = "https://github.com/NotAPenguin0/dyn_inject" }
 poll-promise = { version = "0.2.0", features = ["tokio"] }
+tokio = "1.27.0"
 image = "0.24.6"
 slotmap = "1.0.6"
 gfx = { path = "../gfx" }

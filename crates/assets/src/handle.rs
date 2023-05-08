@@ -30,7 +30,7 @@ impl<A> Copy for Handle<A> {}
 impl<A> Clone for Handle<A> {
     fn clone(&self) -> Self {
         Self {
-            data: self.data.clone(),
+            data: self.data,
             _marker: PhantomData,
         }
     }

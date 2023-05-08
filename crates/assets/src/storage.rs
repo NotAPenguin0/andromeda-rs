@@ -5,9 +5,9 @@ use anyhow::Result;
 use dyn_inject::Registry;
 use inject::DI;
 use log::error;
-use poll_promise::Promise;
 use scheduler::EventBus;
 use slotmap::HopSlotMap;
+use tokio::task::JoinHandle;
 
 use crate::asset::Asset;
 use crate::handle::Handle;
@@ -15,12 +15,14 @@ use crate::handle::Handle;
 /// Either a reference to an asset, or a marker indicating that the asset is still loading.
 pub enum AssetRef<'a, A> {
     Pending,
+    Failed(&'a anyhow::Error),
     Ready(&'a A),
 }
 
 // An entry in the asset storage
 enum AssetEntry<A: Send + 'static> {
-    Pending(Option<Promise<Result<A>>>),
+    Pending(JoinHandle<()>),
+    Failed(anyhow::Error),
     Ready(A),
 }
 
@@ -30,6 +32,7 @@ impl<A: Send + 'static> AssetEntry<A> {
     pub fn as_ref(&self) -> AssetRef<A> {
         match self {
             AssetEntry::Pending(_) => AssetRef::Pending,
+            AssetEntry::Failed(err) => AssetRef::Failed(err),
             AssetEntry::Ready(asset) => AssetRef::Ready(asset),
         }
     }
@@ -99,63 +102,10 @@ impl AssetStorage {
         error!("Error loading asset: {error}");
     }
 
-    /// Blocks the calling thread and returns a resulting `AssetEntry` if the load operation succeeded.
-    /// Propagates the error otherwise.
-    fn take_promise_result<A: Send + 'static>(
-        promise: Promise<Result<A>>,
-    ) -> Result<AssetEntry<A>> {
-        let asset = promise.block_and_take()?;
-        Ok(AssetEntry::Ready(asset))
-    }
-
-    /// Polls the asset's promise if it is pending. If completed, replace it in the storage if load was successful.
-    /// If completed with an eror this returns `false`, otherwise this function always returns `true`.
-    fn poll_and_report<A: Send + 'static>(asset: &mut AssetEntry<A>) -> bool {
-        // Only need to poll if this entry is a promise
-        let AssetEntry::Pending(promise) = asset else { return true; };
-        // Keep all pending promises
-        if promise.as_ref().unwrap().poll().is_pending() {
-            return true;
-        }
-        let result = Self::take_promise_result(promise.take().unwrap());
-        match result {
-            Err(error) => {
-                Self::report_failure(&error);
-                // Remove asset if completed with failure
-                false
-            }
-            Ok(value) => {
-                *asset = value;
-                // Retain asset if completed successfully
-                true
-            }
-        }
-    }
-
-    /// Goes over all assets and polls promises, removing those that completed with an error.
-    fn garbage_collect<A: Send + 'static>(&self) {
-        self.with_mut_container::<A, _, _>(|mut container| {
-            container
-                .items
-                .retain(|_, asset| Self::poll_and_report(asset));
-        });
-    }
-
-    /// Periodically cleans up errored asset loads and polls asset promises.
-    async fn asset_gc_task<A: Send + 'static>(bus: EventBus<DI>) {
-        const GC_PERIOD: u64 = 250;
-        loop {
-            tokio::time::sleep(Duration::from_millis(GC_PERIOD)).await;
-            let inject = bus.data().read().unwrap();
-            let assets = inject.get::<AssetStorage>().unwrap();
-            assets.garbage_collect::<A>();
-        }
-    }
-
     /// Acquire a read lock to the asset container and call the given callback with this lock.
     /// Potentially expensive on the first call, since it must create a new container and spawn a new GC thread
     /// for this asset type.
-    fn with_container<A, F, R>(&self, f: F) -> R
+    fn with_container<A, R, F>(&self, f: F) -> R
     where
         A: Send + 'static,
         F: FnOnce(RwLockReadGuard<AssetContainer<A>>) -> R, {
@@ -171,9 +121,6 @@ impl AssetStorage {
                 drop(maybe_container);
                 drop(lock);
                 let mut lock = self.inner.write().unwrap();
-                // The container does not exist yet, so we create a new container and call our callback.
-                // We also need to spawn our garbage collector and promise resolve threads.
-                tokio::spawn(Self::asset_gc_task::<A>(self.bus.clone()));
                 lock.with_new_container(f)
             }
             // If the container already existed, we now have a read lock to it and we can call the provided callback.
@@ -184,7 +131,7 @@ impl AssetStorage {
     /// Acquire a write lock to the asset container and call the given callback with this lock.
     /// Potentially expensive on the first call, since it must create a new container and spawn a new GC thread
     /// for this asset type.
-    fn with_mut_container<A, F, R>(&self, f: F) -> R
+    fn with_mut_container<A, R, F>(&self, f: F) -> R
     where
         A: Send + 'static,
         F: FnOnce(RwLockWriteGuard<AssetContainer<A>>) -> R, {
@@ -200,14 +147,46 @@ impl AssetStorage {
                 drop(maybe_container);
                 drop(lock);
                 let mut lock = self.inner.write().unwrap();
-                // The container does not exist yet, so we create a new container and call our callback.
-                // We also need to spawn our garbage collector and promise resolve threads.
-                tokio::spawn(Self::asset_gc_task::<A>(self.bus.clone()));
                 lock.with_new_mut_container(f)
             }
             // If the container already existed, we now have a write lock to it and we can call the provided callback.
             Some(container) => f(container),
         }
+    }
+
+    fn resolve_asset_load<A: Asset + Send + 'static>(&self, key: Handle<A>, result: Result<A>) {
+        self.with_mut_container(|mut container| {
+            // We can unwrap because insert_with_key returns first.
+            // We guarantee this, because `with_mut_container` will block until
+            // `load` returns.
+            *container.items.get_mut(key).unwrap() = match result {
+                Ok(value) => AssetEntry::Ready(value),
+                Err(err) => {
+                    Self::report_failure(&err);
+                    AssetEntry::Failed(err)
+                }
+            };
+        });
+    }
+
+    fn asset_load_task<A: Asset + Send + 'static>(
+        key: Handle<A>,
+        info: A::LoadInfo,
+        bus: EventBus<DI>,
+    ) {
+        let result = A::load(info, bus.clone());
+        let di = bus.data().read().unwrap();
+        let assets = di.get::<AssetStorage>().unwrap();
+        assets.resolve_asset_load(key, result);
+    }
+
+    fn insert_with_key<A: Asset + Send + 'static>(
+        key: Handle<A>,
+        info: A::LoadInfo,
+        bus: EventBus<DI>,
+    ) -> AssetEntry<A> {
+        let task = tokio::task::spawn_blocking(move || Self::asset_load_task(key, info, bus));
+        AssetEntry::Pending(task)
     }
 
     /// Create a new instance of the asset manager and register it inside the DI system
@@ -221,8 +200,7 @@ impl AssetStorage {
         bus.data().write().unwrap().put(this);
     }
 
-    /// Calls the provided callback function with the asset corresponding to the given handle and returns its
-    /// result.
+    /// Calls the provided callback function with the asset corresponding to the given handle and returns its result.
     /// Does not call the function if the asset was not found, and returns None instead.
     pub fn with<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
     where
@@ -240,7 +218,7 @@ impl AssetStorage {
 
     /// Calls the provided callback function with the asset corresponding to the given handle
     /// and returns its result.
-    /// Does not call the function if the asset was not found, or if it is not ready yet, and
+    /// Does not call the function if the asset was not found, if it failed, or if it is not ready yet, and
     /// returns None instead.
     pub fn with_if_ready<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
     where
@@ -249,10 +227,58 @@ impl AssetStorage {
         // We can easily implement this in terms of `Self::with()`
         self.with(handle, |asset| match asset {
             AssetRef::Pending => None,
+            AssetRef::Failed(_) => None,
             AssetRef::Ready(asset) => Some(f(asset)),
         })
         // Flatten the Option<Option<R>> into an Option<R>
         .flatten()
+    }
+
+    /// Calls the provided callback with the given asset, blocking the calling thread until it is ready.
+    pub fn with_when_ready<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
+    where
+        A: Asset + Send + 'static,
+        F: FnOnce(&A) -> R, {
+        enum PollResult {
+            Pending,
+            Failed,
+            Ready,
+        }
+
+        const POLL_PERIOD_MS: u64 = 100;
+        // This is not an infinite loop, since the load task eventually completes with either Failed or Ready.
+        // Even if the failed entry is removed from the map, we can detect this by checking that the
+        // key does not exist in the map.
+        loop {
+            std::thread::sleep(Duration::from_millis(POLL_PERIOD_MS));
+            let result = self.with_container(|container| {
+                // Try to look up the entry in the map.
+                // * If it doesn't exist, then the asset load failed at some point in the past, but the memory was reclaimed.
+                // * If it does exist, we check the status in the AssetRef and call `f` if it is Ready.
+                let entry = container.items.get(handle);
+                match entry {
+                    None => PollResult::Failed,
+                    Some(entry) => match entry.as_ref() {
+                        AssetRef::Pending => PollResult::Pending,
+                        AssetRef::Failed(_) => PollResult::Failed,
+                        AssetRef::Ready(_) => PollResult::Ready,
+                    },
+                }
+            });
+
+            match result {
+                // Asset load failed, so polling will never succeed and we return None
+                PollResult::Failed => {
+                    return None;
+                }
+                PollResult::Ready => {
+                    // Since the asset load has finished, `with_if_ready()` will always succeed and call its callback.
+                    return Some(self.with_if_ready(handle, |asset| f(asset)).unwrap());
+                }
+                // Keep polling, the asset is still loading
+                PollResult::Pending => {}
+            }
+        }
     }
 
     /// Check if an asset is ready or still pending
@@ -269,13 +295,31 @@ impl AssetStorage {
     /// Load a new asset and return a handle to it. This will spawn a new blocking task in a background thread.
     /// This means that this function is not blocking, and returns a handle immediately.
     pub fn load<A: Asset + Send + 'static>(&self, info: A::LoadInfo) -> Handle<A> {
-        let bus = self.bus.clone();
-        // Spawn a load task
-        let promise = Promise::spawn_blocking(|| A::load(info, bus));
-        // Get a writer lock to the correct container and insert a pending asset into it.
+        // Acquire a writer lock to the container, since we need to insert a new key
         self.with_mut_container(|mut container| {
-            container.items.insert(AssetEntry::Pending(Some(promise)))
+            container
+                .items
+                .insert_with_key(|key| Self::insert_with_key(key, info, self.bus.clone()))
         })
+    }
+
+    /// Frees up memory used by asset entries that failed to load.
+    pub fn clear_failed_assets<A: Send + 'static>(&self) {
+        self.with_mut_container::<A, _, _>(|mut container| {
+            // Remove all entries that failed from the container.
+            container
+                .items
+                .retain(|_, entry| !matches!(entry, AssetEntry::Failed(_)));
+        });
+    }
+
+    /// Immediately delete an asset.
+    /// # Safety
+    /// This is marked unsafe because the asset could still be in use on the GPU when this is called.
+    pub unsafe fn delete_asset<A: Send + 'static>(&self, handle: Handle<A>) {
+        self.with_mut_container(|mut container| {
+            container.items.remove(handle);
+        });
     }
 }
 

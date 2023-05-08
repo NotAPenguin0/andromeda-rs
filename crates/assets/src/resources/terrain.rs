@@ -1,16 +1,16 @@
 use std::fmt::Debug;
-use std::path::Path;
+use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, Result};
 use inject::DI;
-use log::{info, trace};
-use poll_promise::Promise;
 use scheduler::EventBus;
-use thread::io::read_file_async;
-use thread::promise::SpawnPromise;
-use util::FileType;
 
-use crate::{HeightMap, NormalMap, TerrainPlane, Texture};
+use crate::asset::Asset;
+use crate::handle::Handle;
+use crate::storage::AssetStorage;
+use crate::texture::format::Rgba;
+use crate::texture::{Texture, TextureLoadInfo};
+use crate::{Heightmap, HeightmapLoadInfo, NormalMap, NormalMapLoadInfo, TerrainPlane};
 
 #[derive(Debug, Copy, Clone)]
 pub struct TerrainOptions {
@@ -24,85 +24,124 @@ pub struct TerrainOptions {
 
 #[derive(Debug)]
 pub struct Terrain {
-    pub height_map: HeightMap,
-    pub normal_map: NormalMap,
-    pub diffuse_map: Texture,
-    pub mesh: TerrainPlane,
+    pub height_map: Handle<Heightmap>,
+    pub normal_map: Handle<NormalMap>,
+    pub diffuse_map: Handle<Texture<Rgba<u8>>>,
+    pub mesh: Handle<TerrainPlane>,
 }
 
 impl Terrain {
-    /// Loads a terrain from a new heightmap and creates a mesh associated with it.
-    pub fn from_new_heightmap<P: AsRef<Path> + Copy + Debug + Send + 'static>(
-        heightmap_path: P,
-        texture_path: P,
-        options: TerrainOptions,
-        bus: EventBus<DI>,
-    ) -> Promise<Result<Terrain>> {
-        let bus2 = bus.clone();
-        let bus3 = bus.clone();
-        trace!("Loading new heightmap from file: {heightmap_path:?}");
-        let mesh = Promise::spawn_blocking(move || {
-            let mesh = TerrainPlane::generate(options, bus)?;
-            info!("Terrain mesh from heightmap {heightmap_path:?} generated successfully");
-            Ok::<_, anyhow::Error>(mesh)
-        });
-        let texture = Promise::spawn_blocking(move || {
-            Texture::from_file(texture_path, bus2).block_and_take()
-        });
-        let height_normal = Promise::spawn_blocking(move || {
-            let filetype = FileType::from(heightmap_path);
-            let height = match filetype {
-                FileType::Png => {
-                    let file_data =
-                        read_file_async(heightmap_path.as_ref().to_path_buf()).block_and_take()?;
-                    trace!("Heightmap file {heightmap_path:?} loaded from disk ... decoding");
-                    let height =
-                        HeightMap::from_buffer(filetype, file_data.as_slice(), bus3.clone())?;
-                    info!("Heightmap {heightmap_path:?} loaded successfully");
-                    Ok::<_, anyhow::Error>(height)
-                }
-                FileType::Unknown(ext) => {
-                    bail!("Heightmap {heightmap_path:?} has unsupported file type {ext}")
-                }
-            }?;
-
-            info!("Generating normal map from heightmap {heightmap_path:?}");
-            let normal = NormalMap::from_heights(&height, bus3)?;
-            info!("Normal map from heightmap {heightmap_path:?} generated successfully");
-
-            Ok((height, normal))
-        });
-
-        Promise::spawn_blocking(move || {
-            let (height, normal) = height_normal.block_and_take()?;
-            let terrain = Terrain {
-                height_map: height,
-                normal_map: normal,
-                diffuse_map: texture.block_and_take()?,
-                mesh: mesh.block_and_take()?,
-            };
-            info!("Terrain {heightmap_path:?} loaded successfully");
-            Ok(terrain)
-        })
+    pub fn with_if_ready<F, R>(&self, assets: &AssetStorage, f: F) -> Option<R>
+    where
+        F: FnOnce(&Heightmap, &NormalMap, &Texture<Rgba<u8>>, &TerrainPlane) -> R, {
+        assets
+            .with_if_ready(self.height_map, |heights| {
+                assets.with_if_ready(self.normal_map, |normals| {
+                    assets.with_if_ready(self.diffuse_map, |diffuse| {
+                        assets.with_if_ready(self.mesh, |mesh| f(heights, normals, diffuse, mesh))
+                    })
+                })
+            })
+            .flatten()
+            .flatten()
+            .flatten()
     }
 
-    /// Loads a terrain from an existing heightmap but generates a new mesh.
-    pub fn from_new_mesh(
-        height_map: HeightMap,
-        normal_map: NormalMap,
-        diffuse_map: Texture,
+    pub fn with_when_ready<F, R>(&self, assets: &AssetStorage, f: F) -> Option<R>
+    where
+        F: FnOnce(&Heightmap, &NormalMap, &Texture<Rgba<u8>>, &TerrainPlane) -> R, {
+        assets
+            .with_when_ready(self.height_map, |heights| {
+                assets.with_when_ready(self.normal_map, |normals| {
+                    assets.with_when_ready(self.diffuse_map, |diffuse| {
+                        assets.with_when_ready(self.mesh, |mesh| f(heights, normals, diffuse, mesh))
+                    })
+                })
+            })
+            .flatten()
+            .flatten()
+            .flatten()
+    }
+}
+
+pub enum TerrainLoadInfo {
+    // Create a new terrain
+    FromHeightmap {
+        height_path: PathBuf,
+        texture_path: PathBuf,
         options: TerrainOptions,
-        bus: EventBus<DI>,
-    ) -> Promise<Result<Terrain>> {
-        Promise::spawn(move || {
-            let mesh = TerrainPlane::generate(options, bus)?;
-            info!("Terrain mesh regenerated successfully");
+    },
+    // Only recreate the mesh associated with the terrain
+    FromNewMesh {
+        old: Handle<Terrain>,
+        options: TerrainOptions,
+    },
+}
+
+impl Asset for Terrain {
+    type LoadInfo = TerrainLoadInfo;
+
+    fn load(info: Self::LoadInfo, bus: EventBus<DI>) -> Result<Self>
+    where
+        Self: Sized, {
+        match info {
+            TerrainLoadInfo::FromHeightmap {
+                height_path,
+                texture_path,
+                options,
+            } => load_from_files(height_path, texture_path, options, bus),
+            TerrainLoadInfo::FromNewMesh {
+                old,
+                options,
+            } => load_new_mesh(old, options, bus),
+        }
+    }
+}
+
+fn load_from_files(
+    heightmap_path: PathBuf,
+    texture_path: PathBuf,
+    options: TerrainOptions,
+    bus: EventBus<DI>,
+) -> Result<Terrain> {
+    let di = bus.data().read().unwrap();
+    let assets = di.get::<AssetStorage>().unwrap();
+    let heights = assets.load(HeightmapLoadInfo {
+        path: heightmap_path,
+    });
+
+    let texture: Handle<Texture<Rgba<u8>>> = assets.load(TextureLoadInfo::FromPath {
+        path: texture_path,
+        cpu_postprocess: None,
+    });
+    let normal_map = assets.load(NormalMapLoadInfo::FromHeightmap {
+        heights,
+    });
+    let mesh = assets.load(options);
+    Ok(Terrain {
+        height_map: heights,
+        normal_map,
+        diffuse_map: texture,
+        mesh,
+    })
+}
+
+fn load_new_mesh(
+    old: Handle<Terrain>,
+    options: TerrainOptions,
+    bus: EventBus<DI>,
+) -> Result<Terrain> {
+    let di = bus.data().read().unwrap();
+    let assets = di.get::<AssetStorage>().unwrap();
+    assets
+        .with_when_ready(old, |terrain| {
+            let mesh = assets.load(options);
             Ok(Terrain {
-                height_map,
-                normal_map,
-                diffuse_map,
+                height_map: terrain.height_map,
+                normal_map: terrain.normal_map,
+                diffuse_map: terrain.diffuse_map,
                 mesh,
             })
         })
-    }
+        .ok_or(anyhow!("error creating terrain from old terrain: old terrain is invalid"))?
 }

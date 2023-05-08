@@ -1,4 +1,5 @@
-use assets::Terrain;
+use assets::storage::AssetStorage;
+use assets::{Terrain, TerrainLoadInfo};
 use egui::Slider;
 use inject::DI;
 use scheduler::EventBus;
@@ -29,16 +30,15 @@ pub fn show(context: &egui::Context, bus: &EventBus<DI>, world: &mut World) {
 
             // If changed, generate new terrain
             if dirty {
+                let di = bus.data().read().unwrap();
+                let assets = di.get::<AssetStorage>().unwrap();
                 match world.terrain.take() {
                     None => {}
                     Some(old) => {
-                        world.terrain.promise(Terrain::from_new_mesh(
-                            old.height_map,
-                            old.normal_map,
-                            old.diffuse_map,
-                            world.terrain_options,
-                            bus.clone(),
-                        ));
+                        world.terrain = Some(assets.load(TerrainLoadInfo::FromNewMesh {
+                            old,
+                            options: world.terrain_options,
+                        }));
                     }
                 }
             }

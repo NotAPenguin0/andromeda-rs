@@ -270,7 +270,7 @@ impl ShaderReload {
 }
 
 impl System<DI> for ShaderReload {
-    fn initialize(event_bus: &mut EventBus<DI>, system: &StoredSystem<Self>)
+    fn initialize(event_bus: &EventBus<DI>, system: &StoredSystem<Self>)
     where
         Self: Sized, {
         event_bus.subscribe(system, handle_add_shader);

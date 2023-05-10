@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 
-use dyn_inject::Registry;
+use dyn_inject::ErasedStorage;
 
 #[derive(Debug, Clone)]
-pub struct DI(Arc<RwLock<Registry>>);
+pub struct DI(Arc<RwLock<ErasedStorage>>);
 
 unsafe impl Send for DI {}
 
@@ -12,7 +12,7 @@ unsafe impl Sync for DI {}
 
 impl Default for DI {
     fn default() -> Self {
-        Self(Arc::new(RwLock::new(Registry::new())))
+        Self(Arc::new(RwLock::new(ErasedStorage::new())))
     }
 }
 
@@ -23,7 +23,7 @@ impl DI {
 }
 
 impl Deref for DI {
-    type Target = Arc<RwLock<Registry>>;
+    type Target = Arc<RwLock<ErasedStorage>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0

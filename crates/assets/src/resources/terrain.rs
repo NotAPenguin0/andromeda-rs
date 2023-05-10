@@ -8,9 +8,11 @@ use scheduler::EventBus;
 use crate::asset::Asset;
 use crate::handle::Handle;
 use crate::storage::AssetStorage;
-use crate::texture::format::Rgba;
+use crate::texture::format::{Rgba, SRgba};
 use crate::texture::{Texture, TextureLoadInfo};
-use crate::{Heightmap, HeightmapLoadInfo, NormalMap, NormalMapLoadInfo, TerrainPlane};
+use crate::{
+    Heightmap, HeightmapFormat, HeightmapLoadInfo, NormalMap, NormalMapLoadInfo, TerrainPlane,
+};
 
 #[derive(Debug, Copy, Clone)]
 pub struct TerrainOptions {
@@ -26,14 +28,14 @@ pub struct TerrainOptions {
 pub struct Terrain {
     pub height_map: Handle<Heightmap>,
     pub normal_map: Handle<NormalMap>,
-    pub diffuse_map: Handle<Texture<Rgba<u8>>>,
+    pub diffuse_map: Handle<Texture<SRgba<u8>>>,
     pub mesh: Handle<TerrainPlane>,
 }
 
 impl Terrain {
     pub fn with_if_ready<F, R>(&self, assets: &AssetStorage, f: F) -> Option<R>
     where
-        F: FnOnce(&Heightmap, &NormalMap, &Texture<Rgba<u8>>, &TerrainPlane) -> R, {
+        F: FnOnce(&Heightmap, &NormalMap, &Texture<SRgba<u8>>, &TerrainPlane) -> R, {
         assets
             .with_if_ready(self.height_map, |heights| {
                 assets.with_if_ready(self.normal_map, |normals| {
@@ -49,7 +51,7 @@ impl Terrain {
 
     pub fn with_when_ready<F, R>(&self, assets: &AssetStorage, f: F) -> Option<R>
     where
-        F: FnOnce(&Heightmap, &NormalMap, &Texture<Rgba<u8>>, &TerrainPlane) -> R, {
+        F: FnOnce(&Heightmap, &NormalMap, &Texture<SRgba<u8>>, &TerrainPlane) -> R, {
         assets
             .with_when_ready(self.height_map, |heights| {
                 assets.with_when_ready(self.normal_map, |normals| {
@@ -110,7 +112,7 @@ fn load_from_files(
         path: heightmap_path,
     });
 
-    let texture: Handle<Texture<Rgba<u8>>> = assets.load(TextureLoadInfo::FromPath {
+    let texture: Handle<Texture<SRgba<u8>>> = assets.load(TextureLoadInfo::FromPath {
         path: texture_path,
         cpu_postprocess: None,
     });

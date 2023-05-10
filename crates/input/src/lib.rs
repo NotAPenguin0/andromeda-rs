@@ -141,7 +141,7 @@ impl Input {
 }
 
 impl System<DI> for Input {
-    fn initialize(event_bus: &mut EventBus<DI>, system: &StoredSystem<Self>)
+    fn initialize(event_bus: &EventBus<DI>, system: &StoredSystem<Self>)
     where
         Self: Sized, {
         event_bus.subscribe(system, handle_input_event);

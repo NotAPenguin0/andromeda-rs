@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
-use dyn_inject::Registry;
+use dyn_inject::ErasedStorage;
 
 use crate::bus::EventBus;
 use crate::caller::Caller;
@@ -10,14 +10,14 @@ use crate::handler::Handler;
 
 /// A system must implement this to subscribe to events on the bus
 pub trait System<T> {
-    fn initialize(event_bus: &mut EventBus<T>, system: &StoredSystem<Self>)
+    fn initialize(event_bus: &EventBus<T>, system: &StoredSystem<Self>)
     where
         Self: Sized;
 }
 
 struct StoredSystemInner<S> {
     state: S,
-    handlers: Registry,
+    handlers: ErasedStorage,
 }
 
 impl<S: 'static> StoredSystemInner<S> {
@@ -47,12 +47,12 @@ impl<S: 'static> StoredSystem<S> {
     pub(crate) fn new(state: S) -> Self {
         Self(Arc::new(Mutex::new(StoredSystemInner {
             state,
-            handlers: Registry::new(),
+            handlers: ErasedStorage::new(),
         })))
     }
 
     pub(crate) fn subscribe<E: Event + 'static, T: 'static>(
-        &mut self,
+        &self,
         handler: impl Handler<S, E, T> + 'static,
     ) {
         self.0
@@ -64,7 +64,7 @@ impl<S: 'static> StoredSystem<S> {
 }
 
 impl<S: 'static, E: Event + 'static, T: 'static> Caller<E, T> for StoredSystem<S> {
-    fn call(&mut self, event: &E, context: &mut EventContext<T>) -> Result<E::Result> {
+    fn call(&self, event: &E, context: &mut EventContext<T>) -> Result<E::Result> {
         self.0.lock().unwrap().handle(event, context)
     }
 }

@@ -1,5 +1,6 @@
 use anyhow::Result;
-use assets::Terrain;
+use assets::storage::AssetStorage;
+use assets::{Terrain, TerrainLoadInfo};
 use derivative::Derivative;
 use events::Tick;
 use futures::executor::block_on;
@@ -52,13 +53,12 @@ impl Driver {
         {
             let inject = inject.read().unwrap();
             let mut world = inject.write_sync::<World>().unwrap();
-            let opts = world.terrain_options;
-            world.terrain.promise(Terrain::from_new_heightmap(
-                "data/heightmaps/mountain.png",
-                "data/textures/blank.png",
-                opts,
-                bus.clone(),
-            ));
+            let assets = inject.get::<AssetStorage>().unwrap();
+            world.terrain = Some(assets.load(TerrainLoadInfo::FromHeightmap {
+                height_path: "data/heightmaps/mountain.png".into(),
+                texture_path: "data/textures/blank.png".into(),
+                options: world.terrain_options,
+            }));
         }
 
         let ctx = inject
@@ -103,9 +103,7 @@ impl Driver {
                 self.bus.publish(&Tick)?;
 
                 let inject = self.bus.data().read().unwrap();
-                let mut world = inject.write_sync::<World>().unwrap();
-                world.poll_all();
-
+                let world = inject.read_sync::<World>().unwrap();
                 self.renderer.render(window, &world, &self.bus, ifc)
             })
             .await?;

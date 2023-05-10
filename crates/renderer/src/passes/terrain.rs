@@ -1,11 +1,13 @@
 use anyhow::Result;
+use assets::storage::AssetStorage;
 use gfx::{create_linear_sampler, create_raw_sampler};
 use glam::{Mat4, Vec3};
 use hot_reload::IntoDynamic;
 use inject::DI;
 use ph::vk;
-use phobos::prelude as ph;
+use phobos::domain::All;
 use phobos::prelude::traits::*;
+use phobos::{prelude as ph, IncompleteCommandBuffer};
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 use world::World;
@@ -19,6 +21,7 @@ use crate::world_renderer::RenderState;
 pub struct TerrainRenderer {
     heightmap_sampler: ph::Sampler,
     linear_sampler: ph::Sampler,
+    bus: EventBus<DI>,
 }
 
 impl TerrainRenderer {
@@ -53,6 +56,7 @@ impl TerrainRenderer {
         Ok(Self {
             heightmap_sampler: create_raw_sampler(&ctx)?,
             linear_sampler: create_linear_sampler(&ctx)?,
+            bus: bus.clone(),
         })
     }
 
@@ -90,58 +94,79 @@ impl TerrainRenderer {
                 }),
             )?
             .execute_fn(|cmd, ifc, _bindings, stats: &mut RendererStatistics| {
-                let cmd = cmd.begin_section(stats, "terrain")?;
-                let cmd = if let Some(terrain) = world.terrain.value() {
-                    let mut cam_ubo =
-                        ifc.allocate_scratch_ubo(std::mem::size_of::<Mat4>() as vk::DeviceSize)?;
-                    cam_ubo
-                        .mapped_slice()?
-                        .copy_from_slice(std::slice::from_ref(&state.projection_view));
-                    let mut lighting_ubo =
-                        ifc.allocate_scratch_ubo(std::mem::size_of::<Vec3>() as vk::DeviceSize)?;
-                    lighting_ubo
-                        .mapped_slice()?
-                        .copy_from_slice(std::slice::from_ref(&state.sun_direction));
-                    let tess_factor: u32 = world.options.tessellation_level;
-                    cmd.bind_graphics_pipeline("terrain")?
-                        .full_viewport_scissor()
-                        .push_constant(vk::ShaderStageFlags::TESSELLATION_CONTROL, 0, &tess_factor)
-                        .push_constant(
-                            vk::ShaderStageFlags::TESSELLATION_EVALUATION,
-                            4,
-                            &world.terrain_options.vertical_scale,
-                        )
-                        .bind_uniform_buffer(0, 0, &cam_ubo)?
-                        .bind_sampled_image(
-                            0,
-                            1,
-                            &terrain.height_map.image.view,
-                            &self.heightmap_sampler,
-                        )?
-                        .bind_uniform_buffer(0, 2, &lighting_ubo)?
-                        .bind_sampled_image(
-                            0,
-                            3,
-                            &terrain.normal_map.image.view,
-                            &self.linear_sampler,
-                        )?
-                        .bind_sampled_image(
-                            0,
-                            4,
-                            &terrain.diffuse_map.image.view,
-                            &self.linear_sampler,
-                        )?
-                        .set_polygon_mode(if world.options.wireframe {
-                            vk::PolygonMode::LINE
-                        } else {
-                            vk::PolygonMode::FILL
-                        })?
-                        .bind_vertex_buffer(0, &terrain.mesh.vertices_view)
-                        .bind_index_buffer(&terrain.mesh.indices_view, vk::IndexType::UINT32)
-                        .draw_indexed(terrain.mesh.index_count, 1, 0, 0, 0)?
-                } else {
-                    cmd
-                };
+                let di = self.bus.data().read().unwrap();
+                let assets = di.get::<AssetStorage>().unwrap();
+                let mut cmd = Some(cmd.begin_section(stats, "terrain")?);
+                if let Some(terrain) = world.terrain {
+                    match assets
+                        .with_if_ready(terrain, |terrain| {
+                            terrain.with_if_ready(assets, |heightmap, normal_map, color, mesh| {
+                                let mut cam_ubo = ifc.allocate_scratch_ubo(
+                                    std::mem::size_of::<Mat4>() as vk::DeviceSize,
+                                )?;
+                                cam_ubo
+                                    .mapped_slice()?
+                                    .copy_from_slice(std::slice::from_ref(&state.projection_view));
+                                let mut lighting_ubo = ifc.allocate_scratch_ubo(
+                                    std::mem::size_of::<Vec3>() as vk::DeviceSize,
+                                )?;
+                                lighting_ubo
+                                    .mapped_slice()?
+                                    .copy_from_slice(std::slice::from_ref(&state.sun_direction));
+                                let tess_factor: u32 = world.options.tessellation_level;
+                                let cmd = cmd
+                                    .take()
+                                    .unwrap()
+                                    .bind_graphics_pipeline("terrain")?
+                                    .full_viewport_scissor()
+                                    .push_constant(
+                                        vk::ShaderStageFlags::TESSELLATION_CONTROL,
+                                        0,
+                                        &tess_factor,
+                                    )
+                                    .push_constant(
+                                        vk::ShaderStageFlags::TESSELLATION_EVALUATION,
+                                        4,
+                                        &world.terrain_options.vertical_scale,
+                                    )
+                                    .bind_uniform_buffer(0, 0, &cam_ubo)?
+                                    .bind_sampled_image(
+                                        0,
+                                        1,
+                                        &heightmap.image.image.view,
+                                        &self.heightmap_sampler,
+                                    )?
+                                    .bind_uniform_buffer(0, 2, &lighting_ubo)?
+                                    .bind_sampled_image(
+                                        0,
+                                        3,
+                                        &normal_map.image.image.view,
+                                        &self.linear_sampler,
+                                    )?
+                                    .bind_sampled_image(
+                                        0,
+                                        4,
+                                        &color.image.view,
+                                        &self.linear_sampler,
+                                    )?
+                                    .set_polygon_mode(if world.options.wireframe {
+                                        vk::PolygonMode::LINE
+                                    } else {
+                                        vk::PolygonMode::FILL
+                                    })?
+                                    .bind_vertex_buffer(0, &mesh.vertices_view)
+                                    .bind_index_buffer(&mesh.indices_view, vk::IndexType::UINT32)
+                                    .draw_indexed(mesh.index_count, 1, 0, 0, 0)?;
+                                Ok::<_, anyhow::Error>(cmd)
+                            })
+                        })
+                        .flatten()
+                    {
+                        None => {}
+                        Some(new_cmd) => cmd = Some(new_cmd?),
+                    }
+                }
+                let cmd = cmd.unwrap();
                 stats.end_section(cmd, "terrain")
             })
             .build();

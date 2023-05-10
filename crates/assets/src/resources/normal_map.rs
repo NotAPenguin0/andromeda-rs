@@ -20,7 +20,7 @@ pub type NormalMapFormat = Rgba<u8>;
 
 #[derive(Debug)]
 pub struct NormalMap {
-    pub image: Handle<Texture<NormalMapFormat>>,
+    pub image: Texture<NormalMapFormat>,
 }
 
 pub enum NormalMapLoadInfo {
@@ -109,9 +109,12 @@ fn load_from_heights(heights: Handle<Heightmap>, bus: EventBus<DI>) -> Result<No
                 );
 
             ctx.exec.submit(cmd.finish()?)?.wait()?;
-            let image = assets.load(TextureLoadInfo::FromRawGpu {
-                image,
-            });
+            let image = Texture::load(
+                TextureLoadInfo::FromRawGpu {
+                    image,
+                },
+                bus.clone(),
+            )?;
             Ok(NormalMap {
                 image,
             })

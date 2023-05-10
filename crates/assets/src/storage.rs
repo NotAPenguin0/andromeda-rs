@@ -2,7 +2,7 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 
 use anyhow::Result;
-use dyn_inject::Registry;
+use dyn_inject::ErasedStorage;
 use inject::DI;
 use log::error;
 use scheduler::EventBus;
@@ -59,7 +59,7 @@ impl<A: Send + 'static> AssetContainer<A> {
 
 #[derive(Default)]
 struct AssetStorageInner {
-    containers: Registry,
+    containers: ErasedStorage,
 }
 
 impl AssetStorageInner {

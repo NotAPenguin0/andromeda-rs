@@ -57,7 +57,7 @@ impl ShaderReload {
         let this = ShaderReload {
             inner: Arc::new(RwLock::new(ShaderReloadInner {
                 pipelines,
-                shaders: Default::default(),
+                shaders: HashMap::default(),
                 watch_tasks: vec![],
             })),
         };

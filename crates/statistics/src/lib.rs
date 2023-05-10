@@ -132,7 +132,7 @@ impl RendererStatistics {
         let timestamps = self
             .timings
             .wait_for_results(0, (self.sections.len() * 2) as u32)?;
-        for (name, queries) in self.sections.iter() {
+        for (name, queries) in &self.sections {
             let start = *timestamps.get(queries.start_query as usize).unwrap();
             let end = *timestamps.get(queries.end_query as usize).unwrap();
             self.timing_results.insert(name.clone(), end - start);

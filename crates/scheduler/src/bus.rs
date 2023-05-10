@@ -60,6 +60,7 @@ struct EventBusInner {
 }
 
 /// The main event bus, stores systems and their handlers for each event.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone)]
 pub struct EventBus<T> {
     inner: Arc<RwLock<EventBusInner>>,
@@ -89,7 +90,6 @@ impl<T: Clone + Send + Sync + 'static> EventBus<T> {
         let maybe_bus = lock.buses.get();
         match maybe_bus {
             None => {
-                drop(maybe_bus);
                 drop(lock);
                 self.with_new_event_bus(f)
             }

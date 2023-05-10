@@ -18,7 +18,7 @@ pub fn create_async_watcher(
                 tx.send(res.map_err(|e| -> anyhow::Error { e.into() }))
                     .await
                     .unwrap();
-            })
+            });
         },
         notify::Config::default(),
     )?;

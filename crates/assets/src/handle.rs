@@ -67,7 +67,7 @@ impl<A> PartialOrd<Self> for Handle<A> {
 
 impl<A> Hash for Handle<A> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data.hash(state)
+        self.data.hash(state);
     }
 }
 

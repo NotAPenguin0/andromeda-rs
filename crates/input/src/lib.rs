@@ -104,14 +104,14 @@ impl InputState {
     pub fn get_key(&self, key: Key) -> ButtonState {
         self.kb_buttons
             .get(&key)
-            .cloned()
+            .copied()
             .unwrap_or(ButtonState::Released)
     }
 
     pub fn get_mouse_key(&self, key: MouseButton) -> ButtonState {
         self.mouse_buttons
             .get(&key)
-            .cloned()
+            .copied()
             .unwrap_or(ButtonState::Released)
     }
 
@@ -123,7 +123,7 @@ impl InputState {
 struct Input;
 
 impl Input {
-    pub fn process_event(&mut self, input_state: &mut InputState, event: &InputEvent) {
+    pub fn process_event(&self, input_state: &mut InputState, event: &InputEvent) {
         match event {
             InputEvent::MousePosition(pos) => {
                 input_state.mouse = *pos;

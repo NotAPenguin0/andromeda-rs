@@ -33,6 +33,7 @@ pub struct DynamicComputePipelineBuilder {
 }
 
 impl DynamicPipelineBuilder {
+    #[must_use]
     pub fn attach_shader(mut self, path: impl Into<PathBuf>, stage: vk::ShaderStageFlags) -> Self {
         self.shaders.push(ShaderInfo {
             path: path.into(),
@@ -42,7 +43,7 @@ impl DynamicPipelineBuilder {
         self
     }
 
-    /// Builds the pipeline using hot-reloadable shaders. You do not need to call add_named_pipeline() anymore after this
+    /// Builds the pipeline using hot-reloadable shaders. You do not need to call `add_named_pipeline()` anymore after this
     pub fn build(self, bus: &mut EventBus<DI>, mut cache: PipelineCache) -> Result<()> {
         // TODO: Add pipeline cache to DI?
         let pci = self.inner.build();
@@ -77,6 +78,7 @@ impl IntoDynamic for PipelineBuilder {
 }
 
 impl DynamicComputePipelineBuilder {
+    #[must_use]
     pub fn set_shader(mut self, path: impl Into<PathBuf>) -> Self {
         self.shader = Some(ShaderInfo {
             path: path.into(),

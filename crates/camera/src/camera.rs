@@ -112,22 +112,22 @@ impl CameraState {
     }
 
     fn handle_move(&mut self, mouse: &MouseDelta) -> Result<()> {
-        let delta = self.up() * (mouse.y as f32) + self.right() * (-mouse.x as f32);
         const SPEED: f32 = 5.0;
+        let delta = self.up() * (mouse.y as f32) + self.right() * (-mouse.x as f32);
         self.update_position(Position(delta * SPEED));
         Ok(())
     }
 
     fn handle_rotate(&mut self, mouse: &MouseDelta) -> Result<()> {
-        let delta = Vec3::new(-mouse.y as f32, mouse.x as f32, 0.0);
         const SPEED: f32 = 0.01;
+        let delta = Vec3::new(-mouse.y as f32, mouse.x as f32, 0.0);
         self.update_rotation(Rotation(delta * SPEED));
         Ok(())
     }
 
-    fn handle_scroll(&mut self, scroll: &ScrollInfo) -> Result<()> {
-        let delta = self.front() * scroll.delta_y;
+    fn handle_scroll(&mut self, scroll: ScrollInfo) -> Result<()> {
         const SPEED: f32 = 50.0;
+        let delta = self.front() * scroll.delta_y;
         self.update_position(Position(delta * SPEED));
         Ok(())
     }
@@ -144,7 +144,7 @@ impl CameraState {
                 }
             }
             InputEvent::Scroll(scroll) => {
-                self.handle_scroll(scroll)?;
+                self.handle_scroll(*scroll)?;
             }
             _ => {}
         }

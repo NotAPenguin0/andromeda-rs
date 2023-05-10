@@ -58,13 +58,12 @@ fn load_from_file<F: TextureFormat>(
     }
     let image = upload_image(
         ctx,
-        data.into_bytes(),
+        data.as_raw_slice(),
         width,
         height,
         F::VK_FORMAT,
         vk::ImageUsageFlags::SAMPLED,
-    )
-    .block_and_take()?;
+    )?;
     info!("Successfully loaded texture {path:?}");
     Ok(Texture {
         image,

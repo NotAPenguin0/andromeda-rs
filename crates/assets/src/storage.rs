@@ -1,13 +1,12 @@
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time::Duration;
 
 use anyhow::Result;
-use dyn_inject::ErasedStorage;
-use inject::DI;
+use inject::{ErasedStorage, DI};
 use log::error;
 use scheduler::EventBus;
 use slotmap::HopSlotMap;
 use tokio::task::JoinHandle;
+use util::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::asset::Asset;
 use crate::handle::Handle;
@@ -192,7 +191,7 @@ impl AssetStorage {
     /// Create a new instance of the asset manager and register it inside the DI system
     pub fn new_in_inject(bus: EventBus<DI>) {
         let this = Self {
-            inner: RwLock::new(AssetStorageInner::default()),
+            inner: RwLock::with_name(AssetStorageInner::default(), "AssetStorage"),
             bus: bus.clone(),
         };
         // Synchronization is handled internally already, so we do not use
@@ -235,7 +234,7 @@ impl AssetStorage {
     }
 
     /// Calls the provided callback with the given asset, blocking the calling thread until it is ready.
-    pub fn with_when_ready<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
+    pub fn with_when_ready<A, R, F>(bus: &EventBus<DI>, handle: Handle<A>, f: F) -> Option<R>
     where
         A: Asset + Send + 'static,
         F: FnOnce(&A) -> R, {
@@ -251,7 +250,9 @@ impl AssetStorage {
         // key does not exist in the map.
         loop {
             std::thread::sleep(Duration::from_millis(POLL_PERIOD_MS));
-            let result = self.with_container(|container| {
+            let di = bus.data().read().unwrap();
+            let assets = di.get::<Self>().unwrap();
+            let result = assets.with_container(|container| {
                 // Try to look up the entry in the map.
                 // * If it doesn't exist, then the asset load failed at some point in the past, but the memory was reclaimed.
                 // * If it does exist, we check the status in the AssetRef and call `f` if it is Ready.
@@ -273,7 +274,7 @@ impl AssetStorage {
                 }
                 PollResult::Ready => {
                     // Since the asset load has finished, `with_if_ready()` will always succeed and call its callback.
-                    return Some(self.with_if_ready(handle, |asset| f(asset)).unwrap());
+                    return Some(assets.with_if_ready(handle, |asset| f(asset)).unwrap());
                 }
                 // Keep polling, the asset is still loading
                 PollResult::Pending => {}

@@ -40,7 +40,7 @@ impl Driver {
         let mut bus = EventBus::new(inject.clone());
 
         // Initialize subsystems
-        let (frame, surface) = gfx::initialize(&window, &bus)?;
+        let (frame, surface, ctx) = gfx::initialize(&window, &bus)?;
         input::initialize(&mut bus);
         camera::initialize(
             Position(Vec3::new(0.0, 200.0, 0.0)),
@@ -48,7 +48,10 @@ impl Driver {
             90.0f32,
             &mut bus,
         )?;
+
         world::initialize(&bus)?;
+        hot_reload::initialize(ctx.pipelines.clone(), "shaders/", true, &mut bus)?;
+        assets::initialize(bus.clone())?;
 
         {
             let inject = inject.read().unwrap();
@@ -61,14 +64,6 @@ impl Driver {
             }));
         }
 
-        let ctx = inject
-            .read()
-            .unwrap()
-            .get::<SharedContext>()
-            .cloned()
-            .unwrap();
-        hot_reload::initialize(ctx.pipelines.clone(), "shaders/", true, &mut bus)?;
-        assets::initialize(bus.clone())?;
         let renderer = AppRenderer::new(ctx.clone(), &window, event_loop, bus.clone())?;
         let window = AppWindow::new(frame, window, surface, ctx.clone());
 

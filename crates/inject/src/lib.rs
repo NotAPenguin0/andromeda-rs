@@ -1,7 +1,13 @@
-use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, RwLock};
+#![feature(thin_box)]
+#![feature(unsize)]
 
-use dyn_inject::ErasedStorage;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+
+pub use storage::ErasedStorage;
+use util::RwLock;
+
+pub mod storage;
 
 #[derive(Debug, Clone)]
 pub struct DI(Arc<RwLock<ErasedStorage>>);
@@ -12,7 +18,7 @@ unsafe impl Sync for DI {}
 
 impl Default for DI {
     fn default() -> Self {
-        Self(Arc::new(RwLock::new(ErasedStorage::new())))
+        Self(Arc::new(RwLock::with_name(ErasedStorage::new(), "DI storage")))
     }
 }
 

@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::{env, fs};
 
 use anyhow::{ensure, Result};
@@ -18,6 +18,7 @@ use phobos::{prelude as ph, vk, PipelineCache, PipelineType};
 use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 use tokio::task::JoinHandle;
 use util::safe_error::SafeUnwrap;
+use util::RwLock;
 
 pub mod dynamic_pipeline_builder;
 mod file_watcher;
@@ -38,7 +39,7 @@ struct ShaderInfo {
 
 #[derive(Debug)]
 pub struct ShaderReloadInner {
-    pipelines: ph::PipelineCache,
+    pipelines: PipelineCache,
     shaders: HashMap<PathBuf, ShaderInfo>,
     watch_tasks: Vec<JoinHandle<Result<()>>>,
 }
@@ -50,7 +51,7 @@ pub struct ShaderReload {
 
 impl ShaderReload {
     pub fn new(
-        pipelines: ph::PipelineCache,
+        pipelines: PipelineCache,
         path: impl Into<PathBuf>,
         recursive: bool,
     ) -> Result<Self> {

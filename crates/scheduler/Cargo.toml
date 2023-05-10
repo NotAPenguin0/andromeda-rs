@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
-dyn_inject = { git = "https://github.com/NotAPenguin0/dyn_inject" }
+inject = { path = "../inject" }
+util = { path = "../util" }

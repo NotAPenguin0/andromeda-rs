@@ -1,8 +1,9 @@
 use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use anyhow::Result;
-use dyn_inject::ErasedStorage;
+use inject::ErasedStorage;
+use util::RwLock;
 
 use crate::caller::Caller;
 use crate::event::{Event, EventContext};

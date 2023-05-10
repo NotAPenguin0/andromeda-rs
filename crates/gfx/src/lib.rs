@@ -67,7 +67,10 @@ fn fill_app_settings<W: WindowInterface>(window: &W) -> AppSettings<W> {
 }
 
 /// Injects the graphics context into the DI system, and returns the frame manager and surface
-pub fn initialize(window: &Window, bus: &EventBus<DI>) -> Result<(FrameManager, Surface)> {
+pub fn initialize(
+    window: &Window,
+    bus: &EventBus<DI>,
+) -> Result<(FrameManager, Surface, SharedContext)> {
     let settings = fill_app_settings(window);
     let instance = VkInstance::new(&settings)?;
     #[cfg(debug_assertions)]
@@ -102,7 +105,7 @@ pub fn initialize(window: &Window, bus: &EventBus<DI>) -> Result<(FrameManager, 
         device,
     };
 
-    bus.data().write().unwrap().put(gfx);
+    bus.data().write().unwrap().put(gfx.clone());
 
-    Ok((frame, surface))
+    Ok((frame, surface, gfx))
 }

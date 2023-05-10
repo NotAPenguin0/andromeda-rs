@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
-use dyn_inject::ErasedStorage;
+use inject::ErasedStorage;
 
 use crate::bus::EventBus;
 use crate::caller::Caller;

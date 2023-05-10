@@ -2,7 +2,6 @@ use assets::handle::Handle;
 use assets::{Terrain, TerrainOptions};
 use glam::Vec3;
 use math::Rotation;
-use thread::promised_value::PromisedValue;
 
 use crate::{AtmosphereInfo, RenderOptions};
 

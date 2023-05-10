@@ -8,11 +8,9 @@ use scheduler::EventBus;
 use crate::asset::Asset;
 use crate::handle::Handle;
 use crate::storage::AssetStorage;
-use crate::texture::format::{Rgba, SRgba};
+use crate::texture::format::SRgba;
 use crate::texture::{Texture, TextureLoadInfo};
-use crate::{
-    Heightmap, HeightmapFormat, HeightmapLoadInfo, NormalMap, NormalMapLoadInfo, TerrainPlane,
-};
+use crate::{Heightmap, HeightmapLoadInfo, NormalMap, NormalMapLoadInfo, TerrainPlane};
 
 #[derive(Debug, Copy, Clone)]
 pub struct TerrainOptions {

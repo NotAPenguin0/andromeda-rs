@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use dyn_inject::ErasedStorage;

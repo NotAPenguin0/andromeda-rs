@@ -1,5 +1,5 @@
 use assets::storage::AssetStorage;
-use assets::{Terrain, TerrainLoadInfo};
+use assets::TerrainLoadInfo;
 use egui::Slider;
 use inject::DI;
 use scheduler::EventBus;

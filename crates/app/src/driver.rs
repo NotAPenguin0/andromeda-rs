@@ -1,6 +1,6 @@
 use anyhow::Result;
 use assets::storage::AssetStorage;
-use assets::{Terrain, TerrainLoadInfo};
+use assets::TerrainLoadInfo;
 use derivative::Derivative;
 use events::Tick;
 use futures::executor::block_on;

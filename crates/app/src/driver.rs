@@ -53,6 +53,16 @@ impl Driver {
         hot_reload::initialize(ctx.pipelines.clone(), "shaders/", true, &mut bus)?;
         assets::initialize(bus.clone())?;
 
+        let renderer = AppRenderer::new(ctx.clone(), &window, event_loop, bus.clone())?;
+        let window = AppWindow::new(frame, window, surface, ctx.clone());
+        gui::initialize(renderer.ui(), &mut bus);
+
+        {
+            let mut inject = inject.write().unwrap();
+            let statistics = RendererStatistics::new(ctx, 32, 60)?;
+            inject.put_sync::<RendererStatistics>(statistics);
+        }
+
         {
             let inject = inject.read().unwrap();
             let mut world = inject.write_sync::<World>().unwrap();
@@ -63,15 +73,6 @@ impl Driver {
                 options: world.terrain_options,
             }));
         }
-
-        let renderer = AppRenderer::new(ctx.clone(), &window, event_loop, bus.clone())?;
-        let window = AppWindow::new(frame, window, surface, ctx.clone());
-
-        gui::initialize(renderer.ui(), &mut bus);
-
-        let mut inject = inject.write().unwrap();
-        let statistics = RendererStatistics::new(ctx, 32, 60)?;
-        inject.put_sync::<RendererStatistics>(statistics);
 
         Ok(Driver {
             bus,

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use inject::{ErasedStorage, DI};
 use log::error;
@@ -18,9 +16,18 @@ pub enum AssetRef<'a, A> {
     Ready(&'a A),
 }
 
+#[derive(Debug, Copy, Clone)]
+enum AssetLoadMessage {
+    Success,
+    Fail,
+}
+
+type AssetMessageSender = tokio::sync::broadcast::Sender<AssetLoadMessage>;
+type AssetMessageReceiver = tokio::sync::broadcast::Receiver<AssetLoadMessage>;
+
 // An entry in the asset storage
 enum AssetEntry<A: Send + 'static> {
-    Pending(JoinHandle<()>),
+    Pending(JoinHandle<()>, AssetMessageReceiver),
     Failed(anyhow::Error),
     Ready(A),
 }
@@ -30,10 +37,14 @@ impl<A: Send + 'static> AssetEntry<A> {
     /// Promise object.
     pub fn as_ref(&self) -> AssetRef<A> {
         match self {
-            AssetEntry::Pending(_) => AssetRef::Pending,
+            AssetEntry::Pending(_, _) => AssetRef::Pending,
             AssetEntry::Failed(err) => AssetRef::Failed(err),
             AssetEntry::Ready(asset) => AssetRef::Ready(asset),
         }
+    }
+
+    pub fn success(&self) -> bool {
+        matches!(self, AssetEntry::Ready(_))
     }
 }
 
@@ -153,15 +164,28 @@ impl AssetStorage {
         }
     }
 
-    fn resolve_asset_load<A: Asset + Send + 'static>(&self, key: Handle<A>, result: Result<A>) {
+    fn resolve_asset_load<A: Asset + Send + 'static>(
+        &self,
+        key: Handle<A>,
+        result: Result<A>,
+        sender: AssetMessageSender,
+    ) {
         self.with_mut_container(|mut container| {
             // We can unwrap because insert_with_key returns first.
-            // We guarantee this, because `with_mut_container` will block until
-            // `load` returns.
-            *container.items.get_mut(key).unwrap() = match result {
-                Ok(value) => AssetEntry::Ready(value),
+            // We guarantee this, because this `with_mut_container` blocks until
+            // the calling `load()` returns.
+            let entry = container.items.get_mut(key).unwrap();
+            *entry = match result {
+                Ok(value) => {
+                    // We can send this message before updating the stored asset, because we are in a lock.
+                    // The task waiting for the sender will have to wait until this lock is released anyway,
+                    // so it can't race with the insertion below.
+                    sender.send(AssetLoadMessage::Success).unwrap();
+                    AssetEntry::Ready(value)
+                }
                 Err(err) => {
                     Self::report_failure(&err);
+                    sender.send(AssetLoadMessage::Fail).unwrap();
                     AssetEntry::Failed(err)
                 }
             };
@@ -172,11 +196,12 @@ impl AssetStorage {
         key: Handle<A>,
         info: A::LoadInfo,
         bus: EventBus<DI>,
+        sender: AssetMessageSender,
     ) {
         let result = A::load(info, bus.clone());
         let di = bus.data().read().unwrap();
         let assets = di.get::<AssetStorage>().unwrap();
-        assets.resolve_asset_load(key, result);
+        assets.resolve_asset_load(key, result, sender);
     }
 
     fn insert_with_key<A: Asset + Send + 'static>(
@@ -184,8 +209,9 @@ impl AssetStorage {
         info: A::LoadInfo,
         bus: EventBus<DI>,
     ) -> AssetEntry<A> {
-        let task = tokio::task::spawn_blocking(move || Self::asset_load_task(key, info, bus));
-        AssetEntry::Pending(task)
+        let (tx, rx) = tokio::sync::broadcast::channel(1);
+        let task = tokio::task::spawn_blocking(move || Self::asset_load_task(key, info, bus, tx));
+        AssetEntry::Pending(task, rx)
     }
 
     /// Create a new instance of the asset manager and register it inside the DI system
@@ -234,50 +260,51 @@ impl AssetStorage {
     }
 
     /// Calls the provided callback with the given asset, blocking the calling thread until it is ready.
-    pub fn with_when_ready<A, R, F>(bus: &EventBus<DI>, handle: Handle<A>, f: F) -> Option<R>
+    pub fn with_when_ready<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
     where
         A: Asset + Send + 'static,
         F: FnOnce(&A) -> R, {
         enum PollResult {
-            Pending,
+            Pending(AssetMessageReceiver),
             Failed,
             Ready,
         }
 
-        const POLL_PERIOD_MS: u64 = 100;
-        // This is not an infinite loop, since the load task eventually completes with either Failed or Ready.
-        // Even if the failed entry is removed from the map, we can detect this by checking that the
-        // key does not exist in the map.
-        loop {
-            std::thread::sleep(Duration::from_millis(POLL_PERIOD_MS));
-            let di = bus.data().read().unwrap();
-            let assets = di.get::<Self>().unwrap();
-            let result = assets.with_container(|container| {
-                // Try to look up the entry in the map.
-                // * If it doesn't exist, then the asset load failed at some point in the past, but the memory was reclaimed.
-                // * If it does exist, we check the status in the AssetRef and call `f` if it is Ready.
-                let entry = container.items.get(handle);
-                match entry {
-                    None => PollResult::Failed,
-                    Some(entry) => match entry.as_ref() {
-                        AssetRef::Pending => PollResult::Pending,
-                        AssetRef::Failed(_) => PollResult::Failed,
-                        AssetRef::Ready(_) => PollResult::Ready,
-                    },
-                }
-            });
+        // Poll the asset system once for the current status of the asset.
+        // * If the asset doesn't exist, don't call `f`
+        // * If the asset load completed, call `f` if it was successful
+        // * If the asset load is still pending, we get a broadcast channel that we can wait on
+        let result = self.with_container(|container| {
+            let entry = container.items.get(handle);
+            match entry {
+                None => PollResult::Failed,
+                Some(entry) => match entry {
+                    // Resubscribe to the broadcast channel
+                    // * If the message was already received, then acquiring our current lock will block
+                    //   until the asset is inserted, and it will be in the Ready state
+                    // * If the message was not yet received, this is guaranteed to receive it at some point in the
+                    //   future
+                    AssetEntry::Pending(_, rx) => PollResult::Pending(rx.resubscribe()),
+                    AssetEntry::Failed(_) => PollResult::Failed,
+                    AssetEntry::Ready(_) => PollResult::Ready,
+                },
+            }
+        });
 
-            match result {
-                // Asset load failed, so polling will never succeed and we return None
-                PollResult::Failed => {
-                    return None;
+        match result {
+            // Wait for the broadcast message and call `f` if we receive a `Success` message.
+            PollResult::Pending(mut rx) => {
+                let message =
+                    tokio::runtime::Handle::current().block_on(async { rx.recv().await.ok() })?;
+                match message {
+                    AssetLoadMessage::Success => self.with_if_ready(handle, f),
+                    AssetLoadMessage::Fail => None,
                 }
-                PollResult::Ready => {
-                    // Since the asset load has finished, `with_if_ready()` will always succeed and call its callback.
-                    return Some(assets.with_if_ready(handle, |asset| f(asset)).unwrap());
-                }
-                // Keep polling, the asset is still loading
-                PollResult::Pending => {}
+            }
+            PollResult::Failed => None,
+            PollResult::Ready => {
+                // We know the asset is ready, so this will always call `f`.
+                self.with_if_ready(handle, f)
             }
         }
     }

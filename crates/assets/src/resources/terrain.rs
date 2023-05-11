@@ -50,18 +50,19 @@ impl Terrain {
     pub fn with_when_ready<F, R>(&self, bus: &EventBus<DI>, f: F) -> Option<R>
     where
         F: FnOnce(&Heightmap, &NormalMap, &Texture<SRgba<u8>>, &TerrainPlane) -> R, {
-        AssetStorage::with_when_ready(bus, self.height_map, |heights| {
-            AssetStorage::with_when_ready(bus, self.normal_map, |normals| {
-                AssetStorage::with_when_ready(bus, self.diffuse_map, |diffuse| {
-                    AssetStorage::with_when_ready(bus, self.mesh, |mesh| {
-                        f(heights, normals, diffuse, mesh)
+        let di = bus.data().read().unwrap();
+        let assets = di.get::<AssetStorage>().unwrap();
+        assets
+            .with_when_ready(self.height_map, |heights| {
+                assets.with_when_ready(self.normal_map, |normals| {
+                    assets.with_when_ready(self.diffuse_map, |diffuse| {
+                        assets.with_when_ready(self.mesh, |mesh| f(heights, normals, diffuse, mesh))
                     })
                 })
             })
-        })
-        .flatten()
-        .flatten()
-        .flatten()
+            .flatten()
+            .flatten()
+            .flatten()
     }
 }
 
@@ -132,16 +133,19 @@ fn load_new_mesh(
     options: TerrainOptions,
     bus: EventBus<DI>,
 ) -> Result<Terrain> {
-    AssetStorage::with_when_ready(&bus, old, |terrain| {
-        let di = bus.data().read().unwrap();
-        let assets = di.get::<AssetStorage>().unwrap();
-        let mesh = assets.load(options);
-        Ok(Terrain {
-            height_map: terrain.height_map,
-            normal_map: terrain.normal_map,
-            diffuse_map: terrain.diffuse_map,
-            mesh,
+    let di = bus.data().read().unwrap();
+    let assets = di.get::<AssetStorage>().unwrap();
+    assets
+        .with_when_ready(old, |terrain| {
+            let di = bus.data().read().unwrap();
+            let assets = di.get::<AssetStorage>().unwrap();
+            let mesh = assets.load(options);
+            Ok(Terrain {
+                height_map: terrain.height_map,
+                normal_map: terrain.normal_map,
+                diffuse_map: terrain.diffuse_map,
+                mesh,
+            })
         })
-    })
-    .ok_or(anyhow!("error creating terrain from old terrain: old terrain is invalid"))?
+        .ok_or(anyhow!("error creating terrain from old terrain: old terrain is invalid"))?
 }

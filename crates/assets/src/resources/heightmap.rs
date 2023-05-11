@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use half::f16;
 use inject::DI;
-use log::trace;
+use log::{info, trace};
 use rayon::prelude::*;
 use scheduler::EventBus;
 
@@ -48,7 +48,6 @@ fn normalize_height(_width: u32, _height: u32, data: &mut [LumaPixel<f16>]) -> R
     data.par_iter_mut().for_each(|value| {
         **value *= extreme_val_inverse;
     });
-
     Ok(())
 }
 

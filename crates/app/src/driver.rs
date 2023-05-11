@@ -4,7 +4,6 @@ use assets::TerrainLoadInfo;
 use derivative::Derivative;
 use events::Tick;
 use futures::executor::block_on;
-use gfx::SharedContext;
 use glam::Vec3;
 use inject::DI;
 use input::{

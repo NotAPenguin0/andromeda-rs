@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use half::f16;
 use inject::DI;
-use log::{info, trace};
+use log::trace;
 use rayon::prelude::*;
 use scheduler::EventBus;
 

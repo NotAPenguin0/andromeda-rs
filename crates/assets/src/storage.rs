@@ -16,6 +16,7 @@ pub enum AssetRef<'a, A> {
     Ready(&'a A),
 }
 
+/// A message sent from the asset loading thread when it finishes.
 #[derive(Debug, Copy, Clone)]
 enum AssetLoadMessage {
     Success,
@@ -30,6 +31,29 @@ enum AssetEntry<A: Send + 'static> {
     Pending(JoinHandle<()>, AssetMessageReceiver),
     Failed(anyhow::Error),
     Ready(A),
+}
+
+/// Holds all assets and exposes utilities to load them asynchronously
+pub struct AssetStorage {
+    inner: RwLock<AssetStorageInner>,
+    bus: EventBus<DI>,
+}
+
+/// Can be used to wait on an asset, or check its status.
+enum PollResult {
+    Pending(AssetMessageReceiver),
+    Failed,
+    Ready,
+}
+
+/// Stores all assets of a given type.
+struct AssetContainer<A: Send + 'static> {
+    items: HopSlotMap<Handle<A>, AssetEntry<A>>,
+}
+
+#[derive(Default)]
+struct AssetStorageInner {
+    containers: ErasedStorage,
 }
 
 impl<A: Send + 'static> AssetEntry<A> {
@@ -48,11 +72,6 @@ impl<A: Send + 'static> AssetEntry<A> {
     }
 }
 
-/// Stores all assets of a given type.
-struct AssetContainer<A: Send + 'static> {
-    items: HopSlotMap<Handle<A>, AssetEntry<A>>,
-}
-
 impl<A: Send + 'static> Default for AssetContainer<A> {
     fn default() -> Self {
         Self {
@@ -65,11 +84,6 @@ impl<A: Send + 'static> AssetContainer<A> {
     pub fn new() -> Self {
         Self::default()
     }
-}
-
-#[derive(Default)]
-struct AssetStorageInner {
-    containers: ErasedStorage,
 }
 
 impl AssetStorageInner {
@@ -98,12 +112,6 @@ impl AssetStorageInner {
         let container = self.containers.write_sync::<AssetContainer<A>>().unwrap();
         f(container)
     }
-}
-
-/// Holds all assets and exposes utilities to load them asynchronously
-pub struct AssetStorage {
-    inner: RwLock<AssetStorageInner>,
-    bus: EventBus<DI>,
 }
 
 impl AssetStorage {
@@ -198,9 +206,11 @@ impl AssetStorage {
         bus: EventBus<DI>,
         sender: AssetMessageSender,
     ) {
+        // First load the asset so we don't hold the DI lock for long
         let result = A::load(info, bus.clone());
         let di = bus.data().read().unwrap();
         let assets = di.get::<AssetStorage>().unwrap();
+        // Put the loaded asset in the storage and send a message to all threads waiting on it.
         assets.resolve_asset_load(key, result, sender);
     }
 
@@ -209,11 +219,37 @@ impl AssetStorage {
         info: A::LoadInfo,
         bus: EventBus<DI>,
     ) -> AssetEntry<A> {
+        // This channel will be used by with_when_ready to wait for the asset to be loaded.
         let (tx, rx) = tokio::sync::broadcast::channel(1);
+        // Spawn a background task for loading the asset. We keep the JoinHandle so we can allow canceling the task instead of detaching it.
         let task = tokio::task::spawn_blocking(move || Self::asset_load_task(key, info, bus, tx));
+        // The receiver is stored in the asset entry so we can wait on it.
         AssetEntry::Pending(task, rx)
     }
 
+    /// Check the status of an asset and obtain an awaitable receiver that can be used to
+    /// wait for the asset's status.
+    fn poll_asset<A: Send + 'static>(&self, handle: Handle<A>) -> PollResult {
+        self.with_container(|container| {
+            let entry = container.items.get(handle);
+            match entry {
+                None => PollResult::Failed,
+                Some(entry) => match entry {
+                    // Resubscribe to the broadcast channel
+                    // * If the message was already received, then acquiring our current lock will block
+                    //   until the asset is inserted, and it will be in the Ready state
+                    // * If the message was not yet received, this is guaranteed to receive it at some point in the
+                    //   future
+                    AssetEntry::Pending(_, rx) => PollResult::Pending(rx.resubscribe()),
+                    AssetEntry::Failed(_) => PollResult::Failed,
+                    AssetEntry::Ready(_) => PollResult::Ready,
+                },
+            }
+        })
+    }
+}
+
+impl AssetStorage {
     /// Create a new instance of the asset manager and register it inside the DI system
     pub fn new_in_inject(bus: EventBus<DI>) {
         let this = Self {
@@ -260,42 +296,21 @@ impl AssetStorage {
     }
 
     /// Calls the provided callback with the given asset, blocking the calling thread until it is ready.
+    /// * If the asset does not exist, this does not block and instead returns None
+    /// * If the asset failed to load previously, this does not block and instead returns None.
     pub fn with_when_ready<A, R, F>(&self, handle: Handle<A>, f: F) -> Option<R>
     where
         A: Asset + Send + 'static,
         F: FnOnce(&A) -> R, {
-        enum PollResult {
-            Pending(AssetMessageReceiver),
-            Failed,
-            Ready,
-        }
-
         // Poll the asset system once for the current status of the asset.
         // * If the asset doesn't exist, don't call `f`
         // * If the asset load completed, call `f` if it was successful
         // * If the asset load is still pending, we get a broadcast channel that we can wait on
-        let result = self.with_container(|container| {
-            let entry = container.items.get(handle);
-            match entry {
-                None => PollResult::Failed,
-                Some(entry) => match entry {
-                    // Resubscribe to the broadcast channel
-                    // * If the message was already received, then acquiring our current lock will block
-                    //   until the asset is inserted, and it will be in the Ready state
-                    // * If the message was not yet received, this is guaranteed to receive it at some point in the
-                    //   future
-                    AssetEntry::Pending(_, rx) => PollResult::Pending(rx.resubscribe()),
-                    AssetEntry::Failed(_) => PollResult::Failed,
-                    AssetEntry::Ready(_) => PollResult::Ready,
-                },
-            }
-        });
-
-        match result {
+        let poll = self.poll_asset(handle);
+        match poll {
             // Wait for the broadcast message and call `f` if we receive a `Success` message.
             PollResult::Pending(mut rx) => {
-                let message =
-                    tokio::runtime::Handle::current().block_on(async { rx.recv().await.ok() })?;
+                let message = tokio::runtime::Handle::current().block_on(rx.recv()).ok()?;
                 match message {
                     AssetLoadMessage::Success => self.with_if_ready(handle, f),
                     AssetLoadMessage::Fail => None,

@@ -14,17 +14,29 @@ pub struct RwLock<T> {
     name: Option<String>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum LockIdentifier<'a> {
     Pointer(u64),
     Name(&'a str),
+}
+
+#[derive(Copy, Clone, Debug)]
+enum LockOperation {
+    Acquire,
+    Release,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum LockMode {
+    Read,
+    Write,
 }
 
 impl<'a> Display for LockIdentifier<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match *self {
             LockIdentifier::Pointer(value) => {
-                write!(f, "{value:x}")
+                write!(f, "0x{value:X}")
             }
             LockIdentifier::Name(name) => {
                 write!(f, "{name}")
@@ -33,10 +45,36 @@ impl<'a> Display for LockIdentifier<'a> {
     }
 }
 
-fn log_lock_operation(identifier: LockIdentifier, operation: &str, mode: &str) {
+impl Display for LockOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LockOperation::Acquire => {
+                write!(f, "Acq")
+            }
+            LockOperation::Release => {
+                write!(f, "Rel")
+            }
+        }
+    }
+}
+
+impl Display for LockMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LockMode::Read => {
+                write!(f, "R")
+            }
+            LockMode::Write => {
+                write!(f, "W")
+            }
+        }
+    }
+}
+
+fn log_lock_operation(identifier: LockIdentifier, operation: LockOperation, mode: LockMode) {
     let thread = std::thread::current();
     let thread_name = thread.name().unwrap_or("[unnamed thread]");
-    trace!("lock [{identifier}] {operation} {mode} lock from thread [{thread_name}]");
+    trace!("Lock: [{identifier}] [{operation}] [{mode}] from thread [{thread_name}]");
 }
 
 pub struct RwLockReadGuard<'a, T> {
@@ -54,7 +92,7 @@ impl<'a, T> Deref for RwLockReadGuard<'a, T> {
 
 impl<'a, T> Drop for RwLockReadGuard<'a, T> {
     fn drop(&mut self) {
-        log_lock_operation(self.identifier, "released", "read");
+        log_lock_operation(self.identifier, LockOperation::Release, LockMode::Read);
     }
 }
 
@@ -79,7 +117,7 @@ impl<'a, T> DerefMut for RwLockWriteGuard<'a, T> {
 
 impl<'a, T> Drop for RwLockWriteGuard<'a, T> {
     fn drop(&mut self) {
-        log_lock_operation(self.identifier, "released", "write");
+        log_lock_operation(self.identifier, LockOperation::Release, LockMode::Write);
     }
 }
 
@@ -112,7 +150,7 @@ impl<T> RwLock<T> {
 
     pub fn read(&self) -> LockResult<RwLockReadGuard<'_, T>> {
         let result = self.lock.read();
-        log_lock_operation(self.identifier(), "acquired", "read");
+        log_lock_operation(self.identifier(), LockOperation::Acquire, LockMode::Read);
         match result {
             Ok(guard) => Ok(RwLockReadGuard {
                 guard,
@@ -127,7 +165,7 @@ impl<T> RwLock<T> {
 
     pub fn write(&self) -> LockResult<RwLockWriteGuard<'_, T>> {
         let result = self.lock.write();
-        log_lock_operation(self.identifier(), "acquired", "write");
+        log_lock_operation(self.identifier(), LockOperation::Acquire, LockMode::Write);
         match result {
             Ok(guard) => Ok(RwLockWriteGuard {
                 guard,

@@ -40,7 +40,7 @@ impl ErasedStorage {
 
     /// Put a static type T into the registry, with an additional lock around it.
     pub fn put_sync<T: 'static>(&mut self, item: T) {
-        self.put(RwLock::new(item));
+        self.put(RwLock::with_name(item, std::any::type_name::<T>()));
     }
 
     /// Put a trait object into the registry. If called with `dyn MyTrait`, this takes in

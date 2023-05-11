@@ -16,5 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install nightly Toolchain
+      run: rustup default nightly
     - name: Build
       run: cargo build -p app --verbose

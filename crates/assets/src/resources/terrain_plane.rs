@@ -124,7 +124,7 @@ fn generate_terrain_mesh(options: TerrainOptions, bus: EventBus<DI>) -> Result<T
     let BufferCopyResult {
         cmd,
         buffer: vertices,
-        ..
+        staging: _staging_vertices,
     } = copy_buffer(
         gfx.clone(),
         cmd,
@@ -136,7 +136,7 @@ fn generate_terrain_mesh(options: TerrainOptions, bus: EventBus<DI>) -> Result<T
     let BufferCopyResult {
         cmd,
         buffer: indices,
-        ..
+        staging: _staging_indices,
     } = copy_buffer(gfx.clone(), cmd, indices.as_slice(), vk::BufferUsageFlags::INDEX_BUFFER)?;
 
     gfx.exec.submit(cmd.finish()?)?.wait_and_yield()?;

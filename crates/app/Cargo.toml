@@ -28,3 +28,8 @@ events = { path = "../events" }
 math = { path = "../math" }
 statistics = { path = "../statistics" }
 util = { path = "../util" }
+
+[features]
+log-read-locks = ["util/log-read-locks"]
+log-write-locks = ["util/log-write-locks"]
+log-locks = ["log-read-locks", "log-write-locks"]

@@ -92,6 +92,7 @@ impl<'a, T> Deref for RwLockReadGuard<'a, T> {
 
 impl<'a, T> Drop for RwLockReadGuard<'a, T> {
     fn drop(&mut self) {
+        #[cfg(feature = "log-read-locks")]
         log_lock_operation(self.identifier, LockOperation::Release, LockMode::Read);
     }
 }
@@ -117,6 +118,7 @@ impl<'a, T> DerefMut for RwLockWriteGuard<'a, T> {
 
 impl<'a, T> Drop for RwLockWriteGuard<'a, T> {
     fn drop(&mut self) {
+        #[cfg(feature = "log-write-locks")]
         log_lock_operation(self.identifier, LockOperation::Release, LockMode::Write);
     }
 }
@@ -150,6 +152,7 @@ impl<T> RwLock<T> {
 
     pub fn read(&self) -> LockResult<RwLockReadGuard<'_, T>> {
         let result = self.lock.read();
+        #[cfg(feature = "log-read-locks")]
         log_lock_operation(self.identifier(), LockOperation::Acquire, LockMode::Read);
         match result {
             Ok(guard) => Ok(RwLockReadGuard {
@@ -165,6 +168,7 @@ impl<T> RwLock<T> {
 
     pub fn write(&self) -> LockResult<RwLockWriteGuard<'_, T>> {
         let result = self.lock.write();
+        #[cfg(feature = "log-write-locks")]
         log_lock_operation(self.identifier(), LockOperation::Acquire, LockMode::Write);
         match result {
             Ok(guard) => Ok(RwLockWriteGuard {

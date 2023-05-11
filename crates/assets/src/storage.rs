@@ -386,7 +386,7 @@ mod tests {
     impl Asset for MyAsset {
         type LoadInfo = String;
 
-        fn load(info: Self::LoadInfo, bus: EventBus<DI>) -> anyhow::Result<Self> {
+        fn load(info: Self::LoadInfo, _bus: EventBus<DI>) -> anyhow::Result<Self> {
             info!("Hi");
             if info == "fail" {
                 bail!("invalid load info");

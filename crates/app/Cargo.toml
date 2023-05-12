@@ -32,4 +32,6 @@ util = { path = "../util" }
 [features]
 log-read-locks = ["util/log-read-locks"]
 log-write-locks = ["util/log-write-locks"]
+time-locks = ["util/time-locks"]
+log-lock-backtrace = ["util/log-lock-backtrace"]
 log-locks = ["log-read-locks", "log-write-locks"]

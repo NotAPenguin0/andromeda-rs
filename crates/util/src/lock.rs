@@ -1,3 +1,11 @@
+//! Simple RwLock wrapper with optional features for debugging deadlocks
+//! * `log-read-locks` - Log all read lock acquires and releases
+//! * `log-write-locks` - Log all write lock acquires and releases
+//! * `log-locks` - Enable both `log-read-locks` and `log-write-locks`
+//! * `time-locks` - Add timers to all lock operations that warn if the lock is held for too long or waiting
+//!                  on it is taking too long.
+//! * `log-lock-backtrace` - Enables `time-locks`, also writes out a stack backtrace of the caller with the warning message.
+
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
@@ -8,7 +16,9 @@ use std::time::Duration;
 use log::{info, trace, warn};
 use tokio::select;
 
+/// How long a lock can be held before triggering a warning
 pub const RWLOCK_HOLD_WARN_TIMEOUT_MS: u64 = 100;
+/// How long a lock can block the calling thread before triggering a warning
 pub const RWLOCK_WAIT_WARN_TIMEOUT_MS: u64 = 100;
 
 /// Wrapper around a [`RwLock`] that provides additional logging and times
@@ -20,6 +30,8 @@ pub struct RwLock<T> {
     name: Option<String>,
 }
 
+/// A lock identifier is either some unique pointer value, or
+/// a name given on construction
 #[derive(Clone, Copy, Debug)]
 enum LockIdentifier<'a> {
     Pointer(u64),
@@ -77,15 +89,18 @@ impl Display for LockMode {
     }
 }
 
+/// Log a lock operation and write out the thread name if one was set.
 fn log_lock_operation(identifier: LockIdentifier, operation: LockOperation, mode: LockMode) {
     let thread = std::thread::current();
     let thread_name = thread.name().unwrap_or("unnamed thread");
     trace!("Lock: [{identifier}] [{operation}] [{mode}] from thread [{thread_name}]");
 }
 
+/// Used to cancel timer tasks
 type Sender = tokio::sync::oneshot::Sender<()>;
 type Receiver = tokio::sync::oneshot::Receiver<()>;
 
+/// RAII struct used to release the lock when it is dropped.
 pub struct RwLockReadGuard<'a, T> {
     guard: sync::RwLockReadGuard<'a, T>,
     identifier: LockIdentifier<'a>,
@@ -103,6 +118,8 @@ impl<'a, T> Deref for RwLockReadGuard<'a, T> {
 
 impl<'a, T> Drop for RwLockReadGuard<'a, T> {
     fn drop(&mut self) {
+        // If the time-locks feature is enabled, send a message to the timer task
+        // that this lock is being released. This will cancel the timer.
         #[cfg(feature = "time-locks")]
         {
             let tx = self.release_tx.take().unwrap();
@@ -136,6 +153,8 @@ impl<'a, T> DerefMut for RwLockWriteGuard<'a, T> {
 
 impl<'a, T> Drop for RwLockWriteGuard<'a, T> {
     fn drop(&mut self) {
+        // If the time-locks feature is enabled, send a message to the timer task
+        // that this lock is being released. This will cancel the timer.
         #[cfg(feature = "time-locks")]
         {
             let tx = self.release_tx.take().unwrap();
@@ -146,6 +165,7 @@ impl<'a, T> Drop for RwLockWriteGuard<'a, T> {
     }
 }
 
+/// Logs the warning `message` with an optionally provided `backtrace` if `rx` does not receive a message before `timeout` expires.
 async fn timeout_task(
     rx: Receiver,
     timeout: Duration,
@@ -159,19 +179,26 @@ async fn timeout_task(
         _ = timeout_fut => {
             warn!("{message}");
             #[cfg(feature="log-lock-backtrace")]
+            // If a backtrace was provided, check if it was enabled on program startup and
+            // log some information accordingly
             match backtrace {
                 None => info!("Lock: no backtrace provided"),
                 Some(backtrace) => {
                     let status = backtrace.status();
                     match status {
+                        // Backtrace is disabled, tell the user it can be enabled by setting the correct environment variable
                         BacktraceStatus::Disabled => { warn!("Lock: Backtrace provided but not enabled. Run with RUST_BACKTRACE=1 to enable."); }
+                        // Platform does not support capturing a backtrace
                         BacktraceStatus::Unsupported => { warn!("Lock: Backtrace not supported."); }
+                        // We have a captured backtrace, so we can print it and get some meaningful information
                         BacktraceStatus::Captured => { warn!("Lock: Backtrace provided: {backtrace}"); }
-                        _ => { info!("Unhandled backtrace status value {status:?}. Maybe this was added in a future version of Rust?") }
+                        // `BacktraceStatus` is marked as `#[non_exhaustive]`, so we need this case.
+                        _ => { info!("Unhandled backtrace status value {status:?}. Maybe this was added in a later version of Rust?") }
                     }
                 }
             }
         },
+        // Message received, we can stop the task.
         _ = rx => {
 
         },
@@ -179,9 +206,13 @@ async fn timeout_task(
 }
 
 impl<T> RwLock<T> {
+    /// Get an identifier to this lock.
     fn identifier(&self) -> LockIdentifier<'_> {
         match &self.name {
             None => {
+                // Get a pointer value representing this lock. Note that because of the lifetime
+                // parameter on `LockIdentifier` this pointer is actually always valid, because the lock
+                // cannot be moved while we have an identifier borrowing from it.
                 let ptr: *const RwLock<T> = self;
                 LockIdentifier::Pointer(ptr as u64)
             }
@@ -189,6 +220,8 @@ impl<T> RwLock<T> {
         }
     }
 
+    /// Spawn a task that will display the given message and backtrace after `timeout` expires,
+    /// unless a message is send through the returned oneshot channel.
     fn spawn_timeout_task(
         timeout: Duration,
         message: String,
@@ -199,6 +232,7 @@ impl<T> RwLock<T> {
         tx
     }
 
+    /// Spawns a timeout task for holding a lock, cancellable by sending a message through the returned channel.
     fn spawn_lock_hold_timeout_task(&self, mode: LockMode) -> Sender {
         let thread = std::thread::current();
         let thread_name = thread.name().unwrap_or("unnamed thread").to_owned();
@@ -210,6 +244,7 @@ impl<T> RwLock<T> {
         Self::spawn_timeout_task(timeout, format!("Lock: [{}] [{mode}] was held for over {RWLOCK_HOLD_WARN_TIMEOUT_MS}ms on thread [{thread_name}]", self.identifier()), backtrace)
     }
 
+    /// Spawns a timeout task for waiting on a lock, cancellable by sending a message through the returned channel.
     fn spawn_lock_wait_timeout_task(&self, mode: LockMode) -> Sender {
         let thread = std::thread::current();
         let thread_name = thread.name().unwrap_or("unnamed thread").to_owned();
@@ -221,6 +256,7 @@ impl<T> RwLock<T> {
         Self::spawn_timeout_task(timeout, format!("Lock: [{}] [{mode}] has been waiting for over {RWLOCK_WAIT_WARN_TIMEOUT_MS}ms on thread [{thread_name}]", self.identifier()), backtrace)
     }
 
+    /// Acquire the internal reader lock, and possibly log a message for it if the feature for it is enabled.
     fn acquire_read(&self) -> LockResult<sync::RwLockReadGuard<'_, T>> {
         #[cfg(feature = "time-locks")]
         let tx = self.spawn_lock_wait_timeout_task(LockMode::Read);
@@ -232,6 +268,7 @@ impl<T> RwLock<T> {
         result
     }
 
+    /// Acquire the internal writer lock, and possibly log a message for it if the feature for it is enabled.
     fn acquire_write(&self) -> LockResult<sync::RwLockWriteGuard<'_, T>> {
         #[cfg(feature = "time-locks")]
         let tx = self.spawn_lock_wait_timeout_task(LockMode::Write);
@@ -245,6 +282,7 @@ impl<T> RwLock<T> {
 }
 
 impl<T> RwLock<T> {
+    /// Create a new RwLock with no name
     pub fn new(value: T) -> Self {
         Self {
             lock: sync::RwLock::new(value),
@@ -252,6 +290,7 @@ impl<T> RwLock<T> {
         }
     }
 
+    /// Create a new RwLock with a name that can be used for better logging info.
     pub fn with_name(value: T, name: impl Into<String>) -> Self {
         Self {
             lock: sync::RwLock::new(value),
@@ -259,6 +298,7 @@ impl<T> RwLock<T> {
         }
     }
 
+    /// Acquire a reader lock
     pub fn read(&self) -> LockResult<RwLockReadGuard<'_, T>> {
         let result = self.acquire_read();
         #[cfg(feature = "time-locks")]
@@ -279,6 +319,7 @@ impl<T> RwLock<T> {
         }
     }
 
+    /// Acquire a writer lock
     pub fn write(&self) -> LockResult<RwLockWriteGuard<'_, T>> {
         let result = self.acquire_write();
         #[cfg(feature = "time-locks")]

@@ -121,5 +121,5 @@ fn load_from_heights(heights: Handle<Heightmap>, bus: EventBus<DI>) -> Result<No
                 image,
             })
         })
-        .ok_or(anyhow!("Error generating normal map: invalid heightmap handle."))?
+        .ok_or_else(|| anyhow!("Error generating normal map: invalid heightmap handle."))?
 }

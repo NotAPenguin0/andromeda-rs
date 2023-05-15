@@ -89,7 +89,6 @@ impl WorldPositionReconstruct {
         if data.valid {
             let data = self.full_view.mapped_slice::<Vec4>()?;
             let pos = data[cur_idx as usize];
-            info!("Got mouse position: {pos}");
             mouse.world_space = Some(pos.xyz());
         }
 

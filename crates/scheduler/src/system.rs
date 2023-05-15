@@ -29,7 +29,7 @@ impl<S: 'static> StoredSystemInner<S> {
         let handler = self
             .handlers
             .get_dyn::<dyn Handler<S, E, T>>()
-            .ok_or(anyhow!("No handler for this event"))?;
+            .ok_or_else(|| anyhow!("No handler for this event"))?;
         handler.handle(&mut self.state, event, context)
     }
 }

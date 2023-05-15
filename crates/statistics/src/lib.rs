@@ -99,7 +99,7 @@ impl RendererStatistics {
         let cmd = cmd.write_timestamp(&mut self.timings, PipelineStage::ALL_COMMANDS)?;
         self.sections
             .get_mut(name)
-            .ok_or(anyhow!("Section {name} not started."))?
+            .ok_or_else(|| anyhow!("Section {name} not started."))?
             .end_query = self.timings.current();
 
         Ok(cmd)

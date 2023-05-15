@@ -261,7 +261,9 @@ impl ShaderReload {
         let info = inner
             .shaders
             .get(path.as_path())
-            .ok_or(anyhow::anyhow!("Shader path not in watchlist: {:?}", path.file_name().unwrap()))
+            .ok_or_else(|| {
+                anyhow::anyhow!("Shader path not in watchlist: {:?}", path.file_name().unwrap())
+            })
             .cloned()?;
         for pipeline in &info.pipelines {
             self.reload_pipeline(&path, pipeline, &mut pipelines, info.stage)?;

@@ -147,5 +147,5 @@ fn load_new_mesh(
                 mesh,
             })
         })
-        .ok_or(anyhow!("error creating terrain from old terrain: old terrain is invalid"))?
+        .ok_or_else(|| anyhow!("error creating terrain from old terrain: old terrain is invalid"))?
 }

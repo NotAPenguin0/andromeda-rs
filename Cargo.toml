@@ -23,7 +23,8 @@ members = [
     "crates/gfx",
     "crates/statistics",
     "crates/pass",
-    "crates/brush"
+    "crates/brush",
+    "crates/error",
 ]
 
 [dependencies]

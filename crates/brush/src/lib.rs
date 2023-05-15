@@ -1,5 +1,8 @@
+extern crate core;
+
 use anyhow::Result;
 use assets::storage::AssetStorage;
+use assets::TerrainOptions;
 use events::ClickWorldView;
 use glam::{Vec2, Vec3};
 use inject::DI;
@@ -35,8 +38,23 @@ enum BrushEvent {
     ClickPos(Vec3),
 }
 
-fn height_uv_at(world_pos: Vec3, scale: f32) -> Vec2 {
-    todo!()
+fn height_uv_at(world_pos: Vec3, options: &TerrainOptions) -> Vec2 {
+    // First compute outer bounds of the terrain mesh
+    let min_x = options.min_x();
+    let min_y = options.min_y();
+    let max_x = options.max_x();
+    let max_y = options.max_y();
+    // Then we get the length of the terrain in each dimension
+    let dx = max_x - min_x;
+    let dy = max_y - min_y;
+    // Now we can simple calculate the ratio between world_pos and the length in each dimension
+    // to get the uvs.
+    // Note that we use the z coordinate since y is up, and our terrain is in the flat plane.
+    // We will assume our terrain is properly centered. In this case, the uvs we get are
+    // in the [-0.5, 0.5] range, so we need to remap them to [0, 1]. Since this range is
+    // of the same size, we can just add 0.5
+    let uv = Vec2::new(world_pos.x / dx, world_pos.z / dy);
+    uv + 0.5
 }
 
 fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
@@ -52,8 +70,7 @@ fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
     // We will apply our brush mainly to the heightmap texture for now. To know how
     // to do this, we need to find the UV coordinates of the heightmap texture
     // at the position we clicked at.
-    let scale = world.terrain_options.horizontal_scale;
-    let uv = height_uv_at(position, scale);
+    let uv = height_uv_at(position, &world.terrain_options);
     Ok(())
 }
 

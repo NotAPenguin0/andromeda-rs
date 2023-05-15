@@ -157,6 +157,7 @@ impl WorldRenderer {
         self.state.projection_view = self.state.projection * self.state.view;
         self.state.inverse_projection_view = self.state.projection_view.inverse();
         self.state.inverse_projection = self.state.projection.inverse();
+        self.state.inverse_view = self.state.view.inverse();
         self.state.inverse_view_rotation =
             Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.sun_direction = -world.sun_direction.front_direction();
@@ -213,9 +214,10 @@ impl WorldRenderer {
             )?
             .depth_attachment(&graph.latest_version(&depth)?, vk::AttachmentLoadOp::LOAD, None)?
             .resolve(&graph.latest_version(&scene_output)?, &resolved_output)
-            .resolve(&graph.latest_version(&depth)?, &resolved_depth)
+            .resolve_depth(&graph.latest_version(&depth)?, &resolved_depth)
             .build();
         graph.add_pass(resolve);
+        let resolved_depth = graph.latest_version(&resolved_depth)?;
         self.world_pos_reconstruct
             .render(&mut graph, &resolved_depth, &self.state)?;
         // Apply tonemapping

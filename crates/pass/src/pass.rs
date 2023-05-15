@@ -7,7 +7,7 @@ use crate::FrameGraph;
 
 pub trait Pass<A: Allocator> {
     fn record<'cb>(
-        &'cb mut self,
+        &mut self,
         graph: &mut FrameGraph<'cb, A>,
         resources: &SceneResources,
         state: &'cb RenderState,

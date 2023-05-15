@@ -6,6 +6,7 @@
 //!                  on it is taking too long.
 //! * `log-lock-backtrace` - Enables `time-locks`, also writes out a stack backtrace of the caller with the warning message.
 
+#[allow(unused_imports)]
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
@@ -13,6 +14,7 @@ use std::sync;
 use std::sync::{LockResult, PoisonError};
 use std::time::Duration;
 
+#[allow(unused_imports)]
 use log::{info, trace, warn};
 use tokio::select;
 
@@ -165,6 +167,7 @@ impl<'a, T> Drop for RwLockWriteGuard<'a, T> {
     }
 }
 
+#[allow(unused_variables)]
 /// Logs the warning `message` with an optionally provided `backtrace` if `rx` does not receive a message before `timeout` expires.
 async fn timeout_task(
     rx: Receiver,

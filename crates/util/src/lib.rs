@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub use byte_size::*;
 pub use file_type::*;
 pub use lock::*;

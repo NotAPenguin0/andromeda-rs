@@ -105,7 +105,7 @@ impl WorldPositionReconstruct {
                     struct CameraData {
                         inv_projection: Mat4,
                         inv_view: Mat4,
-                    };
+                    }
                     let mut cam_view =
                         ifc.allocate_scratch_ubo(2 * std::mem::size_of::<Mat4>() as u64)?;
                     let cam_data = cam_view.mapped_slice::<CameraData>()?;

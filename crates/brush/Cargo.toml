@@ -7,6 +7,7 @@ edition = "2021"
 log = "0.4.17"
 glam = "0.24.0"
 anyhow = "1.0.70"
+tokio = "1.28.0"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
 events = { path = "../events" }
 pass = { path = "../pass" }
@@ -15,3 +16,4 @@ inject = { path = "../inject" }
 scheduler = { path = "../scheduler" }
 assets = { path = "../assets" }
 world = { path = "../world" }
+util = { path = "../util" }

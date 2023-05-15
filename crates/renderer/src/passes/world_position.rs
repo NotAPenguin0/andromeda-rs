@@ -5,7 +5,6 @@ use egui::Vec2;
 use gfx::create_raw_sampler;
 use gfx::state::RenderState;
 use glam::{Mat4, Vec3, Vec4, Vec4Swizzles};
-use gui::util::mouse_position::WorldMousePosition;
 use hot_reload::IntoDynamic;
 use inject::DI;
 use log::{info, trace};
@@ -16,6 +15,7 @@ use phobos::{
     MemoryType, PassBuilder, PipelineStage, Sampler, VirtualResource,
 };
 use scheduler::EventBus;
+use util::mouse_position::WorldMousePosition;
 use util::RingBuffer;
 
 #[derive(Debug)]

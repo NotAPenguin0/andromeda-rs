@@ -1,9 +1,9 @@
+use ::util::mouse_position::WorldMousePosition;
 use inject::DI;
 use scheduler::EventBus;
 
 use crate::editor::Editor;
 use crate::util::image_provider::ImageProvider;
-use crate::util::mouse_position::WorldMousePosition;
 use crate::util::size::USize;
 
 pub mod editor;

@@ -1,10 +1,9 @@
-use std::intrinsics::likely;
-
 use anyhow::Result;
 use assets::storage::AssetStorage;
 use events::ClickWorldView;
 use glam::Vec3;
 use inject::DI;
+use log::trace;
 use scheduler::{EventBus, EventContext, StoredSystem, System};
 use util::mouse_position::WorldMousePosition;
 use util::SafeUnwrap;
@@ -37,6 +36,12 @@ enum BrushEvent {
 }
 
 fn use_brush_at_position(position: Vec3) -> Result<()> {
+    // If any of the values inside the position are NaN or infinite, the position is outside
+    // of the rendered terrain mesh and we do not want to actually use the brush.
+    if position.is_nan() || !position.is_finite() {
+        return Ok(());
+    }
+    trace!("Using brush at position {position}");
     Ok(())
 }
 
@@ -69,9 +74,12 @@ fn handle_click_world_view(
     Ok(())
 }
 
-pub fn initialize(bus: &EventBus<DI>) {
+pub fn initialize(bus: &EventBus<DI>) -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel(4);
     let system = BrushSystem::new(tx);
     bus.add_system(system);
-    tokio::task::spawn_blocking(|| brush_task(rx));
+    std::thread::Builder::new()
+        .name("brush-thread".into())
+        .spawn(|| brush_task(rx))?;
+    Ok(())
 }

@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
-glam = "0.23.0"
+glam = "0.24.0"
 math = { path = "../math" }
 thread = { path = "../thread" }
 scheduler = { path = "../scheduler" }

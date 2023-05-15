@@ -26,7 +26,7 @@ members = [
 
 [dependencies]
 anyhow = "1.0.70"
-glam = "0.23.0"
+glam = "0.24.0"
 winit = "0.28.3"
 derivative = "2.2.0"
 futures = "0.3.28"

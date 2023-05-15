@@ -8,6 +8,7 @@ glam = "0.24.0"
 anyhow = "1.0.70"
 egui = "0.21.0"
 log = "0.4.17"
+input = { path = "../input" }
 inject = { path = "../inject" }
 math = { path = "../math" }
 scheduler = { path = "../scheduler" }

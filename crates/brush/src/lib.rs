@@ -1,5 +1,8 @@
+use anyhow::Result;
+use events::ClickWorldView;
 use inject::DI;
-use scheduler::{EventBus, StoredSystem, System};
+use log::info;
+use scheduler::{EventBus, EventContext, StoredSystem, System};
 
 struct BrushSystem {}
 
@@ -10,7 +13,18 @@ impl BrushSystem {
 }
 
 impl System<DI> for BrushSystem {
-    fn initialize(event_bus: &EventBus<DI>, system: &StoredSystem<Self>) {}
+    fn initialize(event_bus: &EventBus<DI>, system: &StoredSystem<Self>) {
+        event_bus.subscribe(system, handle_click_world_view);
+    }
+}
+
+fn handle_click_world_view(
+    system: &mut BrushSystem,
+    click: &ClickWorldView,
+    ctx: &mut EventContext<DI>,
+) -> Result<()> {
+    info!("Clicked at: {click:?}");
+    Ok(())
 }
 
 pub fn initialize(bus: &EventBus<DI>) {

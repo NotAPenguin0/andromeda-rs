@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+glam = "0.24.0"
 scheduler = { path = "../scheduler" }
+input = { path = "../input" }

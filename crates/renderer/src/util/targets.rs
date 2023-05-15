@@ -189,7 +189,7 @@ impl RenderTargets {
         let target = self
             .targets
             .get(name)
-            .ok_or(anyhow!("Target {name} not found"))?;
+            .ok_or_else(|| anyhow!("Target {name} not found"))?;
         Ok(self.size_group_resolution(target.size_group))
     }
 
@@ -207,7 +207,7 @@ impl RenderTargets {
         Ok(self
             .targets
             .get(name)
-            .ok_or(anyhow!("Target {name} not found"))?
+            .ok_or_else(|| anyhow!("Target {name} not found"))?
             .target
             .view
             .clone())

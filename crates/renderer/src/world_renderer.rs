@@ -1,12 +1,12 @@
 use anyhow::Result;
 use camera::CameraState;
-use gfx::state::RenderState;
+use gfx::state::{RenderState, SceneResources};
 use gfx::SharedContext;
 use glam::{Mat3, Mat4};
 use gui::util::image_provider::ImageProvider;
 use hot_reload::IntoDynamic;
 use inject::DI;
-use pass::FrameGraph;
+use pass::{FrameGraph, GpuWork};
 use phobos::{vk, PassBuilder, PhysicalResourceBindings, PipelineBuilder, VirtualResource};
 use scheduler::EventBus;
 use world::World;
@@ -176,6 +176,17 @@ impl WorldRenderer {
         let resolved_output = VirtualResource::image("resolved_output");
         let tonemapped_output = VirtualResource::image(Tonemap::output_name());
 
+        // Before all regular render passes we want to execute any other requested work.
+        {
+            let di = self.bus.data().read().unwrap();
+            let mut work = di.write_sync::<GpuWork>().unwrap();
+            let resources = SceneResources {
+                color: scene_output.clone(),
+                depth: depth.clone(),
+            };
+            work.drain_record(&mut graph, &resources, &self.state, world)?;
+        }
+
         // 1. Render terrain
         self.terrain
             .render(&mut graph, &scene_output, &depth, world, &self.state)?;
@@ -190,7 +201,7 @@ impl WorldRenderer {
                 None,
             )?
             // We dont currently need depth resolved
-            // .depth_attachment(graph.latest_version(depth.clone())?,vk::AttachmentLoadOp::LOAD, None)?
+            // .depth_attachment(graph.latest_version(depth.clone())?, vk::AttachmentLoadOp::LOAD, None)?
             .resolve(&graph.latest_version(&scene_output)?, &resolved_output)
             .build();
         graph.add_pass(resolve);

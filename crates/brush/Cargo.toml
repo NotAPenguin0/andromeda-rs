@@ -1,0 +1,13 @@
+[package]
+name = "brush"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.24.0"
+anyhow = "1.0.70"
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+pass = { path = "../pass" }
+gfx = { path = "../gfx" }
+inject = { path = "../inject" }
+scheduler = { path = "../scheduler" }

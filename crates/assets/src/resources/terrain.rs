@@ -43,6 +43,30 @@ impl TerrainOptions {
         let y = patch_y as f32;
         Vec2::new(x / resolution, y / resolution)
     }
+
+    /// Returns the smallest x coordinate, this has uv.x == 0
+    #[inline]
+    pub fn min_x(&self) -> f32 {
+        self.patch_coords(0, 0).x
+    }
+
+    // Returns the largest x coordinate, this has uv.x == 1
+    #[inline]
+    pub fn max_x(&self) -> f32 {
+        self.patch_coords(self.patch_resolution - 1, 0).x
+    }
+
+    /// Returns the smallest y coordinate, this has uv.y == 0
+    #[inline]
+    pub fn min_y(&self) -> f32 {
+        self.patch_coords(0, 0).y
+    }
+
+    // Returns the largest y coordinate, this has uv.y == 1
+    #[inline]
+    pub fn max_y(&self) -> f32 {
+        self.patch_coords(0, self.patch_resolution - 1).y
+    }
 }
 
 #[derive(Debug)]

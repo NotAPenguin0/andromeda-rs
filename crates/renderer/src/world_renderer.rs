@@ -7,12 +7,13 @@ use gui::util::image_provider::ImageProvider;
 use hot_reload::IntoDynamic;
 use inject::DI;
 use pass::{FrameGraph, GpuWork};
-use phobos::{vk, PassBuilder, PhysicalResourceBindings, PipelineBuilder, VirtualResource};
+use phobos::{image, vk, PassBuilder, PhysicalResourceBindings, PipelineBuilder, VirtualResource};
 use scheduler::EventBus;
 use world::World;
 
 use crate::passes::atmosphere::AtmosphereRenderer;
 use crate::passes::terrain::TerrainRenderer;
+use crate::passes::world_position::WorldPositionReconstruct;
 use crate::postprocess::tonemap::Tonemap;
 use crate::ui_integration::UIIntegration;
 use crate::util::targets::{RenderTargets, SizeGroup};
@@ -25,6 +26,7 @@ pub struct WorldRenderer {
     tonemap: Tonemap,
     atmosphere: AtmosphereRenderer,
     terrain: TerrainRenderer,
+    world_pos_reconstruct: WorldPositionReconstruct,
     state: RenderState,
 }
 
@@ -72,6 +74,13 @@ impl WorldRenderer {
             vk::Format::R32G32B32A32_SFLOAT,
         )?;
 
+        targets.register_depth_target(
+            "resolved_depth",
+            SizeGroup::OutputResolution,
+            vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT | vk::ImageUsageFlags::SAMPLED,
+            vk::Format::D32_SFLOAT,
+        )?;
+
         let state = RenderState::default();
         let tonemap = Tonemap::new(ctx.clone(), &mut targets, &mut bus)?;
 
@@ -83,7 +92,8 @@ impl WorldRenderer {
         Ok(Self {
             tonemap,
             atmosphere: AtmosphereRenderer::new(ctx.clone(), &mut bus)?,
-            terrain: TerrainRenderer::new(ctx, &mut bus)?,
+            terrain: TerrainRenderer::new(ctx.clone(), &mut bus)?,
+            world_pos_reconstruct: WorldPositionReconstruct::new(ctx, &mut bus)?,
             bus,
             state,
         })
@@ -171,9 +181,10 @@ impl WorldRenderer {
 
         self.update_render_state(world)?;
 
-        let scene_output = VirtualResource::image("scene_output");
-        let depth = VirtualResource::image("depth");
-        let resolved_output = VirtualResource::image("resolved_output");
+        let scene_output = image!("scene_output");
+        let depth = image!("depth");
+        let resolved_output = image!("resolved_output");
+        let resolved_depth = image!("resolved_depth");
         let tonemapped_output = VirtualResource::image(Tonemap::output_name());
 
         // Before all regular render passes we want to execute any other requested work.
@@ -187,27 +198,29 @@ impl WorldRenderer {
             work.drain_record(&mut graph, &resources, &self.state, world)?;
         }
 
-        // 1. Render terrain
+        // Render terrain
         self.terrain
             .render(&mut graph, &scene_output, &depth, world, &self.state)?;
-        // 2. Render atmosphere
+        // Render atmosphere
         self.atmosphere
             .render(&mut graph, &scene_output, &depth, world, &self.state)?;
-        // 3. Resolve MSAA
+        // Resolve MSAA
         let resolve = PassBuilder::render("msaa_resolve")
             .color_attachment(
                 &graph.latest_version(&scene_output)?,
                 vk::AttachmentLoadOp::LOAD,
                 None,
             )?
-            // We dont currently need depth resolved
-            // .depth_attachment(graph.latest_version(depth.clone())?, vk::AttachmentLoadOp::LOAD, None)?
+            .depth_attachment(&graph.latest_version(&depth)?, vk::AttachmentLoadOp::LOAD, None)?
             .resolve(&graph.latest_version(&scene_output)?, &resolved_output)
+            .resolve(&graph.latest_version(&depth)?, &resolved_depth)
             .build();
         graph.add_pass(resolve);
-        // 4. Apply tonemapping
+        self.world_pos_reconstruct
+            .render(&mut graph, &resolved_depth, &self.state)?;
+        // Apply tonemapping
         self.tonemap.render(&mut graph, &resolved_output)?;
-        // 5. Alias our final result to the expected name
+        // Alias our final result to the expected name
         graph.alias("renderer_output", tonemapped_output);
 
         Ok((graph, bindings))

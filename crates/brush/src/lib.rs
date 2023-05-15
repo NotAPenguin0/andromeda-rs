@@ -1,8 +1,9 @@
 use anyhow::Result;
+use assets::storage::AssetStorage;
 use events::ClickWorldView;
 use inject::DI;
-use log::info;
 use scheduler::{EventBus, EventContext, StoredSystem, System};
+use world::World;
 
 struct BrushSystem {}
 
@@ -23,7 +24,9 @@ fn handle_click_world_view(
     click: &ClickWorldView,
     ctx: &mut EventContext<DI>,
 ) -> Result<()> {
-    info!("Clicked at: {click:?}");
+    let di = ctx.read().unwrap();
+    let assets = di.get::<AssetStorage>().unwrap();
+    let world = di.read_sync::<World>().unwrap();
     Ok(())
 }
 

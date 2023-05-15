@@ -13,3 +13,5 @@ pass = { path = "../pass" }
 gfx = { path = "../gfx" }
 inject = { path = "../inject" }
 scheduler = { path = "../scheduler" }
+assets = { path = "../assets" }
+world = { path = "../world" }

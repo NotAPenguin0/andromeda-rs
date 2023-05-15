@@ -8,7 +8,7 @@ use inject::DI;
 use log::{info, trace};
 use phobos::vk;
 use scheduler::EventBus;
-use thread::io::read_file_async;
+use thread::io::read_file;
 
 use crate::texture::format::TextureFormat;
 use crate::texture::{Texture, TextureLoadInfo};
@@ -45,7 +45,7 @@ fn load_from_file<F: TextureFormat>(
         .unwrap();
 
     trace!("Loading texture {path:?}");
-    let buffer = read_file_async(path.clone()).block_and_take()?;
+    let buffer = read_file(path.clone())?;
     let reader = image::io::Reader::new(Cursor::new(buffer)).with_guessed_format()?;
     let image = reader.decode()?;
     let width = image.width();

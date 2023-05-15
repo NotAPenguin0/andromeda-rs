@@ -1,12 +1,12 @@
 use anyhow::Result;
 use hot_reload::IntoDynamic;
 use inject::DI;
+use pass::FrameGraph;
 use phobos as ph;
 use phobos::{vk, Allocator, GraphicsCmdBuffer};
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 
-use crate::util::graph::FrameGraph;
 use crate::util::targets::{RenderTargets, SizeGroup};
 
 /// This stores all the resources and state needed for the tonemapper to work.

@@ -1,0 +1,13 @@
+[package]
+name = "pass"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+anyhow = "1.0.70"
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+derivative = "2.2.0"
+gfx = { path = "../gfx" }
+world = { path = "../world" }
+statistics = { path = "../statistics" }

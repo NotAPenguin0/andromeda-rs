@@ -18,6 +18,7 @@ inject = { path = "../inject" }
 scheduler = { path = "../scheduler" }
 hot_reload = { path = "../hot_reload" }
 gfx = { path = "../gfx" }
+pass = { path = "../pass" }
 gui = { path = "../gui" }
 world = { path = "../world" }
 util = { path = "../util" }

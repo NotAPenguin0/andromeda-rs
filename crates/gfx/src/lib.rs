@@ -11,6 +11,7 @@ use scheduler::EventBus;
 pub use util::*;
 use winit::window::Window;
 
+pub mod state;
 pub mod util;
 
 /// All shared graphics objects, these are safely refcounted using `Arc` and `Arc<Mutex>` where necessary, so cloning this struct is acceptable.

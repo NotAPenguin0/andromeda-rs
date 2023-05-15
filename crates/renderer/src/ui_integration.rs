@@ -6,13 +6,12 @@ use egui::TextureId;
 use egui_winit_phobos::Integration;
 use gui::util::image::Image;
 use gui::util::size::USize;
+use pass::FrameGraph;
 use phobos::prelude::traits::*;
 use phobos::{vk, DefaultAllocator, ImageView, VirtualResource};
 use winit::event::WindowEvent;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
-
-use crate::util::graph::FrameGraph;
 
 #[derive(Derivative)]
 #[derivative(Debug)]

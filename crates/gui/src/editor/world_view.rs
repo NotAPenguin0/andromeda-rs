@@ -2,16 +2,19 @@ use egui::Response;
 use events::ClickWorldView;
 use inject::DI;
 use input::{InputState, MousePosition};
-use log::trace;
 use scheduler::EventBus;
 use util::SafeUnwrap;
 
 use crate::editor::camera_controller::enable_camera_over;
 use crate::util::image_provider::ImageProvider;
+use crate::util::mouse_position::update_screen_space_position_over;
 use crate::widgets::resizable_image::resizable_image_window;
 
+/// # DI Access
+/// - Read [`InputState`]
 fn behaviour(response: Response, bus: &EventBus<DI>) {
     enable_camera_over(&response, bus).safe_unwrap();
+    update_screen_space_position_over(&response, bus);
 
     if response.clicked() {
         let di = bus.data().read().unwrap();

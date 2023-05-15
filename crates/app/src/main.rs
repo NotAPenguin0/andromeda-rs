@@ -52,7 +52,7 @@ fn main() -> Result<!> {
                 *control_flow = ControlFlow::Exit;
             }
             Ok(flow) => *control_flow = flow,
-            Err(e) => Err(e).safe_unwrap(),
+            Err(e) => Err::<(), anyhow::Error>(e).safe_unwrap(),
         };
     })
 }

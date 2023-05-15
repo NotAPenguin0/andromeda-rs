@@ -1,5 +1,7 @@
 use egui::Response;
+use events::ClickWorldView;
 use inject::DI;
+use input::{InputState, MousePosition};
 use log::trace;
 use scheduler::EventBus;
 use util::SafeUnwrap;
@@ -12,7 +14,18 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
     enable_camera_over(&response, bus).safe_unwrap();
 
     if response.clicked() {
-        trace!("Clicked the window");
+        let di = bus.data().read().unwrap();
+        let input = di.read_sync::<InputState>().unwrap();
+        let mouse = input.mouse();
+        let left_top = response.rect.left_top();
+        let window_space_pos = MousePosition {
+            x: mouse.x - left_top.x as f64,
+            y: mouse.y - left_top.y as f64,
+        };
+        bus.publish(&ClickWorldView {
+            position: window_space_pos,
+        })
+        .safe_unwrap();
     }
 }
 

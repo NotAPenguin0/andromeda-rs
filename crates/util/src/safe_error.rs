@@ -20,3 +20,16 @@ impl SafeUnwrap for Result<()> {
         }
     }
 }
+
+impl SafeUnwrap for Result<Vec<()>> {
+    type Output = ();
+
+    fn safe_unwrap(self) -> Self::Output {
+        match self {
+            Ok(_) => {}
+            Err(error) => {
+                error!("{}", error);
+            }
+        }
+    }
+}

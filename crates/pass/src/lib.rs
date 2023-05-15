@@ -22,8 +22,7 @@ struct EnabledPass {
 }
 
 /// This struct stores additional GPU work that can be submitted to be
-/// executed on the next frame. Note that each pass is dropped immediately after
-/// recording it, so storing resources inside is not possible (right now).
+/// executed on the next frame.
 pub struct GpuWork {
     passes: HashMap<String, Box<dyn Pass<Alloc>>>,
     enabled_passes: Vec<EnabledPass>,

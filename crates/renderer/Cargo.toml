@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
 anyhow = "1.0.70"
-glam = "0.23.0"
+glam = "0.24.0"
 winit = "0.28.3"
 derivative = "2.2.0"
 egui = "0.21.0"

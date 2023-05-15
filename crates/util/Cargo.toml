@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.70"
 log = "0.4.17"
-glam = "0.23.0"
+glam = "0.24.0"
 tokio = { version = "1.28.0", features = ["full"] }
 
 [features]

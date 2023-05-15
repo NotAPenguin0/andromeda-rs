@@ -61,18 +61,13 @@ impl GpuWork {
             .enabled_passes
             .drain(0..)
             .filter_map(|mut pass| {
-                let exec = self.passes.get_mut(&pass.name);
-                match exec {
-                    None => None,
-                    Some(exec) => {
-                        exec.record(graph, resources, state, world).safe_unwrap();
-                        pass.num_frames -= 1;
-                        if pass.num_frames == 0 {
-                            None
-                        } else {
-                            Some(pass)
-                        }
-                    }
+                let exec = self.passes.get_mut(&pass.name)?;
+                exec.record(graph, resources, state, world).safe_unwrap();
+                pass.num_frames -= 1;
+                if pass.num_frames == 0 {
+                    None
+                } else {
+                    Some(pass)
                 }
             })
             .collect();

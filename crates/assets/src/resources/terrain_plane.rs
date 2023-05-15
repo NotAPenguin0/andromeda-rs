@@ -88,14 +88,9 @@ fn generate_terrain_mesh(options: TerrainOptions, bus: EventBus<DI>) -> Result<T
             (0..options.patch_resolution)
                 .into_par_iter()
                 .flat_map(|y| {
-                    let x = x as f32;
-                    let y = y as f32;
-                    [
-                        x * patch_size + patch_size / 2.0 - resolution * patch_size / 2.0,
-                        y * patch_size + patch_size / 2.0 - resolution * patch_size / 2.0,
-                        x / resolution,
-                        y / resolution,
-                    ]
+                    let coords = options.patch_coords(x, y);
+                    let uvs = options.patch_uvs(x, y);
+                    [coords.x, coords.y, uvs.x, uvs.y]
                 })
                 .collect::<Vec<f32>>()
         })

@@ -3,16 +3,7 @@ use glam::{Vec2, Vec3};
 use inject::DI;
 use input::InputState;
 use scheduler::EventBus;
-
-#[derive(Debug)]
-pub struct WorldMousePosition {
-    /// Holds a value if the mouse is over the world view,
-    /// no value otherwise.
-    pub screen_space: Option<Vec2>,
-    /// Holds a value if the mouse position is over some geometry,
-    /// no value otherwise.
-    pub world_space: Option<Vec3>,
-}
+use util::mouse_position::WorldMousePosition;
 
 /// Update the mouse screen space position over a widget
 /// # DI Access

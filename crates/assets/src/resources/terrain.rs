@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
+use glam::Vec2;
 use inject::DI;
 use scheduler::EventBus;
 
@@ -20,6 +21,28 @@ pub struct TerrainOptions {
     pub vertical_scale: f32,
     /// Number of patches the terrain mesh will be divided in in each direction.
     pub patch_resolution: u32,
+}
+
+impl TerrainOptions {
+    #[inline]
+    pub fn patch_coords(&self, patch_x: u32, patch_y: u32) -> Vec2 {
+        let resolution = self.patch_resolution as f32;
+        let patch_size = self.horizontal_scale / resolution;
+        let x = patch_x as f32;
+        let y = patch_y as f32;
+        Vec2::new(
+            x * patch_size + patch_size / 2.0 - resolution * patch_size / 2.0,
+            y * patch_size + patch_size / 2.0 - resolution * patch_size / 2.0,
+        )
+    }
+
+    #[inline]
+    pub fn patch_uvs(&self, patch_x: u32, patch_y: u32) -> Vec2 {
+        let resolution = self.patch_resolution as f32;
+        let x = patch_x as f32;
+        let y = patch_y as f32;
+        Vec2::new(x / resolution, y / resolution)
+    }
 }
 
 #[derive(Debug)]

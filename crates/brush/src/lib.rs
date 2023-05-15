@@ -1,9 +1,9 @@
 use anyhow::Result;
 use assets::storage::AssetStorage;
 use events::ClickWorldView;
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use inject::DI;
-use log::trace;
+use log::{log, trace};
 use scheduler::{EventBus, EventContext, StoredSystem, System};
 use util::mouse_position::WorldMousePosition;
 use util::SafeUnwrap;
@@ -35,22 +35,34 @@ enum BrushEvent {
     ClickPos(Vec3),
 }
 
-fn use_brush_at_position(position: Vec3) -> Result<()> {
+fn height_uv_at(world_pos: Vec3, scale: f32) -> Vec2 {
+    todo!()
+}
+
+fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
     // If any of the values inside the position are NaN or infinite, the position is outside
     // of the rendered terrain mesh and we do not want to actually use the brush.
     if position.is_nan() || !position.is_finite() {
         return Ok(());
     }
-    trace!("Using brush at position {position}");
+
+    let di = bus.data().read().unwrap();
+    let world = di.read_sync::<World>().unwrap();
+
+    // We will apply our brush mainly to the heightmap texture for now. To know how
+    // to do this, we need to find the UV coordinates of the heightmap texture
+    // at the position we clicked at.
+    let scale = world.terrain_options.horizontal_scale;
+    let uv = height_uv_at(position, scale);
     Ok(())
 }
 
-fn brush_task(mut recv: BrushEventReceiver) {
+fn brush_task(bus: EventBus<DI>, mut recv: BrushEventReceiver) {
     // While the sender is not dropped, we can keep waiting for events
     while let Some(event) = recv.blocking_recv() {
         match event {
             BrushEvent::ClickPos(position) => {
-                use_brush_at_position(position).safe_unwrap();
+                use_brush_at_position(&bus, position).safe_unwrap();
             }
         }
     }
@@ -78,8 +90,9 @@ pub fn initialize(bus: &EventBus<DI>) -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel(4);
     let system = BrushSystem::new(tx);
     bus.add_system(system);
+    let bus = bus.clone();
     std::thread::Builder::new()
         .name("brush-thread".into())
-        .spawn(|| brush_task(rx))?;
+        .spawn(|| brush_task(bus, rx))?;
     Ok(())
 }

@@ -24,9 +24,6 @@ fn handle_click_world_view(
     click: &ClickWorldView,
     ctx: &mut EventContext<DI>,
 ) -> Result<()> {
-    let di = ctx.read().unwrap();
-    let assets = di.get::<AssetStorage>().unwrap();
-    let world = di.read_sync::<World>().unwrap();
     Ok(())
 }
 

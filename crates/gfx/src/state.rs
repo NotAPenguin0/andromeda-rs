@@ -19,6 +19,8 @@ pub struct RenderState {
     pub projection_view: Mat4,
     /// Inverse of the projection matrix
     pub inverse_projection: Mat4,
+    /// Inverse of the view matrix
+    pub inverse_view: Mat4,
     /// Inverse of `projection * view`
     pub inverse_projection_view: Mat4,
     /// Inverse of the camera's view matrix with the translation component removed

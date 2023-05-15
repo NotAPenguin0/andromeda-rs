@@ -74,6 +74,10 @@ impl<T, const SIZE: usize> RingBuffer<T, SIZE> {
         }
     }
 
+    pub fn current_index(&self) -> usize {
+        self.current
+    }
+
     /// Iterate over the values, starting at the value that has not been returned from current()
     /// in the longest time. (So starting at old values)
     pub fn iter_fifo(&self) -> Iter<'_, T> {

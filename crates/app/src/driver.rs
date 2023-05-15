@@ -56,6 +56,7 @@ impl Driver {
         let window = AppWindow::new(frame, window, surface, ctx.clone());
         gui::initialize(renderer.ui(), &mut bus);
         pass::initialize(&bus);
+        brush::initialize(&bus);
 
         {
             let mut inject = inject.write().unwrap();

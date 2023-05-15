@@ -21,7 +21,8 @@ members = [
     "crates/events",
     "crates/assets",
     "crates/gfx",
-    "crates/statistics"
+    "crates/statistics",
+    "crates/pass"
 ]
 
 [dependencies]

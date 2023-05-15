@@ -50,7 +50,7 @@ impl GpuWork {
 
     /// Record all passes and disable them if needed.
     pub fn drain_record<'cb>(
-        &'cb mut self,
+        &mut self,
         graph: &mut FrameGraph<'cb, Alloc>,
         resources: &SceneResources,
         state: &'cb RenderState,

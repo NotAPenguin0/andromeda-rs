@@ -79,6 +79,9 @@ impl Driver {
             }));
         }
 
+        // Create an initial submit batch for the first frame
+        let _ = renderer.new_submit_batch();
+
         Ok(Driver {
             bus,
             renderer,
@@ -88,7 +91,6 @@ impl Driver {
 
     /// Process one frame. This will update the UI and render the world.
     async fn process_frame(&mut self) -> Result<()> {
-        self.renderer.new_submit_batch()?;
         self.window.request_redraw();
         self.window
             .new_frame(|window, mut ifc| {
@@ -107,8 +109,8 @@ impl Driver {
                 let inject = self.bus.data().read().unwrap();
                 let world = inject.read_sync::<World>().unwrap();
                 let commands = self.renderer.render(window, &world, &self.bus, &mut ifc)?;
-                let mut work = inject.write_sync::<GpuWork>().unwrap();
-                let mut batch: SubmitBatch<All> = work.take_batch().unwrap();
+                // Grab the old submit batch and insert a new one in its place.
+                let mut batch = self.renderer.new_submit_batch()?;
                 batch.submit_for_present_after_all(commands, &ifc, PipelineStage::ALL_COMMANDS)?;
                 Ok(batch)
             })

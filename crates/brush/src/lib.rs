@@ -9,12 +9,12 @@ use gfx::SharedContext;
 use glam::{Vec2, Vec3};
 use hot_reload::IntoDynamic;
 use inject::DI;
-use log::{info, log, trace};
+use log::{info, trace};
 use pass::GpuWork;
 use phobos::domain::All;
 use phobos::{
-    vk, CommandBuffer, ComputePipelineBuilder, IncompleteCmdBuffer, IncompleteCommandBuffer,
-    PipelineStage,
+    vk, CommandBuffer, ComputeCmdBuffer, ComputePipelineBuilder, IncompleteCmdBuffer,
+    IncompleteCommandBuffer, PipelineStage,
 };
 use scheduler::{EventBus, EventContext, StoredSystem, System};
 use util::mouse_position::WorldMousePosition;
@@ -49,6 +49,7 @@ enum BrushEvent {
 
 fn record_update_commands(
     cmd: IncompleteCommandBuffer<All>,
+    uv: Vec2,
     heights: &Heightmap,
 ) -> Result<CommandBuffer<All>> {
     // We are going to write to this image in a compute shader, so submit a barrier for this first.
@@ -61,6 +62,14 @@ fn record_update_commands(
         vk::AccessFlags2::NONE,
         vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
     );
+    // Bind the pipeline we will use to update the heightmap
+    let cmd = cmd.bind_compute_pipeline("height_brush")?;
+    // Bind the image to the descriptor, push our uvs to the shader and dispatch an invocation
+    info!("Recording brush commands");
+    let cmd = cmd
+        .bind_storage_image(0, 0, &heights.image.image.view)?
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
+        .dispatch(1, 1, 1)?;
     // Transition back to ShaderReadOnlyOptimal for drawing
     let cmd = cmd.transition_image(
         &heights.image.image.view,
@@ -95,9 +104,10 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>) -> Result<()> {
                     Some(ctx.pipelines.clone()),
                     Some(ctx.descriptors.clone()),
                 )?;
-                let cmd = record_update_commands(cmd, heights)?;
+                let cmd = record_update_commands(cmd, uv, heights)?;
                 // Submit our commands once a batch is ready
                 GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
+                trace!("Submitted brush commands to latest frame batch");
                 Ok::<_, anyhow::Error>(())
             })
         })
@@ -190,8 +200,6 @@ pub fn initialize(bus: &EventBus<DI>) -> Result<()> {
     bus.add_system(system);
     create_brush_pipeline(bus)?;
     let bus = bus.clone();
-    std::thread::Builder::new()
-        .name("brush-thread".into())
-        .spawn(|| brush_task(bus, rx))?;
+    tokio::task::spawn_blocking(|| brush_task(bus, rx));
     Ok(())
 }

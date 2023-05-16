@@ -1,8 +1,9 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use gfx::SharedContext;
 use inject::DI;
 use pass::GpuWork;
 use phobos::domain::All;
+use phobos::sync::submit_batch::SubmitBatch;
 use phobos::{
     CommandBuffer, InFlightContext, IncompleteCmdBuffer, PassBuilder, RecordGraphToCommandBuffer,
 };
@@ -63,13 +64,14 @@ impl AppRenderer {
         self.gfx.descriptors.next_frame();
     }
 
-    // Create a new submit batch and put it in DI
-    pub fn new_submit_batch(&self) -> Result<()> {
-        let batch = self.gfx.exec.start_submit_batch()?;
+    // Create a new submit batch and take out the old one to submit it
+    pub fn new_submit_batch(&self) -> Result<SubmitBatch<All>> {
+        let new_batch = self.gfx.exec.start_submit_batch()?;
         let di = self.bus.data().read().unwrap();
         let mut work = di.write_sync::<GpuWork>().unwrap();
-        work.put_batch(batch);
-        Ok(())
+        let old_batch = work.take_batch();
+        work.put_batch(new_batch);
+        old_batch.ok_or_else(|| anyhow!("No previous submit batch set"))
     }
 
     /// Render a single frame to the window. This will render both the UI and the scene.

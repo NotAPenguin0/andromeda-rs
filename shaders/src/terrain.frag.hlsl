@@ -33,8 +33,8 @@ float4 main(PS_INPUT input) : SV_TARGET {
     float4 color = diffuse_map.Sample(color_smp, input.UV).rgba;
     float3 pos_plane = float3(mouse_world_pos.x, 0, mouse_world_pos.z);
     float3 world_pos_plane  = float3(input.WorldPos.x, 0, input.WorldPos.z);
-    if (length(pos_plane - world_pos_plane) < 0) {
-        return float4(1.0, 0.0, 0.0, 1.0);
+    if (length(pos_plane - world_pos_plane) < 15) {
+        return float4(0.3, 0.0, 0.0, 1.0);
     }
     return float4(color.rgb * diff, 1.0);
 }

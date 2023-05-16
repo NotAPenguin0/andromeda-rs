@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use gfx::PairedImageView;
 use inject::DI;
+use phobos::vk;
 use scheduler::EventBus;
 
 use crate::asset::Asset;
@@ -26,6 +27,8 @@ pub enum TextureLoadInfo<F: TextureFormat> {
         path: PathBuf,
         // Callback to do extra processing on the image data on the CPU.
         cpu_postprocess: Option<fn(u32, u32, &mut [F::Pixel]) -> Result<()>>,
+        // Additional usage flags
+        usage_flags: Option<vk::ImageUsageFlags>,
     },
     FromRawGpu {
         image: PairedImageView,

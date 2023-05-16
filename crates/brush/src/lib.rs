@@ -1,13 +1,19 @@
 extern crate core;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
+use assets::handle::Handle;
 use assets::storage::AssetStorage;
-use assets::TerrainOptions;
+use assets::{Heightmap, Terrain, TerrainOptions};
 use events::ClickWorldView;
+use gfx::SharedContext;
 use glam::{Vec2, Vec3};
 use inject::DI;
-use log::{log, trace};
+use log::{info, log, trace};
+use pass::GpuWork;
+use phobos::domain::All;
+use phobos::{CommandBuffer, IncompleteCmdBuffer, IncompleteCommandBuffer};
 use scheduler::{EventBus, EventContext, StoredSystem, System};
+use tokio::task::block_in_place;
 use util::mouse_position::WorldMousePosition;
 use util::SafeUnwrap;
 use world::World;
@@ -36,6 +42,46 @@ impl System<DI> for BrushSystem {
 #[derive(Debug)]
 enum BrushEvent {
     ClickPos(Vec3),
+}
+
+fn record_update_commands(
+    cmd: IncompleteCommandBuffer<All>,
+    heights: &Heightmap,
+) -> Result<CommandBuffer<All>> {
+    info!("Recording brush commands");
+    cmd.finish()
+}
+
+fn update_heightmap(uv: Vec2, bus: &EventBus<DI>) -> Result<()> {
+    let di = bus.data().read().unwrap();
+    let terrain_handle = {
+        let world = di.read_sync::<World>().unwrap();
+        world.terrain
+    };
+    // If no terrain handle was set, we cannot reasonably use a brush on it
+    let Some(terrain_handle) = terrain_handle else { bail!("Used brush but terrain handle is not set.") };
+    // Get the asset system so we can wait until the terrain is loaded.
+    // Note that this should usually complete quickly, since without a loaded
+    // terrain we cannot use a brush.
+    let assets = di.get::<AssetStorage>().unwrap();
+    assets
+        .with_when_ready(terrain_handle, |terrain| {
+            terrain.with_when_ready(bus, |heights, _, _, _| {
+                // Get the graphics context and allocate a command buffer
+                let ctx = di.get::<SharedContext>().cloned().unwrap();
+                let cmd = ctx.exec.on_domain::<All, _>(
+                    Some(ctx.pipelines.clone()),
+                    Some(ctx.descriptors.clone()),
+                )?;
+                let cmd = record_update_commands(cmd, heights)?;
+                // Submit our commands once a batch is ready
+                GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
+                Ok::<_, anyhow::Error>(())
+            })
+        })
+        .flatten()
+        .unwrap_or(Ok(()))?;
+    Ok(())
 }
 
 fn height_uv_at(world_pos: Vec3, options: &TerrainOptions) -> Vec2 {
@@ -71,6 +117,7 @@ fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
     // to do this, we need to find the UV coordinates of the heightmap texture
     // at the position we clicked at.
     let uv = height_uv_at(position, &world.terrain_options);
+    update_heightmap(uv, bus)?;
     Ok(())
 }
 

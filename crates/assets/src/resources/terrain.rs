@@ -162,6 +162,7 @@ fn load_from_files(
     let texture: Handle<Texture<SRgba<u8>>> = assets.load(TextureLoadInfo::FromPath {
         path: texture_path,
         cpu_postprocess: None,
+        usage_flags: None,
     });
     let normal_map = assets.load(NormalMapLoadInfo::FromHeightmap {
         heights,

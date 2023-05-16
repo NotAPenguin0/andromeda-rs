@@ -80,8 +80,6 @@ fn generate_terrain_mesh(options: TerrainOptions, bus: EventBus<DI>) -> Result<T
         options.patch_resolution,
         options.patch_resolution
     );
-    let resolution = options.patch_resolution as f32;
-    let patch_size = options.horizontal_scale / resolution;
     let verts: Vec<f32> = (0..options.patch_resolution)
         .into_par_iter()
         .flat_map(|x| {

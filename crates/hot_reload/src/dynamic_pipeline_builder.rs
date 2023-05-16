@@ -88,7 +88,7 @@ impl DynamicComputePipelineBuilder {
         self
     }
 
-    pub fn build(self, bus: &mut EventBus<DI>, mut cache: PipelineCache) -> Result<()> {
+    pub fn build(self, bus: &EventBus<DI>, mut cache: PipelineCache) -> Result<()> {
         let pci = self.inner.build();
         cache.create_named_compute_pipeline(pci)?;
 

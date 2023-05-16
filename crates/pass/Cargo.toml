@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
+tokio = "1.28.0"
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
 derivative = "2.2.0"
 util = { path = "../util" }

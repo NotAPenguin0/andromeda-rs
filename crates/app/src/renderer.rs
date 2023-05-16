@@ -68,7 +68,7 @@ impl AppRenderer {
         let batch = self.gfx.exec.start_submit_batch()?;
         let di = self.bus.data().read().unwrap();
         let mut work = di.write_sync::<GpuWork>().unwrap();
-        work.batch = Some(batch);
+        work.put_batch(batch);
         Ok(())
     }
 

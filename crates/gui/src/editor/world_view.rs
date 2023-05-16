@@ -1,7 +1,7 @@
-use egui::Response;
-use events::ClickWorldView;
+use egui::{PointerButton, Response};
+use events::DragOnWorldView;
 use inject::DI;
-use input::{InputState, MousePosition};
+use input::{ButtonState, InputState, MouseButton, MousePosition};
 use scheduler::EventBus;
 use util::SafeUnwrap;
 
@@ -16,16 +16,17 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
     enable_camera_over(&response, bus).safe_unwrap();
     update_screen_space_position_over(&response, bus);
 
-    if response.clicked() {
-        let di = bus.data().read().unwrap();
-        let input = di.read_sync::<InputState>().unwrap();
+    let di = bus.data().read().unwrap();
+    let input = di.read_sync::<InputState>().unwrap();
+    // Note: is_dragged_by() would not return true if the mouse is not moving
+    if response.hovered() && input.get_mouse_key(MouseButton::Left) == ButtonState::Pressed {
         let mouse = input.mouse();
         let left_top = response.rect.left_top();
         let window_space_pos = MousePosition {
             x: mouse.x - left_top.x as f64,
             y: mouse.y - left_top.y as f64,
         };
-        bus.publish(&ClickWorldView {
+        bus.publish(&DragOnWorldView {
             position: window_space_pos,
         })
         .safe_unwrap();

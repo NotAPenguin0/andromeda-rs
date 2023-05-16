@@ -7,9 +7,9 @@ impl Event for Tick {}
 
 /// Primary button click on the world view
 #[derive(Debug, Copy, Clone)]
-pub struct ClickWorldView {
-    /// Screen space position of the mouse click
+pub struct DragOnWorldView {
+    /// Current screen space position of the mouse
     pub position: MousePosition,
 }
 
-impl Event for ClickWorldView {}
+impl Event for DragOnWorldView {}

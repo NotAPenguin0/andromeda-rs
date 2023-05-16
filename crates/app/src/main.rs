@@ -19,6 +19,9 @@ fn main() -> Result<!> {
     std::env::set_var("RUST_LOG", "trace");
     pretty_env_logger::init_timed();
 
+    #[cfg(feature = "tokio-tracing")]
+    console_subscriber::init();
+
     // Initialize tokio runtime
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

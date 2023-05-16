@@ -13,6 +13,7 @@ pretty_env_logger = "0.4.0"
 tokio = { version = "1.27.0", features = ["full"] }
 phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
 egui = "0.21.0"
+console-subscriber = { version = "0.1.8", optional = true }
 
 world = { path = "../world" }
 renderer = { path = "../renderer" }
@@ -37,3 +38,4 @@ log-write-locks = ["util/log-write-locks"]
 time-locks = ["util/time-locks"]
 log-lock-backtrace = ["util/log-lock-backtrace"]
 log-locks = ["log-read-locks", "log-write-locks"]
+tokio-tracing = ["tokio/tracing", "dep:console-subscriber"]

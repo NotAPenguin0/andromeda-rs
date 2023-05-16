@@ -41,7 +41,7 @@ impl TerrainOptions {
         let resolution = self.patch_resolution as f32;
         let x = patch_x as f32;
         let y = patch_y as f32;
-        Vec2::new(x / resolution, y / resolution)
+        Vec2::new(x / (resolution - 1.0), y / (resolution - 1.0))
     }
 
     /// Returns the smallest x coordinate, this has uv.x == 0

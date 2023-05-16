@@ -1,6 +1,7 @@
 use anyhow::Result;
 use gfx::SharedContext;
 use phobos::domain::ExecutionDomain;
+use phobos::sync::submit_batch::SubmitBatch;
 use phobos::{Allocator, CommandBuffer, DefaultAllocator, FrameManager, InFlightContext, Surface};
 use winit::event_loop::{EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder, WindowId};
@@ -44,7 +45,7 @@ impl<A: Allocator> AppWindow<A> {
     /// Start a new frame and run the given function when it is ready.
     pub async fn new_frame<
         D: ExecutionDomain + 'static,
-        F: FnOnce(&Window, InFlightContext<A>) -> Result<CommandBuffer<D>>,
+        F: FnOnce(&Window, InFlightContext<A>) -> Result<SubmitBatch<D>>,
     >(
         &mut self,
         func: F,

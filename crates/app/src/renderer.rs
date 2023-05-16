@@ -1,6 +1,7 @@
 use anyhow::Result;
 use gfx::SharedContext;
 use inject::DI;
+use pass::GpuWork;
 use phobos::domain::All;
 use phobos::{
     CommandBuffer, InFlightContext, IncompleteCmdBuffer, PassBuilder, RecordGraphToCommandBuffer,
@@ -20,6 +21,7 @@ pub struct AppRenderer {
     gfx: SharedContext,
     renderer: WorldRenderer,
     ui: UIIntegration,
+    bus: EventBus<DI>,
 }
 
 impl AppRenderer {
@@ -31,9 +33,10 @@ impl AppRenderer {
         bus: EventBus<DI>,
     ) -> Result<Self> {
         Ok(Self {
-            renderer: WorldRenderer::new(gfx.clone(), bus)?,
+            renderer: WorldRenderer::new(gfx.clone(), bus.clone())?,
             ui: UIIntegration::new(event_loop, window, gfx.clone())?,
             gfx,
+            bus,
         })
     }
 
@@ -60,6 +63,15 @@ impl AppRenderer {
         self.gfx.descriptors.next_frame();
     }
 
+    // Create a new submit batch and put it in DI
+    pub fn new_submit_batch(&self) -> Result<()> {
+        let batch = self.gfx.exec.start_submit_batch()?;
+        let di = self.bus.data().read().unwrap();
+        let mut work = di.write_sync::<GpuWork>().unwrap();
+        work.batch = Some(batch);
+        Ok(())
+    }
+
     /// Render a single frame to the window. This will render both the UI and the scene.
     /// Returns a command buffer that must be passed to phobos as this frame's command buffer.
     pub fn render(
@@ -67,7 +79,7 @@ impl AppRenderer {
         window: &Window,
         world: &World,
         bus: &EventBus<DI>,
-        mut ifc: InFlightContext,
+        ifc: &mut InFlightContext,
     ) -> Result<CommandBuffer<All>> {
         self.renderer.update_output_image(&mut self.ui)?;
         let (mut graph, mut bindings) = self.renderer.redraw_world(world)?;
@@ -90,13 +102,8 @@ impl AppRenderer {
         let inject = bus.data().read().unwrap();
         let mut statistics = inject.write_sync::<RendererStatistics>().unwrap();
         let cmd = cmd.begin_section(&mut statistics, "all_render")?;
-        let cmd = graph.record(
-            cmd,
-            &bindings,
-            &mut ifc,
-            self.gfx.debug_messenger.clone(),
-            &mut statistics,
-        )?;
+        let cmd =
+            graph.record(cmd, &bindings, ifc, self.gfx.debug_messenger.clone(), &mut statistics)?;
         cmd.end_section(&mut statistics, "all_render")?.finish()
     }
 }

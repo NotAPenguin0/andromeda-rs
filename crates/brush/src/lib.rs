@@ -65,11 +65,13 @@ fn record_update_commands(
     // Bind the pipeline we will use to update the heightmap
     let cmd = cmd.bind_compute_pipeline("height_brush")?;
     // Bind the image to the descriptor, push our uvs to the shader and dispatch an invocation
-    info!("Recording brush commands");
+    // A 32x32 square around the clicked pixel will be modified
+    const SIZE: u32 = 128;
     let cmd = cmd
         .bind_storage_image(0, 0, &heights.image.image.view)?
         .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .dispatch(1, 1, 1)?;
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &SIZE)
+        .dispatch(SIZE / 16, SIZE / 16, 1)?;
     // Transition back to ShaderReadOnlyOptimal for drawing
     let cmd = cmd.transition_image(
         &heights.image.image.view,
@@ -107,7 +109,6 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>) -> Result<()> {
                 let cmd = record_update_commands(cmd, uv, heights)?;
                 // Submit our commands once a batch is ready
                 GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
-                trace!("Submitted brush commands to latest frame batch");
                 Ok::<_, anyhow::Error>(())
             })
         })
@@ -117,14 +118,16 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>) -> Result<()> {
 }
 
 fn height_uv_at(world_pos: Vec3, options: &TerrainOptions) -> Vec2 {
+    trace!("Getting UV from position {world_pos}");
     // First compute outer bounds of the terrain mesh
     let min_x = options.min_x();
     let min_y = options.min_y();
     let max_x = options.max_x();
     let max_y = options.max_y();
+    trace!("Bounds: [{min_x}, {min_y}] - [{max_x}, {max_y}]");
     // Then we get the length of the terrain in each dimension
-    let dx = max_x - min_x;
-    let dy = max_y - min_y;
+    let dx = (max_x - min_x).abs();
+    let dy = (max_y - min_y).abs();
     // Now we can simple calculate the ratio between world_pos and the length in each dimension
     // to get the uvs.
     // Note that we use the z coordinate since y is up, and our terrain is in the flat plane.
@@ -149,6 +152,7 @@ fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
     // to do this, we need to find the UV coordinates of the heightmap texture
     // at the position we clicked at.
     let uv = height_uv_at(position, &world.terrain_options);
+    trace!("UV: {uv}");
     update_heightmap(uv, bus)?;
     Ok(())
 }

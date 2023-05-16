@@ -2,7 +2,7 @@ use anyhow::Result;
 use assets::storage::AssetStorage;
 use gfx::state::RenderState;
 use gfx::{create_linear_sampler, create_raw_sampler};
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec4};
 use hot_reload::IntoDynamic;
 use inject::DI;
 use pass::FrameGraph;
@@ -11,6 +11,7 @@ use phobos::prelude as ph;
 use phobos::prelude::traits::*;
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
+use util::mouse_position::WorldMousePosition;
 use world::World;
 
 /// The terrain renderer. Stores resources it needs for rendering.
@@ -106,11 +107,22 @@ impl TerrainRenderer {
                                     .mapped_slice()?
                                     .copy_from_slice(std::slice::from_ref(&state.projection_view));
                                 let mut lighting_ubo = ifc.allocate_scratch_ubo(
-                                    std::mem::size_of::<Vec3>() as vk::DeviceSize,
+                                    std::mem::size_of::<Vec4>() as vk::DeviceSize,
                                 )?;
                                 lighting_ubo
                                     .mapped_slice()?
                                     .copy_from_slice(std::slice::from_ref(&state.sun_direction));
+                                let mut util_ubo = ifc.allocate_scratch_ubo(
+                                    std::mem::size_of::<Vec4>() as vk::DeviceSize,
+                                )?;
+                                {
+                                    let mouse = di.read_sync::<WorldMousePosition>().unwrap();
+                                    let pos =
+                                        mouse.world_space.unwrap_or(Vec3::new(0.0, -100.0, 0.0));
+                                    util_ubo
+                                        .mapped_slice()?
+                                        .copy_from_slice(std::slice::from_ref(&pos));
+                                }
                                 let tess_factor: u32 = world.options.tessellation_level;
                                 let cmd = cmd
                                     .take()
@@ -135,15 +147,16 @@ impl TerrainRenderer {
                                         &self.heightmap_sampler,
                                     )?
                                     .bind_uniform_buffer(0, 2, &lighting_ubo)?
+                                    .bind_uniform_buffer(0, 3, &util_ubo)?
                                     .bind_sampled_image(
                                         0,
-                                        3,
+                                        4,
                                         &normal_map.image.image.view,
                                         &self.linear_sampler,
                                     )?
                                     .bind_sampled_image(
                                         0,
-                                        4,
+                                        5,
                                         &color.image.view,
                                         &self.linear_sampler,
                                     )?

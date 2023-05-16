@@ -118,13 +118,11 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>) -> Result<()> {
 }
 
 fn height_uv_at(world_pos: Vec3, options: &TerrainOptions) -> Vec2 {
-    trace!("Getting UV from position {world_pos}");
     // First compute outer bounds of the terrain mesh
     let min_x = options.min_x();
     let min_y = options.min_y();
     let max_x = options.max_x();
     let max_y = options.max_y();
-    trace!("Bounds: [{min_x}, {min_y}] - [{max_x}, {max_y}]");
     // Then we get the length of the terrain in each dimension
     let dx = (max_x - min_x).abs();
     let dy = (max_y - min_y).abs();
@@ -152,7 +150,6 @@ fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
     // to do this, we need to find the UV coordinates of the heightmap texture
     // at the position we clicked at.
     let uv = height_uv_at(position, &world.terrain_options);
-    trace!("UV: {uv}");
     update_heightmap(uv, bus)?;
     Ok(())
 }

@@ -21,7 +21,8 @@ pub(crate) fn load<F: TextureFormat>(
         TextureLoadInfo::FromPath {
             path,
             cpu_postprocess,
-        } => load_from_file(path, cpu_postprocess, bus),
+            usage_flags,
+        } => load_from_file(path, cpu_postprocess, usage_flags, bus),
         TextureLoadInfo::FromRawGpu {
             image,
         } => Ok(Texture {
@@ -34,6 +35,7 @@ pub(crate) fn load<F: TextureFormat>(
 fn load_from_file<F: TextureFormat>(
     path: PathBuf,
     cpu_postprocess: Option<fn(u32, u32, &mut [F::Pixel]) -> Result<()>>,
+    usage_flags: Option<vk::ImageUsageFlags>,
     bus: EventBus<DI>,
 ) -> Result<Texture<F>> {
     let ctx = bus
@@ -62,7 +64,7 @@ fn load_from_file<F: TextureFormat>(
         width,
         height,
         F::VK_FORMAT,
-        vk::ImageUsageFlags::SAMPLED,
+        vk::ImageUsageFlags::SAMPLED | usage_flags.unwrap_or_default(),
     )?;
     info!("Successfully loaded texture {path:?}");
     Ok(Texture {

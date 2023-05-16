@@ -5,6 +5,7 @@ use anyhow::Result;
 use half::f16;
 use inject::DI;
 use log::trace;
+use phobos::vk;
 use rayon::prelude::*;
 use scheduler::EventBus;
 
@@ -55,6 +56,7 @@ fn load_from_image(info: HeightmapLoadInfo, bus: EventBus<DI>) -> Result<Heightm
     let tex_info = TextureLoadInfo::FromPath {
         path: info.path,
         cpu_postprocess: Some(normalize_height),
+        usage_flags: Some(vk::ImageUsageFlags::STORAGE),
     };
     // Because we only load one image, we can get away with not doing this in another
     // async task through the asset system. This also makes it a bit more ergonomic to

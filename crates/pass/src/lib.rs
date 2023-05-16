@@ -1,9 +1,11 @@
+use anyhow::{bail, Result};
 pub use graph::*;
 use inject::DI;
 pub use pass::*;
 use phobos::domain::All;
 use phobos::sync::submit_batch::SubmitBatch;
 use scheduler::EventBus;
+use tokio::task::block_in_place;
 
 pub mod graph;
 pub mod pass;
@@ -40,6 +42,22 @@ impl GpuWork {
         let di = bus.data().read().unwrap();
         let this = di.read_sync::<Self>().unwrap();
         this.batch_ready_rx.resubscribe()
+    }
+
+    pub fn with_batch<R, F: FnOnce(&mut SubmitBatch<All>) -> R>(
+        bus: &EventBus<DI>,
+        f: F,
+    ) -> Result<R> {
+        let mut recv = Self::receiver(bus);
+        futures::executor::block_on(recv.recv())?;
+        let di = bus.data().read().unwrap();
+        let mut this = di.write_sync::<Self>().unwrap();
+        match &mut this.batch {
+            None => {
+                bail!("Batch ready signal received but no batch found in GpuWork structure.")
+            }
+            Some(batch) => Ok(f(batch)),
+        }
     }
 }
 

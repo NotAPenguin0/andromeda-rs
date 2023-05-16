@@ -6,11 +6,19 @@ RWTexture2D<float> heights;
     uint size;
 } pc;
 
+static const float PI = 3.1415926535;
+
+// returns the weight for the brush in function of x in [0..1]
+float weight_function(float x) {
+    // in/out sin easing
+    return 1.0 - (-(cos(PI * x) - 1) / 2);
+}
+
 float calculate_weight(float distance) {
     return 1.0;
     float max_distance = sqrt(2) * pc.size / 2.0;
     float distance_ratio = distance / max_distance;
-    return exp(-distance_ratio);
+    return weight_function(distance_ratio);
 }
 
 [numthreads(16, 16, 1)]
@@ -24,6 +32,6 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
         return;
     float dist = length(float2(offset));
     float weight = calculate_weight(dist);
-    float height = heights.Load(int3(texel, 0)) + 0.1 * weight;
+    float height = heights.Load(int3(texel, 0)) + 0.01 * weight;
     heights[texel] = height;
 }

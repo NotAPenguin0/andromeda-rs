@@ -7,13 +7,16 @@ use assets::{Heightmap, Terrain, TerrainOptions};
 use events::ClickWorldView;
 use gfx::SharedContext;
 use glam::{Vec2, Vec3};
+use hot_reload::IntoDynamic;
 use inject::DI;
 use log::{info, log, trace};
 use pass::GpuWork;
 use phobos::domain::All;
-use phobos::{CommandBuffer, IncompleteCmdBuffer, IncompleteCommandBuffer};
+use phobos::{
+    vk, CommandBuffer, ComputePipelineBuilder, IncompleteCmdBuffer, IncompleteCommandBuffer,
+    PipelineStage,
+};
 use scheduler::{EventBus, EventContext, StoredSystem, System};
-use tokio::task::block_in_place;
 use util::mouse_position::WorldMousePosition;
 use util::SafeUnwrap;
 use world::World;
@@ -48,7 +51,26 @@ fn record_update_commands(
     cmd: IncompleteCommandBuffer<All>,
     heights: &Heightmap,
 ) -> Result<CommandBuffer<All>> {
-    info!("Recording brush commands");
+    // We are going to write to this image in a compute shader, so submit a barrier for this first.
+    let cmd = cmd.transition_image(
+        &heights.image.image.view,
+        PipelineStage::TOP_OF_PIPE,
+        PipelineStage::COMPUTE_SHADER,
+        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        vk::ImageLayout::GENERAL,
+        vk::AccessFlags2::NONE,
+        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
+    );
+    // Transition back to ShaderReadOnlyOptimal for drawing
+    let cmd = cmd.transition_image(
+        &heights.image.image.view,
+        PipelineStage::COMPUTE_SHADER,
+        PipelineStage::BOTTOM_OF_PIPE,
+        vk::ImageLayout::GENERAL,
+        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
+        vk::AccessFlags2::NONE,
+    );
     cmd.finish()
 }
 
@@ -150,10 +172,23 @@ fn handle_click_world_view(
     Ok(())
 }
 
+fn create_brush_pipeline(bus: &EventBus<DI>) -> Result<()> {
+    let di = bus.data().read().unwrap();
+    let gfx = di.get::<SharedContext>().cloned().unwrap();
+    ComputePipelineBuilder::new("height_brush")
+        // Make sure this pipeline is persistent so we don't constantly recompile it
+        .persistent()
+        .into_dynamic()
+        .set_shader("shaders/src/height_brush.cs.hlsl")
+        .build(bus, gfx.pipelines)?;
+    Ok(())
+}
+
 pub fn initialize(bus: &EventBus<DI>) -> Result<()> {
     let (tx, rx) = tokio::sync::mpsc::channel(4);
     let system = BrushSystem::new(tx);
     bus.add_system(system);
+    create_brush_pipeline(bus)?;
     let bus = bus.clone();
     std::thread::Builder::new()
         .name("brush-thread".into())

@@ -11,6 +11,10 @@ use input::{
     MousePosition, ScrollInfo,
 };
 use math::{Position, Rotation};
+use pass::GpuWork;
+use phobos::domain::All;
+use phobos::sync::submit_batch::SubmitBatch;
+use phobos::PipelineStage;
 use scheduler::EventBus;
 use statistics::RendererStatistics;
 use winit::event::{Event, MouseScrollDelta, WindowEvent};
@@ -84,9 +88,10 @@ impl Driver {
 
     /// Process one frame. This will update the UI and render the world.
     async fn process_frame(&mut self) -> Result<()> {
+        self.renderer.new_submit_batch()?;
         self.window.request_redraw();
         self.window
-            .new_frame(|window, ifc| {
+            .new_frame(|window, mut ifc| {
                 self.renderer.new_frame(window);
 
                 {
@@ -101,7 +106,11 @@ impl Driver {
 
                 let inject = self.bus.data().read().unwrap();
                 let world = inject.read_sync::<World>().unwrap();
-                self.renderer.render(window, &world, &self.bus, ifc)
+                let commands = self.renderer.render(window, &world, &self.bus, &mut ifc)?;
+                let mut work = inject.write_sync::<GpuWork>().unwrap();
+                let mut batch: SubmitBatch<All> = work.take_batch().unwrap();
+                batch.submit_for_present_after_all(commands, &ifc, PipelineStage::ALL_COMMANDS)?;
+                Ok(batch)
             })
             .await?;
         Ok(())

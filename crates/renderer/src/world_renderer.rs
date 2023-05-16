@@ -188,17 +188,6 @@ impl WorldRenderer {
         let resolved_depth = image!("resolved_depth");
         let tonemapped_output = VirtualResource::image(Tonemap::output_name());
 
-        // Before all regular render passes we want to execute any other requested work.
-        {
-            let di = self.bus.data().read().unwrap();
-            let mut work = di.write_sync::<GpuWork>().unwrap();
-            let resources = SceneResources {
-                color: scene_output.clone(),
-                depth: depth.clone(),
-            };
-            work.drain_record(&mut graph, &resources, &self.state, world)?;
-        }
-
         // Render terrain
         self.terrain
             .render(&mut graph, &scene_output, &depth, world, &self.state)?;

@@ -1,7 +1,6 @@
 use ::util::mouse_position::WorldMousePosition;
 use ::util::SafeUnwrap;
 use anyhow::Result;
-use brushes::*;
 pub use brushes::*;
 use enum_dispatch::enum_dispatch;
 use events::DragWorldView;

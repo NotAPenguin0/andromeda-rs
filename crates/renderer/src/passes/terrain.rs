@@ -2,7 +2,8 @@ use anyhow::Result;
 use assets::storage::AssetStorage;
 use gfx::state::RenderState;
 use gfx::{create_linear_sampler, create_raw_sampler};
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec3, Vec3Swizzles, Vec4};
+use gui::editor::WorldOverlayInfo;
 use hot_reload::IntoDynamic;
 use inject::DI;
 use pass::FrameGraph;
@@ -112,16 +113,34 @@ impl TerrainRenderer {
                                 lighting_ubo
                                     .mapped_slice()?
                                     .copy_from_slice(std::slice::from_ref(&state.sun_direction));
-                                let mut util_ubo = ifc.allocate_scratch_ubo(
-                                    std::mem::size_of::<Vec4>() as vk::DeviceSize,
-                                )?;
+                                #[derive(Copy, Clone)]
+                                #[repr(C)]
+                                struct Utils {
+                                    pub mouse_pos: Vec4,
+                                    pub mouse_uv: Vec2,
+                                    pub decal_texel_radius: u32,
+                                }
+
+                                let mut util_ubo =
+                                    ifc.allocate_scratch_ubo(std::mem::size_of::<Utils>() as u64)?;
                                 {
                                     let mouse = di.read_sync::<WorldMousePosition>().unwrap();
-                                    let pos =
-                                        mouse.world_space.unwrap_or(Vec3::new(0.0, -100.0, 0.0));
+                                    let overlay = di.read_sync::<WorldOverlayInfo>().unwrap();
+                                    let data = Utils {
+                                        mouse_pos: mouse
+                                            .world_space
+                                            .unwrap_or(Vec3::new(0.0, -100.0, 0.0))
+                                            .xyzx(),
+                                        mouse_uv: mouse.terrain_uv.unwrap_or(Vec2::new(-1.0, -1.0)),
+                                        decal_texel_radius: overlay
+                                            .brush_decal
+                                            .as_ref()
+                                            .map(|info| info.radius)
+                                            .unwrap_or_default(),
+                                    };
                                     util_ubo
                                         .mapped_slice()?
-                                        .copy_from_slice(std::slice::from_ref(&pos));
+                                        .copy_from_slice(std::slice::from_ref(&data));
                                 }
                                 let tess_factor: u32 = world.options.tessellation_level;
                                 let cmd = cmd

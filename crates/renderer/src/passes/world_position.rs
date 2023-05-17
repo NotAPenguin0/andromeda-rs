@@ -17,6 +17,7 @@ use phobos::{
 use scheduler::EventBus;
 use util::mouse_position::WorldMousePosition;
 use util::RingBuffer;
+use world::World;
 
 #[derive(Debug)]
 struct ReadbackData {
@@ -74,6 +75,7 @@ impl WorldPositionReconstruct {
 
     pub fn render<'cb>(
         &'cb mut self,
+        world: &World,
         graph: &mut FrameGraph<'cb>,
         depth: &VirtualResource,
         state: &'cb RenderState,
@@ -90,6 +92,7 @@ impl WorldPositionReconstruct {
             let data = self.full_view.mapped_slice::<Vec4>()?;
             let pos = data[cur_idx as usize];
             mouse.world_space = Some(pos.xyz());
+            mouse.terrain_uv = Some(world.terrain_options.uv_at(pos.xyz()));
         }
 
         if let Some(pos) = mouse.screen_space {

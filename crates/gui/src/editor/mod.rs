@@ -17,6 +17,19 @@ pub mod terrain_options;
 pub mod world_view;
 
 #[derive(Debug)]
+pub struct BrushDecalInfo {
+    /// Radius of the brush decal, in texels on the heightmap.
+    pub radius: u32,
+}
+
+/// Stores information on what kind of overlays must be drawn over the world view.
+/// Access through DI.
+#[derive(Debug, Default)]
+pub struct WorldOverlayInfo {
+    pub brush_decal: Option<BrushDecalInfo>,
+}
+
+#[derive(Debug)]
 pub struct Editor {
     context: egui::Context,
     bus: EventBus<DI>,
@@ -27,8 +40,9 @@ impl Editor {
     pub fn new(context: egui::Context, bus: EventBus<DI>) -> Self {
         Self {
             context,
-            bus,
+            bus: bus.clone(),
             brush_widget: BrushWidget {
+                bus,
                 settings: Default::default(),
                 active_brush: Some(Brush::new(SmoothHeight {})),
             },

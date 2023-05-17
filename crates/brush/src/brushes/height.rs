@@ -14,7 +14,6 @@ use scheduler::EventBus;
 use time::Time;
 use world::World;
 
-use crate::util::terrain_uv_at;
 use crate::{ApplyBrush, BrushSettings};
 
 /// Simple height brush that smoothly changes the height in the applied area
@@ -174,7 +173,7 @@ impl ApplyBrush for SmoothHeight {
         // We will apply our brush mainly to the heightmap texture for now. To know how
         // to do this, we need to find the UV coordinates of the heightmap texture
         // at the position we clicked at.
-        let uv = terrain_uv_at(position, &world.terrain_options);
+        let uv = world.terrain_options.uv_at(position);
         update_heightmap(uv, bus, &samplers.linear, settings)?;
         Ok(())
     }

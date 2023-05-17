@@ -6,6 +6,7 @@ use input::{ButtonState, InputState, MouseButton, MousePosition};
 use scheduler::EventBus;
 use util::SafeUnwrap;
 
+use crate::editor::brushes::BrushWidget;
 use crate::editor::camera_controller::enable_camera_over;
 use crate::util::image_provider::ImageProvider;
 use crate::util::mouse_position::update_screen_space_position_over;
@@ -13,7 +14,7 @@ use crate::widgets::resizable_image::resizable_image_window;
 
 /// # DI Access
 /// - Read [`InputState`]
-fn behaviour(response: Response, bus: &EventBus<DI>) {
+fn behaviour(response: Response, bus: &EventBus<DI>, brushes: &mut BrushWidget) {
     enable_camera_over(&response, bus).safe_unwrap();
     update_screen_space_position_over(&response, bus);
 
@@ -22,18 +23,11 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
 
     // If a drag was started, begin the brush stroke
     if response.drag_started_by(PointerButton::Primary) {
-        bus.publish(&BeginStrokeEvent {
-            settings: BrushSettings {
-                radius: 128,
-                weight: 5.0,
-            },
-            brush: Brush::new(SmoothHeight {}),
-        })
-        .safe_unwrap();
+        brushes.begin_stroke(bus).safe_unwrap();
     }
 
     if response.drag_released_by(PointerButton::Primary) {
-        bus.publish(&EndStrokeEvent).safe_unwrap();
+        brushes.end_stroke(bus).safe_unwrap();
     }
 
     // Note: is_dragged_by() would not return true if the mouse is not moving
@@ -54,7 +48,7 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
 /// Show the world view
 /// # DI Access
 /// - Write [`ImageProvider`]
-pub fn show(context: &egui::Context, bus: &EventBus<DI>) {
+pub fn show(context: &egui::Context, bus: &EventBus<DI>, brushes: &mut BrushWidget) {
     resizable_image_window(
         context,
         "World view",
@@ -64,7 +58,7 @@ pub fn show(context: &egui::Context, bus: &EventBus<DI>) {
             provider.size = size.into();
             provider.handle
         },
-        |response| behaviour(response, bus),
+        |response| behaviour(response, bus, brushes),
         (800.0, 600.0).into(),
     );
 }

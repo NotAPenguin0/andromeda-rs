@@ -1,9 +1,14 @@
 use anyhow::Result;
+use brush::{Brush, BrushSettings, SmoothHeight};
 use events::Tick;
 use inject::DI;
 use scheduler::{EventBus, EventContext, StoredSystem, System};
+use util::SafeUnwrap;
 use world::World;
 
+use crate::editor::brushes::BrushWidget;
+
+pub mod brushes;
 pub mod camera_controller;
 pub mod environment;
 pub mod performance;
@@ -15,6 +20,7 @@ pub mod world_view;
 pub struct Editor {
     context: egui::Context,
     bus: EventBus<DI>,
+    brush_widget: BrushWidget,
 }
 
 impl Editor {
@@ -22,18 +28,23 @@ impl Editor {
         Self {
             context,
             bus,
+            brush_widget: BrushWidget {
+                settings: Default::default(),
+                active_brush: Some(Brush::new(SmoothHeight {})),
+            },
         }
     }
 
-    pub fn show(&self, world: &mut World) {
+    pub fn show(&mut self, world: &mut World) {
         egui::CentralPanel::default().show(&self.context, |ui| {
             ui.heading("Editor");
 
-            world_view::show(&self.context, &self.bus);
+            world_view::show(&self.context, &self.bus, &mut self.brush_widget);
             environment::show(&self.context, world);
             render_options::show(&self.context, world);
             terrain_options::show(&self.context, &self.bus, world);
             performance::show(&self.context, &self.bus);
+            self.brush_widget.show(&self.context).safe_unwrap();
         });
 
         self.context.request_repaint();

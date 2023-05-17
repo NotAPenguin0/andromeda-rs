@@ -66,13 +66,18 @@ fn record_update_normals<'q>(
         vk::AccessFlags2::NONE,
         vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
     );
+    const NORMAL_SIZE: u32 = SIZE + 4;
     let cmd = cmd.bind_compute_pipeline("normal_recompute")?;
     let cmd = cmd
         .bind_storage_image(0, 0, &normals.image.image.view)?
         .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
         .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &SIZE)
-        .dispatch(SIZE / 16, SIZE / 16, 1)?;
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &NORMAL_SIZE)
+        .dispatch(
+            (NORMAL_SIZE as f32 / 16.0f32).ceil() as u32,
+            (NORMAL_SIZE as f32 / 16.0f32).ceil() as u32,
+            1,
+        )?;
     // Transition the normal map back to ShaderReadOnlyOptimal for drawing
     let cmd = cmd.transition_image(
         &normals.image.image.view,

@@ -1,11 +1,20 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
+use assets::storage::AssetStorage;
 use assets::{Heightmap, NormalMap};
-use glam::Vec2;
+use gfx::{Samplers, SharedContext};
+use glam::{Vec2, Vec3};
+use inject::DI;
+use pass::GpuWork;
 use phobos::domain::All;
 use phobos::{
     vk, CommandBuffer, ComputeCmdBuffer, IncompleteCmdBuffer, IncompleteCommandBuffer,
     PipelineStage, Sampler,
 };
+use scheduler::EventBus;
+use world::World;
+
+use crate::util::terrain_uv_at;
+use crate::BrushSettings;
 
 const SIZE: u32 = 256;
 
@@ -70,7 +79,7 @@ fn record_height_blur<'q>(
     Ok(cmd)
 }
 
-pub fn record_update_commands(
+fn record_update_commands(
     cmd: IncompleteCommandBuffer<All>,
     uv: Vec2,
     sampler: &Sampler,
@@ -115,4 +124,56 @@ pub fn record_update_commands(
     );
     let cmd = record_update_normals(cmd, uv, sampler, heights, normals)?;
     cmd.finish()
+}
+
+fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<()> {
+    let di = bus.data().read().unwrap();
+    let terrain_handle = {
+        let world = di.read_sync::<World>().unwrap();
+        world.terrain
+    };
+    // If no terrain handle was set, we cannot reasonably use a brush on it
+    let Some(terrain_handle) = terrain_handle else { bail!("Used brush but terrain handle is not set.") };
+    // Get the asset system so we can wait until the terrain is loaded.
+    // Note that this should usually complete quickly, since without a loaded
+    // terrain we cannot use a brush.
+    let assets = di.get::<AssetStorage>().unwrap();
+    assets
+        .with_when_ready(terrain_handle, |terrain| {
+            terrain.with_when_ready(bus, |heights, normals, _, _| {
+                // Get the graphics context and allocate a command buffer
+                let ctx = di.get::<SharedContext>().cloned().unwrap();
+                let cmd = ctx.exec.on_domain::<All, _>(
+                    Some(ctx.pipelines.clone()),
+                    Some(ctx.descriptors.clone()),
+                )?;
+                let cmd = record_update_commands(cmd, uv, sampler, heights, normals)?;
+                // Submit our commands once a batch is ready
+                GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
+                Ok::<_, anyhow::Error>(())
+            })
+        })
+        .flatten()
+        .unwrap_or(Ok(()))?;
+    Ok(())
+}
+
+pub fn apply(bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()> {
+    // If any of the values inside the position are NaN or infinite, the position is outside
+    // of the rendered terrain mesh and we do not want to actually use the brush.
+    if position.is_nan() || !position.is_finite() {
+        return Ok(());
+    }
+
+    let di = bus.data().read().unwrap();
+    let world = di.read_sync::<World>().unwrap();
+    // Grab a linear sampler to use
+    let samplers = di.get::<Samplers>().unwrap();
+
+    // We will apply our brush mainly to the heightmap texture for now. To know how
+    // to do this, we need to find the UV coordinates of the heightmap texture
+    // at the position we clicked at.
+    let uv = terrain_uv_at(position, &world.terrain_options);
+    update_heightmap(uv, bus, &samplers.linear)?;
+    Ok(())
 }

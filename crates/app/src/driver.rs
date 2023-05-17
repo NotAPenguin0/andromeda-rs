@@ -11,9 +11,6 @@ use input::{
     MousePosition, ScrollInfo,
 };
 use math::{Position, Rotation};
-use pass::GpuWork;
-use phobos::domain::All;
-use phobos::sync::submit_batch::SubmitBatch;
 use phobos::PipelineStage;
 use scheduler::EventBus;
 use statistics::RendererStatistics;
@@ -60,6 +57,7 @@ impl Driver {
         let window = AppWindow::new(frame, window, surface, ctx.clone());
         gui::initialize(renderer.ui(), &mut bus);
         pass::initialize(&bus);
+        time::initialize(&bus)?;
         brush::initialize(&bus)?;
 
         {

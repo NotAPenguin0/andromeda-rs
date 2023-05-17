@@ -5,7 +5,6 @@ use inject::DI;
 use scheduler::EventBus;
 
 use crate::widgets::aligned_label::aligned_label_with;
-use crate::widgets::drag::Drag;
 
 #[derive(Debug)]
 pub struct BrushWidget {

@@ -150,7 +150,7 @@ fn handle_begin_stroke(
 fn handle_end_stroke(
     system: &mut BrushSystem,
     _stroke: &EndStrokeEvent,
-    ctx: &mut EventContext<DI>,
+    _ctx: &mut EventContext<DI>,
 ) -> Result<()> {
     system.event_sender.blocking_send(BrushEvent::EndStroke)?;
     Ok(())

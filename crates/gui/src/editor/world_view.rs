@@ -25,7 +25,7 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
         bus.publish(&BeginStrokeEvent {
             settings: BrushSettings {
                 radius: 128,
-                weight: 1.0,
+                weight: 5.0,
             },
             brush: Brush::new(SmoothHeight {}),
         })

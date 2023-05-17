@@ -18,6 +18,7 @@ pub mod util;
 type BrushEventReceiver = tokio::sync::mpsc::Receiver<BrushEvent>;
 type BrushEventSender = tokio::sync::mpsc::Sender<BrushEvent>;
 
+/// Holds a sender to send events to the brush thread
 #[derive(Debug)]
 struct BrushSystem {
     event_sender: BrushEventSender,
@@ -33,12 +34,16 @@ impl BrushSystem {
 
 impl System<DI> for BrushSystem {
     fn initialize(event_bus: &EventBus<DI>, system: &StoredSystem<Self>) {
+        // We listen to begin and end stroke events, as well as dragging on the world view
         event_bus.subscribe(system, handle_drag_world_view);
         event_bus.subscribe(system, handle_begin_stroke);
         event_bus.subscribe(system, handle_end_stroke);
     }
 }
 
+/// Holds all brush types in an enum variant. These variants
+/// must have the same name as the corresponding brush implementation struct.
+/// The brush structs are allowed to have fields inside with extra options.
 #[enum_dispatch]
 #[derive(Debug, Copy, Clone)]
 pub enum Brush {
@@ -46,19 +51,20 @@ pub enum Brush {
 }
 
 impl Brush {
-    pub fn new<B: Into<Self>>(brush: B) -> Self {
+    /// Helper to create the brush enum more easily
+    pub fn new<B: Into<Self> + ApplyBrush>(brush: B) -> Self {
         brush.into()
     }
 }
 
 #[enum_dispatch(Brush)]
-trait ApplyBrush {
+pub trait ApplyBrush {
     fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()>;
 }
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct BrushSettings {
-    pub radius: f32,
+    pub radius: u32,
     pub weight: f32,
 }
 

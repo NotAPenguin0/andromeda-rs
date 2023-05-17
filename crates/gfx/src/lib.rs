@@ -5,7 +5,7 @@ use inject::DI;
 use phobos::{
     vk, Allocator, AppBuilder, AppSettings, DebugMessenger, DefaultAllocator, DescriptorCache,
     Device, ExecutionManager, FrameManager, GPURequirements, PhysicalDevice, PipelineCache,
-    QueueRequest, QueueType, Surface, Swapchain, VkInstance, WindowInterface,
+    QueueRequest, QueueType, Sampler, Surface, Swapchain, VkInstance, WindowInterface,
 };
 use scheduler::EventBus;
 pub use util::*;
@@ -24,6 +24,11 @@ pub struct SharedContext<A: Allocator = DefaultAllocator> {
     pub debug_messenger: Option<Arc<DebugMessenger>>,
     pub instance: Arc<VkInstance>,
     pub device: Device,
+}
+
+pub struct Samplers {
+    pub linear: Sampler,
+    pub raw: Sampler,
 }
 
 fn fill_app_settings<W: WindowInterface>(window: &W) -> AppSettings<W> {
@@ -107,6 +112,16 @@ pub fn initialize(
     };
 
     bus.data().write().unwrap().put(gfx.clone());
+
+    let linear_sampler = create_linear_sampler(&gfx)?;
+    let raw_sampler = create_raw_sampler(&gfx)?;
+
+    let samplers = Samplers {
+        linear: linear_sampler,
+        raw: raw_sampler,
+    };
+
+    bus.data().write().unwrap().put(samplers);
 
     Ok((frame, surface, gfx))
 }

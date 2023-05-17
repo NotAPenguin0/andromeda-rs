@@ -2,20 +2,15 @@ use ::util::mouse_position::WorldMousePosition;
 use ::util::SafeUnwrap;
 use anyhow::{bail, Result};
 use assets::storage::AssetStorage;
-use assets::{NormalMap, Terrain, TerrainOptions};
 use events::DragOnWorldView;
-use gfx::{create_linear_sampler, Samplers, SharedContext};
+use gfx::{Samplers, SharedContext};
 use glam::{Vec2, Vec3};
 use hot_reload::IntoDynamic;
 use inject::DI;
-use log::{info, trace};
 use pass::GpuWork;
 use phobos::domain::All;
-use phobos::{
-    vk, CommandBuffer, ComputeCmdBuffer, ComputePipelineBuilder, IncompleteCmdBuffer,
-    IncompleteCommandBuffer, PipelineStage, Sampler,
-};
-use scheduler::{EventBus, EventContext, StoredSystem, System};
+use phobos::{ComputePipelineBuilder, Sampler};
+use scheduler::{Event, EventBus, EventContext, StoredSystem, System};
 use world::World;
 
 use crate::brushes::height::record_update_commands;
@@ -27,6 +22,7 @@ pub mod util;
 type BrushEventReceiver = tokio::sync::mpsc::Receiver<BrushEvent>;
 type BrushEventSender = tokio::sync::mpsc::Sender<BrushEvent>;
 
+#[derive(Debug)]
 struct BrushSystem {
     event_sender: BrushEventSender,
 }
@@ -45,13 +41,32 @@ impl System<DI> for BrushSystem {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum Brush {
+    SmoothHeight,
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct BrushSettings {
+    pub radius: f32,
+    pub weight: f32,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct BeginStrokeEvent {
+    pub settings: BrushSettings,
+    pub brush: Brush,
+}
+
+pub struct EndStrokeEvent;
+
+impl Event for BeginStrokeEvent {}
+
+impl Event for EndStrokeEvent {}
+
 #[derive(Debug)]
 enum BrushEvent {
     StrokeAt(Vec3),
-}
-
-pub trait Brush {
-    fn apply_at(&self, position: Vec3, bus: &EventBus<DI>) -> Result<()>;
 }
 
 fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<()> {

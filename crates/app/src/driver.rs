@@ -249,6 +249,6 @@ impl Driver {
             }
             _ => (),
         };
-        Ok(ControlFlow::Wait)
+        Ok(ControlFlow::Poll)
     }
 }

@@ -35,6 +35,8 @@ impl Editor {
             terrain_options::show(&self.context, &self.bus, world);
             performance::show(&self.context, &self.bus);
         });
+
+        self.context.request_repaint();
     }
 }
 

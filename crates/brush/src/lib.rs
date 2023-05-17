@@ -1,6 +1,9 @@
 use ::util::mouse_position::WorldMousePosition;
 use ::util::SafeUnwrap;
 use anyhow::Result;
+use brushes::*;
+pub use brushes::*;
+use enum_dispatch::enum_dispatch;
 use events::DragWorldView;
 use gfx::SharedContext;
 use glam::Vec3;
@@ -36,9 +39,21 @@ impl System<DI> for BrushSystem {
     }
 }
 
+#[enum_dispatch]
 #[derive(Debug, Copy, Clone)]
 pub enum Brush {
     SmoothHeight,
+}
+
+impl Brush {
+    pub fn new<B: Into<Self>>(brush: B) -> Self {
+        brush.into()
+    }
+}
+
+#[enum_dispatch(Brush)]
+trait ApplyBrush {
+    fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()>;
 }
 
 #[derive(Debug, Copy, Clone, Default)]
@@ -68,17 +83,6 @@ enum BrushEvent {
     EndStroke,
 }
 
-fn dispatch_brush_fn(
-    bus: &EventBus<DI>,
-    position: Vec3,
-    brush: &Brush,
-    settings: &BrushSettings,
-) -> Result<()> {
-    match brush {
-        Brush::SmoothHeight => brushes::height::apply(bus, position, settings),
-    }
-}
-
 fn brush_task(bus: EventBus<DI>, mut recv: BrushEventReceiver) {
     let mut current_settings = BrushSettings::default();
     let mut current_brush = None;
@@ -97,9 +101,7 @@ fn brush_task(bus: EventBus<DI>, mut recv: BrushEventReceiver) {
                 // Only actually stroke if a brush is active
                 match &current_brush {
                     None => {}
-                    Some(brush) => {
-                        dispatch_brush_fn(&bus, position, brush, &current_settings).safe_unwrap();
-                    }
+                    Some(brush) => brush.apply(&bus, position, &current_settings).safe_unwrap(),
                 }
             }
             BrushEvent::EndStroke => {

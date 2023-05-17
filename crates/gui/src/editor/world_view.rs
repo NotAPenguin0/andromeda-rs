@@ -1,4 +1,4 @@
-use brush::{BeginStrokeEvent, Brush, EndStrokeEvent};
+use brush::{BeginStrokeEvent, Brush, EndStrokeEvent, SmoothHeight};
 use egui::{PointerButton, Response};
 use events::DragWorldView;
 use inject::DI;
@@ -24,7 +24,7 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
     if response.drag_started_by(PointerButton::Primary) {
         bus.publish(&BeginStrokeEvent {
             settings: Default::default(),
-            brush: Brush::SmoothHeight,
+            brush: Brush::new(SmoothHeight {}),
         })
         .safe_unwrap();
     }

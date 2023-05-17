@@ -10,16 +10,17 @@ static const float PI = 3.1415926535;
 
 // returns the weight for the brush in function of x in [0..1]
 float weight_function(float x) {
-    // in/out sin easing
-    // return 1.0 - (-(cos(PI * x) - 1) / 2);
-    // guassian
-    return exp(-x * x);
+    // Gaussian
+    static const float SIGMA = 0.3;
+    static const float SQRT2PI = 2.50662827463;
+    static const float W = 1.0 / (SIGMA * SQRT2PI);
+    float p = (x / SIGMA) * (x / SIGMA);
+    return W * exp(-0.5 * p);
 }
 
 float calculate_weight(float distance) {
-    return 1.0;
-    float max_distance = sqrt(2) * pc.size / 2.0;
-    float distance_ratio = distance / max_distance;
+    float max_distance = pc.size / 2.0;
+    float distance_ratio = min(1.0, distance / max_distance);
     return weight_function(distance_ratio);
 }
 
@@ -34,6 +35,6 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
         return;
     float dist = length(float2(offset));
     float weight = calculate_weight(dist);
-    float height = heights.Load(int3(texel, 0)) + 0.01 * weight;
+    float height = heights.Load(int3(texel, 0)) + 0.02 * weight;
     heights[texel] = height;
 }

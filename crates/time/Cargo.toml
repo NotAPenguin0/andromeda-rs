@@ -1,0 +1,10 @@
+[package]
+name = "time"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.70"
+events = { path = "../events" }
+inject = { path = "../inject" }
+scheduler = { path = "../scheduler" }

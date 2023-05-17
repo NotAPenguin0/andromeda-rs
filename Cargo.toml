@@ -24,6 +24,7 @@ members = [
     "crates/statistics",
     "crates/pass",
     "crates/brush",
+    "crates/time",
 ]
 
 [dependencies]

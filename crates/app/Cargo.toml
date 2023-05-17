@@ -32,6 +32,7 @@ statistics = { path = "../statistics" }
 util = { path = "../util" }
 pass = { path = "../pass" }
 brush = { path = "../brush" }
+time = { path = "../time" }
 
 [features]
 log-read-locks = ["util/log-read-locks"]

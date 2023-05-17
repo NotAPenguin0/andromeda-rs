@@ -11,7 +11,9 @@ static const float PI = 3.1415926535;
 // returns the weight for the brush in function of x in [0..1]
 float weight_function(float x) {
     // in/out sin easing
-    return 1.0 - (-(cos(PI * x) - 1) / 2);
+    // return 1.0 - (-(cos(PI * x) - 1) / 2);
+    // guassian
+    return exp(-x * x);
 }
 
 float calculate_weight(float distance) {

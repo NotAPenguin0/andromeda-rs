@@ -19,16 +19,24 @@ float sample_height(int x, int y, uint width, uint height) {
     return heightmap.SampleLevel(smp, uv, 0.0);
 }
 
+bool inside_patch_rect(int2 center, int2 offset) {
+    return abs(offset.x) <= pc.size / 2 && abs(offset.y) <= pc.size / 2;
+}
+
 [numthreads(16, 16, 1)]
 void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
     uint width, height;
     normals.GetDimensions(width, height);
-    int2 texel = int2(float2(width, height) * pc.uv);
+    int2 center = int2(float2(width, height) * pc.uv);
     int2 offset = int2(GlobalInvocationID.xy) - int(pc.size / 2);
-    texel = texel + offset;
-    if (texel.x < 0 || texel.y < 0 || texel.x >= width || texel.y >= height)
+    int2 texel = center + offset;
+    if (texel.x < 0 || texel.y < 0 || texel.x >= width || texel.y >= height) {
         return;
+    }
 
+    if (!inside_patch_rect(center, offset)) {
+        return;
+    }
 
     // We calculate the normal using a sobel filter
     // For this, we need to consider the vertices in a 3x3 area around each point.

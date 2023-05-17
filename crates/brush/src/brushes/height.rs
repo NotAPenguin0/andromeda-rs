@@ -16,14 +16,14 @@ use world::World;
 use crate::util::terrain_uv_at;
 use crate::{ApplyBrush, BrushSettings};
 
-const SIZE: u32 = 256;
-
+/// Simple height brush that smoothly changes the height in the applied area
 #[derive(Debug, Copy, Clone)]
 pub struct SmoothHeight {}
 
 fn record_update_normals<'q>(
     cmd: IncompleteCommandBuffer<'q, All>,
     uv: Vec2,
+    settings: &BrushSettings,
     sampler: &Sampler,
     heights: &Heightmap,
     normals: &NormalMap,
@@ -38,16 +38,18 @@ fn record_update_normals<'q>(
         vk::AccessFlags2::NONE,
         vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
     );
-    const NORMAL_SIZE: u32 = SIZE + 8;
+    // Add a small radius around the brush range because the normals around the entire area
+    // also need to be updated
+    let size = settings.radius + 4;
     let cmd = cmd.bind_compute_pipeline("normal_recompute")?;
     let cmd = cmd
         .bind_storage_image(0, 0, &normals.image.image.view)?
         .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
         .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &NORMAL_SIZE)
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size)
         .dispatch(
-            (NORMAL_SIZE as f32 / 16.0f32).ceil() as u32,
-            (NORMAL_SIZE as f32 / 16.0f32).ceil() as u32,
+            (size as f32 / 16.0f32).ceil() as u32,
+            (size as f32 / 16.0f32).ceil() as u32,
             1,
         )?;
     // Transition the normal map back to ShaderReadOnlyOptimal for drawing
@@ -63,28 +65,10 @@ fn record_update_normals<'q>(
     Ok(cmd)
 }
 
-fn record_height_blur<'q>(
-    cmd: IncompleteCommandBuffer<'q, All>,
-    uv: Vec2,
-    heights: &Heightmap,
-) -> Result<IncompleteCommandBuffer<'q, All>> {
-    const BLUR_SIZE: u32 = SIZE + 4;
-    let cmd = cmd.bind_compute_pipeline("blur_rect")?;
-    let cmd = cmd
-        .bind_storage_image(0, 0, &heights.image.image.view)?
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &BLUR_SIZE)
-        .dispatch(
-            (BLUR_SIZE as f32 / 16.0f32).ceil() as u32,
-            (BLUR_SIZE as f32 / 16.0f32).ceil() as u32,
-            1,
-        )?;
-    Ok(cmd)
-}
-
 fn record_update_commands(
     cmd: IncompleteCommandBuffer<All>,
     uv: Vec2,
+    settings: &BrushSettings,
     sampler: &Sampler,
     heights: &Heightmap,
     normals: &NormalMap,
@@ -105,15 +89,13 @@ fn record_update_commands(
     let cmd = cmd
         .bind_storage_image(0, 0, &heights.image.image.view)?
         .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &SIZE)
-        .dispatch(SIZE / 16, SIZE / 16, 1)?;
-    // Add a barrier to synchronize with the blur shader
-    let cmd = cmd.memory_barrier(
-        PipelineStage::COMPUTE_SHADER,
-        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
-        PipelineStage::COMPUTE_SHADER,
-        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
-    );
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &settings.weight)
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 12, &settings.radius)
+        .dispatch(
+            (settings.radius as f32 / 16.0f32).ceil() as u32,
+            (settings.radius as f32 / 16.0f32).ceil() as u32,
+            1,
+        )?;
     // Transition back to ShaderReadOnlyOptimal for drawing. This also synchronizes access to the heightmap
     // with the normal map calculation shader
     let cmd = cmd.transition_image(
@@ -125,11 +107,16 @@ fn record_update_commands(
         vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
         vk::AccessFlags2::SHADER_SAMPLED_READ,
     );
-    let cmd = record_update_normals(cmd, uv, sampler, heights, normals)?;
+    let cmd = record_update_normals(cmd, uv, settings, sampler, heights, normals)?;
     cmd.finish()
 }
 
-fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<()> {
+fn update_heightmap(
+    uv: Vec2,
+    bus: &EventBus<DI>,
+    sampler: &Sampler,
+    settings: &BrushSettings,
+) -> Result<()> {
     let di = bus.data().read().unwrap();
     let terrain_handle = {
         let world = di.read_sync::<World>().unwrap();
@@ -150,7 +137,7 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<(
                     Some(ctx.pipelines.clone()),
                     Some(ctx.descriptors.clone()),
                 )?;
-                let cmd = record_update_commands(cmd, uv, sampler, heights, normals)?;
+                let cmd = record_update_commands(cmd, uv, settings, sampler, heights, normals)?;
                 // Submit our commands once a batch is ready
                 GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
                 Ok::<_, anyhow::Error>(())
@@ -178,7 +165,7 @@ impl ApplyBrush for SmoothHeight {
         // to do this, we need to find the UV coordinates of the heightmap texture
         // at the position we clicked at.
         let uv = terrain_uv_at(position, &world.terrain_options);
-        update_heightmap(uv, bus, &samplers.linear)?;
+        update_heightmap(uv, bus, &samplers.linear, settings)?;
         Ok(())
     }
 }

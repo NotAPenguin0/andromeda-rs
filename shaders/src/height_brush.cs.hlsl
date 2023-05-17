@@ -3,6 +3,7 @@ RWTexture2D<float> heights;
 
 [[vk::push_constant]] struct PC {
     float2 uv;
+    float weight;
     uint size;
 } pc;
 
@@ -35,6 +36,6 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
         return;
     float dist = length(float2(offset));
     float weight = calculate_weight(dist);
-    float height = heights.Load(int3(texel, 0)) + 0.02 * weight;
+    float height = heights.Load(int3(texel, 0)) + weight * pc.weight;
     heights[texel] = height;
 }

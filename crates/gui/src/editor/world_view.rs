@@ -1,4 +1,4 @@
-use brush::{BeginStrokeEvent, Brush, EndStrokeEvent, SmoothHeight};
+use brush::{BeginStrokeEvent, Brush, BrushSettings, EndStrokeEvent, SmoothHeight};
 use egui::{PointerButton, Response};
 use events::DragWorldView;
 use inject::DI;
@@ -23,7 +23,10 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
     // If a drag was started, begin the brush stroke
     if response.drag_started_by(PointerButton::Primary) {
         bus.publish(&BeginStrokeEvent {
-            settings: Default::default(),
+            settings: BrushSettings {
+                radius: 128,
+                weight: 1.0,
+            },
             brush: Brush::new(SmoothHeight {}),
         })
         .safe_unwrap();

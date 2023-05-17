@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 use inject::DI;
 use scheduler::EventBus;
 
@@ -66,6 +66,25 @@ impl TerrainOptions {
     #[inline]
     pub fn max_y(&self) -> f32 {
         self.patch_coords(0, self.patch_resolution - 1).y
+    }
+
+    pub fn uv_at(&self, world_pos: Vec3) -> Vec2 {
+        // First compute outer bounds of the terrain mesh
+        let min_x = self.min_x();
+        let min_y = self.min_y();
+        let max_x = self.max_x();
+        let max_y = self.max_y();
+        // Then we get the length of the terrain in each dimension
+        let dx = (max_x - min_x).abs();
+        let dy = (max_y - min_y).abs();
+        // Now we can simple calculate the ratio between world_pos and the length in each dimension
+        // to get the uvs.
+        // Note that we use the z coordinate since y is up, and our terrain is in the flat plane.
+        // We will assume our terrain is properly centered. In this case, the uvs we get are
+        // in the [-0.5, 0.5] range, so we need to remap them to [0, 1]. Since this range is
+        // of the same size, we can just add 0.5
+        let uv = Vec2::new(world_pos.x / dx, world_pos.z / dy);
+        uv + 0.5
     }
 }
 

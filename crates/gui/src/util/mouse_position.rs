@@ -26,5 +26,6 @@ pub fn update_screen_space_position_over(response: &Response, bus: &EventBus<DI>
         // We are not over the widget, so both world and screen space positions do not exist.
         state.screen_space = None;
         state.world_space = None;
+        state.terrain_uv = None;
     }
 }

@@ -2,7 +2,7 @@ use ::util::mouse_position::WorldMousePosition;
 use inject::DI;
 use scheduler::EventBus;
 
-use crate::editor::Editor;
+use crate::editor::{Editor, WorldOverlayInfo};
 use crate::util::image_provider::ImageProvider;
 use crate::util::size::USize;
 
@@ -21,5 +21,8 @@ pub fn initialize(ctx: egui::Context, bus: &mut EventBus<DI>) {
     inject.put_sync(WorldMousePosition {
         screen_space: None,
         world_space: None,
+        terrain_uv: None,
     });
+
+    inject.put_sync(WorldOverlayInfo::default());
 }

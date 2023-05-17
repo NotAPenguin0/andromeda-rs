@@ -208,7 +208,7 @@ impl WorldRenderer {
         graph.add_pass(resolve);
         let resolved_depth = graph.latest_version(&resolved_depth)?;
         self.world_pos_reconstruct
-            .render(&mut graph, &resolved_depth, &self.state)?;
+            .render(&world, &mut graph, &resolved_depth, &self.state)?;
         // Apply tonemapping
         self.tonemap.render(&mut graph, &resolved_output)?;
         // Alias our final result to the expected name

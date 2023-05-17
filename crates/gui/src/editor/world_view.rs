@@ -23,11 +23,11 @@ fn behaviour(response: Response, bus: &EventBus<DI>, brushes: &mut BrushWidget) 
 
     // If a drag was started, begin the brush stroke
     if response.drag_started_by(PointerButton::Primary) {
-        brushes.begin_stroke(bus).safe_unwrap();
+        brushes.begin_stroke().safe_unwrap();
     }
 
     if response.drag_released_by(PointerButton::Primary) {
-        brushes.end_stroke(bus).safe_unwrap();
+        brushes.end_stroke().safe_unwrap();
     }
 
     // Note: is_dragged_by() would not return true if the mouse is not moving

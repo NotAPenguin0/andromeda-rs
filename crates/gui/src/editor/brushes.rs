@@ -4,10 +4,12 @@ use egui::{Context, Slider};
 use inject::DI;
 use scheduler::EventBus;
 
+use crate::editor::{BrushDecalInfo, WorldOverlayInfo};
 use crate::widgets::aligned_label::aligned_label_with;
 
 #[derive(Debug)]
 pub struct BrushWidget {
+    pub bus: EventBus<DI>,
     pub settings: BrushSettings,
     pub active_brush: Option<Brush>,
 }
@@ -27,24 +29,40 @@ impl BrushWidget {
                     });
                 })
             });
+        // If we have an active brush, set the overlay decal to its radius
+        let di = self.bus.data().read().unwrap();
+        let mut overlay = di.write_sync::<WorldOverlayInfo>().unwrap();
+        if self.active_brush.is_some() {
+            overlay.brush_decal = Some(BrushDecalInfo {
+                radius: self.settings.radius,
+            });
+        } else {
+            // Otherwise disable decal
+            overlay.brush_decal = None;
+        }
         Ok(())
     }
 
-    pub fn begin_stroke(&self, bus: &EventBus<DI>) -> Result<()> {
+    pub fn begin_stroke(&self) -> Result<()> {
         match &self.active_brush {
             None => {}
             Some(brush) => {
-                bus.publish(&BeginStrokeEvent {
+                self.bus.publish(&BeginStrokeEvent {
                     settings: self.settings,
-                    brush: Brush::new(SmoothHeight {}),
+                    brush: *brush,
                 })?;
             }
         }
         Ok(())
     }
 
-    pub fn end_stroke(&self, bus: &EventBus<DI>) -> Result<()> {
-        bus.publish(&EndStrokeEvent)?;
+    pub fn end_stroke(&self) -> Result<()> {
+        {
+            let di = self.bus.data().read().unwrap();
+            let mut overlay = di.write_sync::<WorldOverlayInfo>().unwrap();
+            overlay.brush_decal = None;
+        }
+        self.bus.publish(&EndStrokeEvent)?;
         Ok(())
     }
 }

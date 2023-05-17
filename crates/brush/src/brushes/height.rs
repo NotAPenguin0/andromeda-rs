@@ -11,6 +11,7 @@ use phobos::{
     PipelineStage, Sampler,
 };
 use scheduler::EventBus;
+use time::Time;
 use world::World;
 
 use crate::util::terrain_uv_at;
@@ -66,6 +67,7 @@ fn record_update_normals<'q>(
 }
 
 fn record_update_commands(
+    bus: &EventBus<DI>,
     cmd: IncompleteCommandBuffer<All>,
     uv: Vec2,
     settings: &BrushSettings,
@@ -85,11 +87,18 @@ fn record_update_commands(
     );
     // Bind the pipeline we will use to update the heightmap
     let cmd = cmd.bind_compute_pipeline("height_brush")?;
+    // Scale weight with frametime for consistency across runs and different speeds
+    let weight = {
+        let di = bus.data().read().unwrap();
+        let time = di.read_sync::<Time>().unwrap();
+        // Additionally scale down by a factor 10 so weight values are easier to use in the editor
+        settings.weight * time.delta.as_secs_f32()
+    };
     // Bind the image to the descriptor, push our uvs to the shader and dispatch our compute shader
     let cmd = cmd
         .bind_storage_image(0, 0, &heights.image.image.view)?
         .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &settings.weight)
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &weight)
         .push_constant(vk::ShaderStageFlags::COMPUTE, 12, &settings.radius)
         .dispatch(
             (settings.radius as f32 / 16.0f32).ceil() as u32,
@@ -137,7 +146,8 @@ fn update_heightmap(
                     Some(ctx.pipelines.clone()),
                     Some(ctx.descriptors.clone()),
                 )?;
-                let cmd = record_update_commands(cmd, uv, settings, sampler, heights, normals)?;
+                let cmd =
+                    record_update_commands(bus, cmd, uv, settings, sampler, heights, normals)?;
                 // Submit our commands once a batch is ready
                 GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
                 Ok::<_, anyhow::Error>(())

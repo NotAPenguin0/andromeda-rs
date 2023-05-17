@@ -19,3 +19,4 @@ assets = { path = "../assets" }
 world = { path = "../world" }
 util = { path = "../util" }
 hot_reload = { path = "../hot_reload" }
+time = { path = "../time" }

@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use assets::storage::AssetStorage;
 use assets::{NormalMap, Terrain, TerrainOptions};
 use events::DragOnWorldView;
-use gfx::{create_linear_sampler, SharedContext};
+use gfx::{create_linear_sampler, Samplers, SharedContext};
 use glam::{Vec2, Vec3};
 use hot_reload::IntoDynamic;
 use inject::DI;
@@ -50,6 +50,10 @@ enum BrushEvent {
     StrokeAt(Vec3),
 }
 
+pub trait Brush {
+    fn apply_at(&self, position: Vec3, bus: &EventBus<DI>) -> Result<()>;
+}
+
 fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<()> {
     let di = bus.data().read().unwrap();
     let terrain_handle = {
@@ -82,11 +86,7 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<(
     Ok(())
 }
 
-fn use_brush_at_position(
-    bus: &EventBus<DI>,
-    position: Vec3,
-    height_sampler: &Sampler,
-) -> Result<()> {
+fn use_brush_at_position(bus: &EventBus<DI>, position: Vec3) -> Result<()> {
     // If any of the values inside the position are NaN or infinite, the position is outside
     // of the rendered terrain mesh and we do not want to actually use the brush.
     if position.is_nan() || !position.is_finite() {
@@ -95,26 +95,23 @@ fn use_brush_at_position(
 
     let di = bus.data().read().unwrap();
     let world = di.read_sync::<World>().unwrap();
+    // Grab a linear sampler to use
+    let samplers = di.get::<Samplers>().unwrap();
 
     // We will apply our brush mainly to the heightmap texture for now. To know how
     // to do this, we need to find the UV coordinates of the heightmap texture
     // at the position we clicked at.
     let uv = terrain_uv_at(position, &world.terrain_options);
-    update_heightmap(uv, bus, height_sampler)?;
+    update_heightmap(uv, bus, &samplers.linear)?;
     Ok(())
 }
 
 fn brush_task(bus: EventBus<DI>, mut recv: BrushEventReceiver) {
-    let sampler = {
-        let di = bus.data().read().unwrap();
-        let gfx = di.get::<SharedContext>().cloned().unwrap();
-        create_linear_sampler(&gfx).unwrap()
-    };
     // While the sender is not dropped, we can keep waiting for events
     while let Some(event) = recv.blocking_recv() {
         match event {
             BrushEvent::StrokeAt(position) => {
-                use_brush_at_position(&bus, position, &sampler).safe_unwrap();
+                use_brush_at_position(&bus, position).safe_unwrap();
             }
         }
     }

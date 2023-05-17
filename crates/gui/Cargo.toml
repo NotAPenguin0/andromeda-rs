@@ -18,3 +18,4 @@ assets = { path = "../assets" }
 util = { path = "../util" }
 statistics = { path = "../statistics" }
 events = { path = "../events" }
+brush = { path = "../brush" }

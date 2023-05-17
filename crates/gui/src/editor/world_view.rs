@@ -1,5 +1,6 @@
-use egui::Response;
-use events::DragOnWorldView;
+use brush::{BeginStrokeEvent, Brush, EndStrokeEvent};
+use egui::{PointerButton, Response};
+use events::DragWorldView;
 use inject::DI;
 use input::{ButtonState, InputState, MouseButton, MousePosition};
 use scheduler::EventBus;
@@ -18,6 +19,20 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
 
     let di = bus.data().read().unwrap();
     let input = di.read_sync::<InputState>().unwrap();
+
+    // If a drag was started, begin the brush stroke
+    if response.drag_started_by(PointerButton::Primary) {
+        bus.publish(&BeginStrokeEvent {
+            settings: Default::default(),
+            brush: Brush::SmoothHeight,
+        })
+        .safe_unwrap();
+    }
+
+    if response.drag_released_by(PointerButton::Primary) {
+        bus.publish(&EndStrokeEvent).safe_unwrap();
+    }
+
     // Note: is_dragged_by() would not return true if the mouse is not moving
     if response.hovered() && input.get_mouse_key(MouseButton::Left) == ButtonState::Pressed {
         let mouse = input.mouse();
@@ -26,7 +41,7 @@ fn behaviour(response: Response, bus: &EventBus<DI>) {
             x: mouse.x - left_top.x as f64,
             y: mouse.y - left_top.y as f64,
         };
-        bus.publish(&DragOnWorldView {
+        bus.publish(&DragWorldView {
             position: window_space_pos,
         })
         .safe_unwrap();

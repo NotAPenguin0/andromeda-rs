@@ -14,9 +14,12 @@ use scheduler::EventBus;
 use world::World;
 
 use crate::util::terrain_uv_at;
-use crate::BrushSettings;
+use crate::{ApplyBrush, BrushSettings};
 
 const SIZE: u32 = 256;
+
+#[derive(Debug, Copy, Clone)]
+pub struct SmoothHeight {}
 
 fn record_update_normals<'q>(
     cmd: IncompleteCommandBuffer<'q, All>,
@@ -158,22 +161,24 @@ fn update_heightmap(uv: Vec2, bus: &EventBus<DI>, sampler: &Sampler) -> Result<(
     Ok(())
 }
 
-pub fn apply(bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()> {
-    // If any of the values inside the position are NaN or infinite, the position is outside
-    // of the rendered terrain mesh and we do not want to actually use the brush.
-    if position.is_nan() || !position.is_finite() {
-        return Ok(());
+impl ApplyBrush for SmoothHeight {
+    fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()> {
+        // If any of the values inside the position are NaN or infinite, the position is outside
+        // of the rendered terrain mesh and we do not want to actually use the brush.
+        if position.is_nan() || !position.is_finite() {
+            return Ok(());
+        }
+
+        let di = bus.data().read().unwrap();
+        let world = di.read_sync::<World>().unwrap();
+        // Grab a linear sampler to use
+        let samplers = di.get::<Samplers>().unwrap();
+
+        // We will apply our brush mainly to the heightmap texture for now. To know how
+        // to do this, we need to find the UV coordinates of the heightmap texture
+        // at the position we clicked at.
+        let uv = terrain_uv_at(position, &world.terrain_options);
+        update_heightmap(uv, bus, &samplers.linear)?;
+        Ok(())
     }
-
-    let di = bus.data().read().unwrap();
-    let world = di.read_sync::<World>().unwrap();
-    // Grab a linear sampler to use
-    let samplers = di.get::<Samplers>().unwrap();
-
-    // We will apply our brush mainly to the heightmap texture for now. To know how
-    // to do this, we need to find the UV coordinates of the heightmap texture
-    // at the position we clicked at.
-    let uv = terrain_uv_at(position, &world.terrain_options);
-    update_heightmap(uv, bus, &samplers.linear)?;
-    Ok(())
 }

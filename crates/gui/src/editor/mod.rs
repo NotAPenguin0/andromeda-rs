@@ -1,5 +1,5 @@
 use anyhow::Result;
-use brush::{Brush, BrushSettings, SmoothHeight};
+use brush::{BrushSettings, BrushType, SmoothHeight};
 use events::Tick;
 use inject::DI;
 use scheduler::{EventBus, EventContext, StoredSystem, System};
@@ -20,6 +20,11 @@ pub mod world_view;
 pub struct BrushDecalInfo {
     /// Radius of the brush decal, in texels on the heightmap.
     pub radius: f32,
+    /// Extra data that is passed to the shader if present.
+    /// Note that if this is present, the data MUST be used in the shader.
+    pub data: Option<[f32; 4]>,
+    /// Shader used for the decal
+    pub shader: String,
 }
 
 /// Stores information on what kind of overlays must be drawn over the world view.
@@ -44,7 +49,7 @@ impl Editor {
             brush_widget: BrushWidget {
                 bus,
                 settings: Default::default(),
-                active_brush: Some(Brush::new(SmoothHeight {})),
+                active_brush: Some(BrushType::new(SmoothHeight {})),
             },
         }
     }

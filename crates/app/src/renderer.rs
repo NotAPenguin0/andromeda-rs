@@ -1,11 +1,19 @@
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
+
 use anyhow::{anyhow, Result};
 use gfx::SharedContext;
 use inject::DI;
+use layout::backends::svg::SVGWriter;
+use layout::gv;
+use layout::gv::GraphBuilder;
 use pass::GpuWork;
 use phobos::domain::All;
 use phobos::sync::submit_batch::SubmitBatch;
 use phobos::{
-    CommandBuffer, InFlightContext, IncompleteCmdBuffer, PassBuilder, RecordGraphToCommandBuffer,
+    CommandBuffer, GraphViz, InFlightContext, IncompleteCmdBuffer, PassBuilder,
+    RecordGraphToCommandBuffer,
 };
 use renderer::ui_integration::UIIntegration;
 use renderer::world_renderer::WorldRenderer;
@@ -23,6 +31,31 @@ pub struct AppRenderer {
     renderer: WorldRenderer,
     ui: UIIntegration,
     bus: EventBus<DI>,
+}
+
+#[allow(dead_code)]
+fn save_dotfile<G>(graph: &G, path: &str)
+where
+    G: GraphViz, {
+    let dot = graph.dot().unwrap();
+    let dot = format!("{}", dot);
+    let mut parser = gv::DotParser::new(&dot);
+    match parser.process() {
+        Ok(g) => {
+            let mut svg = SVGWriter::new();
+            let mut builder = GraphBuilder::new();
+            builder.visit_graph(&g);
+            let mut vg = builder.get();
+            vg.do_it(false, false, false, &mut svg);
+            let svg = svg.finalize();
+            let mut f = File::create(Path::new(path)).unwrap();
+            f.write(&svg.as_bytes()).unwrap();
+        }
+        Err(e) => {
+            parser.print_error();
+            println!("dot render error: {}", e);
+        }
+    }
 }
 
 impl AppRenderer {
@@ -100,6 +133,8 @@ impl AppRenderer {
             Some(self.gfx.pipelines.clone()),
             Some(self.gfx.descriptors.clone()),
         )?;
+
+        // save_dotfile(graph.task_graph(), "graph.svg");
 
         let inject = bus.data().read().unwrap();
         let mut statistics = inject.write_sync::<RendererStatistics>().unwrap();

@@ -1,9 +1,12 @@
 use anyhow::Result;
-use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent, SmoothHeight};
+use brush::brushes::*;
+use brush::height::WeightFunction;
+use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent};
 use egui::{Context, Frame, Margin, PointerButton, Response, Slider, Ui, Vec2, WidgetText};
+use enum_dispatch::enum_dispatch;
 use events::DragWorldView;
 use inject::DI;
-use input::{ButtonState, InputState, Key, MouseButton, MousePosition};
+use input::{ButtonState, InputState, Key, MousePosition};
 use scheduler::EventBus;
 
 use crate::editor::{BrushDecalInfo, WorldOverlayInfo};
@@ -47,7 +50,7 @@ impl BrushWidget {
         egui::Window::new("Brush toolbar")
             .movable(true)
             .resizable(true)
-            .min_width(250.0)
+            .min_width(305.0)
             .show(ctx, |ui| {
                 let toolbar_button_size = 24.0;
                 let style = ui.style();
@@ -88,6 +91,36 @@ impl BrushWidget {
                     });
                     ui.separator();
                     heading_separator(ui, "Brush settings");
+                    Frame::central_panel(ui.style()).show(ui, |ui| {
+                        if let Some(brush) = &mut self.active_brush {
+                            match brush {
+                                // This is correct after running the proc macro, but IntelliJ and rust-analyzer don't like it very much.
+                                // For this reason, I've added an additional type hint in each case to make using this easier.
+                                BrushType::SmoothHeight(brush) => {
+                                    let brush: &mut SmoothHeight = brush;
+                                    aligned_label_with(ui, "Weight function", |ui| {
+                                        egui::ComboBox::from_id_source("brush_weight_fn")
+                                            .selected_text(format!("{}", brush.weight_fn))
+                                            .show_ui(ui, |ui| {
+                                                ui.selectable_value(
+                                                    &mut brush.weight_fn,
+                                                    WeightFunction::Gaussian(0.3),
+                                                    "Gaussian",
+                                                );
+                                            });
+                                    });
+                                    // Display options for each weight function separately
+                                    match &mut brush.weight_fn {
+                                        WeightFunction::Gaussian(stddev) => {
+                                            aligned_label_with(ui, "Standard deviation", |ui| {
+                                                ui.add(Slider::new(stddev, 0.0001f32..=0.40f32));
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
                 });
             });
         // If we have an active brush, set the overlay decal to its radius
@@ -96,7 +129,7 @@ impl BrushWidget {
         if self.active_brush.is_some() {
             overlay.brush_decal = Some(BrushDecalInfo {
                 radius: self.settings.radius,
-                data: None,
+                data: self.active_brush.unwrap().decal_data(),
                 shader: self.active_brush.unwrap().decal_shader().to_owned(),
             });
         } else {

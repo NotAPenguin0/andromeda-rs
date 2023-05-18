@@ -9,6 +9,8 @@ anyhow = "1.0.70"
 egui = "0.21.0"
 log = "0.4.17"
 strum = "0.24.1"
+strum_macros = "0.24.3"
+enum_dispatch = "0.3.11"
 input = { path = "../input" }
 inject = { path = "../inject" }
 math = { path = "../math" }

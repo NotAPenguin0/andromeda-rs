@@ -61,6 +61,10 @@ pub trait Brush {
         "shaders/src/brush_decal.fs.hlsl"
     }
 
+    fn decal_data(&self) -> Option<[f32; 4]> {
+        None
+    }
+
     fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()>;
 }
 

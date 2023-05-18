@@ -5,6 +5,8 @@ RWTexture2D<float> heights;
     float2 uv;
     float weight;
     uint size;
+    // If gaussian, this is sigma
+    float weight_param1;
 } pc;
 
 static const float PI = 3.1415926535;
@@ -12,11 +14,11 @@ static const float PI = 3.1415926535;
 // returns the weight for the brush in function of x in [0..1]
 float weight_function(float x) {
     // Gaussian
-    static const float SIGMA = 0.3;
+    float sigma = pc.weight_param1;
     static const float SQRT2PI = 2.50662827463;
-    static const float W = 1.0 / (SIGMA * SQRT2PI);
-    float p = (x / SIGMA) * (x / SIGMA);
-    return W * exp(-0.5 * p);
+    float w = 1.0 / (sigma * SQRT2PI);
+    float p = (x / sigma) * (x / sigma);
+    return w * exp(-0.5 * p);
 }
 
 float calculate_weight(float distance) {

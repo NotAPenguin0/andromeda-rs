@@ -53,7 +53,7 @@ impl Editor {
                     weight: 1.0,
                     invert: true,
                 },
-                active_brush: Some(BrushType::new(SmoothHeight {})),
+                active_brush: None,
             },
         }
     }

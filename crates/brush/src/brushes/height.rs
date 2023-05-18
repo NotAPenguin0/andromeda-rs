@@ -12,14 +12,31 @@ use phobos::{
     PipelineStage, Sampler,
 };
 use scheduler::EventBus;
+use strum_macros::Display;
 use time::Time;
 use world::World;
 
 use crate::{Brush, BrushSettings};
 
+#[derive(Debug, Copy, Clone, PartialEq, Display)]
+pub enum WeightFunction {
+    // Gaussian curve with given standard deviation
+    Gaussian(f32),
+}
+
+impl Default for WeightFunction {
+    fn default() -> Self {
+        // Using 0.3 for the standard deviation means the weight will be near zero
+        // at x = 1
+        WeightFunction::Gaussian(0.3)
+    }
+}
+
 /// Simple height brush that smoothly changes the height in the applied area
 #[derive(Debug, Default, Copy, Clone)]
-pub struct SmoothHeight {}
+pub struct SmoothHeight {
+    pub weight_fn: WeightFunction,
+}
 
 fn record_update_normals<'q>(
     cmd: IncompleteCommandBuffer<'q, All>,
@@ -73,6 +90,7 @@ fn record_update_commands(
     uv: Vec2,
     pixel_radius: u32,
     settings: &BrushSettings,
+    brush: &SmoothHeight,
     sampler: &Sampler,
     heights: &Heightmap,
     normals: &NormalMap,
@@ -95,17 +113,23 @@ fn record_update_commands(
         let time = di.read_sync::<Time>().unwrap();
         settings.weight * time.delta.as_secs_f32()
     };
+
     // Bind the image to the descriptor, push our uvs to the shader and dispatch our compute shader
-    let cmd = cmd
+    let mut cmd = cmd
         .bind_storage_image(0, 0, &heights.image.image.view)?
         .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
         .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &weight)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 12, &pixel_radius)
-        .dispatch(
-            (pixel_radius as f32 / 16.0f32).ceil() as u32,
-            (pixel_radius as f32 / 16.0f32).ceil() as u32,
-            1,
-        )?;
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 12, &pixel_radius);
+    match brush.weight_fn {
+        WeightFunction::Gaussian(sigma) => {
+            cmd = cmd.push_constant(vk::ShaderStageFlags::COMPUTE, 16, &sigma);
+        }
+    };
+    let cmd = cmd.dispatch(
+        (pixel_radius as f32 / 16.0f32).ceil() as u32,
+        (pixel_radius as f32 / 16.0f32).ceil() as u32,
+        1,
+    )?;
     // Transition back to ShaderReadOnlyOptimal for drawing. This also synchronizes access to the heightmap
     // with the normal map calculation shader
     let cmd = cmd.transition_image(
@@ -127,6 +151,7 @@ fn update_heightmap(
     bus: &EventBus<DI>,
     sampler: &Sampler,
     mut settings: BrushSettings,
+    brush: &SmoothHeight,
 ) -> Result<()> {
     // Inverted height brush is simply done by having a negative weight
     if settings.invert {
@@ -159,6 +184,7 @@ fn update_heightmap(
                     uv,
                     pixel_radius,
                     &settings,
+                    brush,
                     sampler,
                     heights,
                     normals,
@@ -178,6 +204,12 @@ impl Brush for SmoothHeight {
         "shaders/src/height_brush_decal.fs.hlsl"
     }
 
+    fn decal_data(&self) -> Option<[f32; 4]> {
+        Some(match self.weight_fn {
+            WeightFunction::Gaussian(sigma) => [sigma, 0.0, 0.0, 0.0],
+        })
+    }
+
     fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()> {
         // If any of the values inside the position are NaN or infinite, the position is outside
         // of the rendered terrain mesh and we do not want to actually use the brush.
@@ -193,7 +225,7 @@ impl Brush for SmoothHeight {
         // to do this, we need to find the UV coordinates of the heightmap texture
         // at the position we clicked at.
         let uv = world.terrain_options.uv_at(position);
-        update_heightmap(position, uv, bus, &samplers.linear, *settings)?;
+        update_heightmap(position, uv, bus, &samplers.linear, *settings, self)?;
         Ok(())
     }
 }

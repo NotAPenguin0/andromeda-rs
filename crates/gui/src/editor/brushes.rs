@@ -1,5 +1,5 @@
 use anyhow::Result;
-use brush::{BeginStrokeEvent, Brush, BrushSettings, EndStrokeEvent, SmoothHeight};
+use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent};
 use egui::{Context, Slider};
 use inject::DI;
 use scheduler::EventBus;
@@ -11,7 +11,7 @@ use crate::widgets::aligned_label::aligned_label_with;
 pub struct BrushWidget {
     pub bus: EventBus<DI>,
     pub settings: BrushSettings,
-    pub active_brush: Option<Brush>,
+    pub active_brush: Option<BrushType>,
 }
 
 impl BrushWidget {
@@ -35,6 +35,8 @@ impl BrushWidget {
         if self.active_brush.is_some() {
             overlay.brush_decal = Some(BrushDecalInfo {
                 radius: self.settings.radius,
+                data: None,
+                shader: self.active_brush.unwrap().decal_shader().to_owned(),
             });
         } else {
             // Otherwise disable decal

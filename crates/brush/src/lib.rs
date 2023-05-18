@@ -45,19 +45,23 @@ impl System<DI> for BrushSystem {
 /// The brush structs are allowed to have fields inside with extra options.
 #[enum_dispatch]
 #[derive(Debug, Copy, Clone)]
-pub enum Brush {
+pub enum BrushType {
     SmoothHeight,
 }
 
-impl Brush {
+impl BrushType {
     /// Helper to create the brush enum more easily
-    pub fn new<B: Into<Self> + ApplyBrush>(brush: B) -> Self {
+    pub fn new<B: Into<Self> + Brush>(brush: B) -> Self {
         brush.into()
     }
 }
 
-#[enum_dispatch(Brush)]
-pub trait ApplyBrush {
+#[enum_dispatch(BrushType)]
+pub trait Brush {
+    fn decal_shader(&self) -> &'static str {
+        "shaders/src/brush_decal.fs.hlsl"
+    }
+
     fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()>;
 }
 
@@ -70,7 +74,7 @@ pub struct BrushSettings {
 #[derive(Debug, Copy, Clone)]
 pub struct BeginStrokeEvent {
     pub settings: BrushSettings,
-    pub brush: Brush,
+    pub brush: BrushType,
 }
 
 pub struct EndStrokeEvent;
@@ -82,7 +86,7 @@ impl Event for EndStrokeEvent {}
 enum BrushEvent {
     BeginStroke {
         settings: BrushSettings,
-        brush: Brush,
+        brush: BrushType,
     },
     StrokeAt(Vec3),
     EndStroke,

@@ -1,4 +1,4 @@
-use brush::{BeginStrokeEvent, Brush, BrushSettings, EndStrokeEvent, SmoothHeight};
+use brush::{BeginStrokeEvent, BrushSettings, BrushType, EndStrokeEvent, SmoothHeight};
 use egui::{PointerButton, Response};
 use events::DragWorldView;
 use inject::DI;

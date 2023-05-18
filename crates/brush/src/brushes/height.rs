@@ -15,7 +15,7 @@ use scheduler::EventBus;
 use time::Time;
 use world::World;
 
-use crate::{ApplyBrush, BrushSettings};
+use crate::{Brush, BrushSettings};
 
 /// Simple height brush that smoothly changes the height in the applied area
 #[derive(Debug, Copy, Clone)]
@@ -169,7 +169,11 @@ fn update_heightmap(
     Ok(())
 }
 
-impl ApplyBrush for SmoothHeight {
+impl Brush for SmoothHeight {
+    fn decal_shader(&self) -> &'static str {
+        "shaders/src/height_brush_decal.fs.hlsl"
+    }
+
     fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()> {
         // If any of the values inside the position are NaN or infinite, the position is outside
         // of the rendered terrain mesh and we do not want to actually use the brush.

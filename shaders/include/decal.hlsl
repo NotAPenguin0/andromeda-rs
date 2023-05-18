@@ -1,3 +1,7 @@
+// Include this shader at the start of your custom decal shader
+
+// You may not add additional bindings
+
 struct PS_INPUT {};
 
 [[vk::binding(0, 0)]]
@@ -19,6 +23,8 @@ SamplerState smp;
 struct PC {
     uint vp_width;
     uint vp_height;
+    // Additional data you may use
+    float data[4];
 } pc;
 
 float4 screen_to_world(float4 screen_pos) {
@@ -29,8 +35,9 @@ float4 screen_to_world(float4 screen_pos) {
     return world_space;
 }
 
-float4 main(PS_INPUT input, float4 frag_pos : SV_Position) : SV_TARGET {
-    // Sample depth of the current fragment
+// Obtain the decal uv coordinates from a screen space fragment position.
+// Will discard the current fragment if it is outside of the decal.
+float2 decal_uv(float4 frag_pos) {
     float2 frag_uv = frag_pos.xy / float2(pc.vp_width, pc.vp_height);
     float px_depth = depth_rt.SampleLevel(smp, frag_uv, 0).x;
     // Compute worldspace position of fragment
@@ -42,11 +49,5 @@ float4 main(PS_INPUT input, float4 frag_pos : SV_Position) : SV_TARGET {
     float3 decal_pos = mul(decal_space_transform, world_pos).xyz;
     clip(0.5 - abs(decal_pos));
     // Compute decal uvs from position
-    float2 decal_uv = decal_pos.xy + 0.5;
-    float2 centered_uv = decal_uv * 2.0 - 1.0;
-    if (length(centered_uv) < 1.0) {
-        return float4(1.0, 0.0, 0.0, 1.0);
-    } else {
-        return float4(0.0, 0.0, 0.0, 0.0);
-    }
+    return decal_pos.xy + 0.5;
 }

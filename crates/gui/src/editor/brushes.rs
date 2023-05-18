@@ -1,6 +1,6 @@
 use anyhow::Result;
 use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent, SmoothHeight};
-use egui::{Context, PointerButton, Response, Slider};
+use egui::{Context, Frame, Margin, PointerButton, Response, Slider, Ui, Vec2, WidgetText};
 use events::DragWorldView;
 use inject::DI;
 use input::{ButtonState, InputState, Key, MouseButton, MousePosition};
@@ -47,11 +47,48 @@ impl BrushWidget {
         egui::Window::new("Brush toolbar")
             .movable(true)
             .resizable(true)
+            .min_width(250.0)
             .show(ctx, |ui| {
-                Toolbar::new(&mut self.active_brush)
-                    .tool("↕", SmoothHeight::default().into())
-                    .show(ui);
-                // "↕"
+                let toolbar_button_size = 24.0;
+                let style = ui.style();
+                let mut side_panel_frame = Frame::side_top_panel(style);
+                side_panel_frame.inner_margin.left = 0.0;
+                egui::SidePanel::left("Toolbar")
+                    .frame(side_panel_frame)
+                    .resizable(false)
+                    .exact_width(toolbar_button_size)
+                    .show_inside(ui, |ui| {
+                        ui.vertical_centered(|ui| {
+                            Toolbar::new(&mut self.active_brush)
+                                .size(toolbar_button_size)
+                                .tool("↕", SmoothHeight::default().into())
+                                .show(ui);
+                        });
+                    });
+                ui.vertical(|ui| {
+                    let heading_separator = |ui: &mut Ui, label: &str| {
+                        let mut frame = Frame::central_panel(ui.style());
+                        frame.inner_margin.bottom = 0.0;
+                        frame.inner_margin.top = 0.0;
+                        frame.show(ui, |ui| {
+                            ui.vertical_centered(|ui| {
+                                ui.heading(label);
+                            });
+                        });
+                        ui.separator();
+                    };
+                    heading_separator(ui, "Global settings");
+                    Frame::central_panel(ui.style()).show(ui, |ui| {
+                        aligned_label_with(ui, "Radius", |ui| {
+                            ui.add(Slider::new(&mut self.settings.radius, 1.0..=128.0));
+                        });
+                        aligned_label_with(ui, "Strength", |ui| {
+                            ui.add(Slider::new(&mut self.settings.weight, 0.01..=5.0));
+                        });
+                    });
+                    ui.separator();
+                    heading_separator(ui, "Brush settings");
+                });
             });
         // If we have an active brush, set the overlay decal to its radius
         let di = self.bus.data().read().unwrap();

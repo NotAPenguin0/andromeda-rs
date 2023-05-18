@@ -30,7 +30,7 @@ fn show_button(ui: &mut Ui, label: impl Into<String>, active: bool, size: f32) -
             ui.painter()
                 .rect(rect, rounding, visuals.weak_bg_fill, visuals.bg_stroke);
         } else {
-            let fill = ui.style().visuals.widgets.hovered;
+            let fill = ui.style().visuals.widgets.inactive;
             ui.painter()
                 .rect(rect, rounding, fill.bg_fill, fill.bg_stroke);
         }
@@ -79,6 +79,11 @@ impl<'t, T> Toolbar<'t, T> {
             tools: vec![],
             size: 24.0,
         }
+    }
+
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
     }
 
     pub fn tool(mut self, label: impl Into<String>, tool: T) -> Self {

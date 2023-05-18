@@ -9,7 +9,7 @@ use scheduler::EventBus;
 use crate::asset::Asset;
 use crate::handle::Handle;
 use crate::storage::AssetStorage;
-use crate::texture::format::SRgba;
+use crate::texture::format::{SRgba, TextureFormat};
 use crate::texture::{Texture, TextureLoadInfo};
 use crate::{Heightmap, HeightmapLoadInfo, NormalMap, NormalMapLoadInfo, TerrainPlane};
 
@@ -85,6 +85,20 @@ impl TerrainOptions {
         // of the same size, we can just add 0.5
         let uv = Vec2::new(world_pos.x / dx, world_pos.z / dy);
         uv + 0.5
+    }
+
+    /// Assumes square texture
+    pub fn texel_radius<F: TextureFormat>(
+        &self,
+        center: Vec3,
+        radius: f32,
+        texture: &Texture<F>,
+    ) -> u32 {
+        let center_uv = self.uv_at(center);
+        let edge_uv = self.uv_at(center + Vec3::new(radius, 0.0, 0.0));
+        let uv_diff = (edge_uv - center_uv).abs();
+        let uv_length = uv_diff.length();
+        (texture.width() as f32 * uv_length).ceil() as u32
     }
 }
 

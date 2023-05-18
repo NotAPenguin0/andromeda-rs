@@ -22,7 +22,7 @@ impl BrushWidget {
             .show(ctx, |ui| {
                 ui.collapsing("General settings", |ui| {
                     aligned_label_with(ui, "Radius", |ui| {
-                        ui.add(Slider::new(&mut self.settings.radius, 1..=512));
+                        ui.add(Slider::new(&mut self.settings.radius, 1.0..=128.0));
                     });
                     aligned_label_with(ui, "Strength", |ui| {
                         ui.add(Slider::new(&mut self.settings.weight, 0.01..=5.0));

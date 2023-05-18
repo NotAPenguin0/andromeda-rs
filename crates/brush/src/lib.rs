@@ -63,7 +63,7 @@ pub trait ApplyBrush {
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct BrushSettings {
-    pub radius: u32,
+    pub radius: f32,
     pub weight: f32,
 }
 

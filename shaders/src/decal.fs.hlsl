@@ -44,7 +44,7 @@ float4 main(PS_INPUT input, float4 frag_pos : SV_Position) : SV_TARGET {
     // Compute decal uvs from position
     float2 decal_uv = decal_pos.xy + 0.5;
     float2 centered_uv = decal_uv * 2.0 - 1.0;
-    if (length(centered_uv) < 0.2) {
+    if (length(centered_uv) < 1.0) {
         return float4(1.0, 0.0, 0.0, 1.0);
     } else {
         return float4(0.0, 0.0, 0.0, 0.0);

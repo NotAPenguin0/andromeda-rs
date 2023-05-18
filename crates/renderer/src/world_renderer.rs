@@ -215,8 +215,6 @@ impl WorldRenderer {
             .build();
         graph.add_pass(resolve);
         let resolved_depth = graph.latest_version(&resolved_depth)?;
-        self.world_pos_reconstruct
-            .render(&world, &mut graph, &resolved_depth, &self.state)?;
         // Render decal
         self.terrain_decal.render(
             &mut graph,
@@ -225,6 +223,8 @@ impl WorldRenderer {
             world,
             &self.state,
         )?;
+        self.world_pos_reconstruct
+            .render(&world, &mut graph, &resolved_depth, &self.state)?;
         // Apply tonemapping
         self.tonemap.render(&mut graph, &resolved_output)?;
         // Alias our final result to the expected name

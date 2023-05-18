@@ -31,7 +31,7 @@ fn record_update_normals<'q>(
     // Transition the normal map for writing
     let cmd = cmd.transition_image(
         &normals.image.image.view,
-        PipelineStage::TOP_OF_PIPE,
+        PipelineStage::FRAGMENT_SHADER,
         PipelineStage::COMPUTE_SHADER,
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::ImageLayout::GENERAL,
@@ -77,7 +77,7 @@ fn record_update_commands(
     // We are going to write to this image in a compute shader, so submit a barrier for this first.
     let cmd = cmd.transition_image(
         &heights.image.image.view,
-        PipelineStage::TOP_OF_PIPE,
+        PipelineStage::TESSELLATION_EVALUATION_SHADER,
         PipelineStage::COMPUTE_SHADER,
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         vk::ImageLayout::GENERAL,

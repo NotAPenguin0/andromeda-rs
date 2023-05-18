@@ -95,48 +95,48 @@ impl WorldPositionReconstruct {
             mouse.terrain_uv = Some(world.terrain_options.uv_at(pos.xyz()));
         }
 
+        let mut pass = PassBuilder::new("world_pos_reconstruct")
+            .sample_image(&graph.latest_version(depth)?, PipelineStage::COMPUTE_SHADER);
+
         if let Some(pos) = mouse.screen_space {
             // This data entry is coming from a valid submission
             data.valid = true;
             let sampler = &self.sampler;
             let view = &self.full_view;
-            let pass = PassBuilder::new("world_pos_reconstruct")
-                .sample_image(&graph.latest_version(depth)?, PipelineStage::COMPUTE_SHADER)
-                .execute_fn(move |cmd, ifc, bindings, stats| {
-                    #[repr(C)]
-                    struct CameraData {
-                        inv_projection: Mat4,
-                        inv_view: Mat4,
-                    }
-                    let mut cam_view =
-                        ifc.allocate_scratch_ubo(2 * std::mem::size_of::<Mat4>() as u64)?;
-                    let cam_data = cam_view.mapped_slice::<CameraData>()?;
-                    cam_data[0].inv_projection = state.inverse_projection;
-                    cam_data[0].inv_view = state.inverse_view;
-                    cmd.bind_compute_pipeline("world_pos_reconstruct")?
-                        .resolve_and_bind_sampled_image(
-                            0,
-                            0,
-                            &image!("resolved_depth"),
-                            &sampler,
-                            &bindings,
-                        )?
-                        .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &pos)
-                        .push_constant(
-                            vk::ShaderStageFlags::COMPUTE,
-                            std::mem::size_of::<Vec2>() as u32,
-                            &cur_idx,
-                        )
-                        .bind_storage_buffer(0, 1, view)?
-                        .bind_uniform_buffer(0, 2, &cam_view)?
-                        .dispatch(1, 1, 1)
-                })
-                .build();
-            graph.add_pass(pass);
+            pass = pass.execute_fn(move |cmd, ifc, bindings, stats| {
+                #[repr(C)]
+                struct CameraData {
+                    inv_projection: Mat4,
+                    inv_view: Mat4,
+                }
+                let mut cam_view =
+                    ifc.allocate_scratch_ubo(2 * std::mem::size_of::<Mat4>() as u64)?;
+                let cam_data = cam_view.mapped_slice::<CameraData>()?;
+                cam_data[0].inv_projection = state.inverse_projection;
+                cam_data[0].inv_view = state.inverse_view;
+                cmd.bind_compute_pipeline("world_pos_reconstruct")?
+                    .resolve_and_bind_sampled_image(
+                        0,
+                        0,
+                        &image!("resolved_depth"),
+                        &sampler,
+                        &bindings,
+                    )?
+                    .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &pos)
+                    .push_constant(
+                        vk::ShaderStageFlags::COMPUTE,
+                        std::mem::size_of::<Vec2>() as u32,
+                        &cur_idx,
+                    )
+                    .bind_storage_buffer(0, 1, view)?
+                    .bind_uniform_buffer(0, 2, &cam_view)?
+                    .dispatch(1, 1, 1)
+            })
         } else {
             // We didn't submit anything for this entry, so it is invalid.
             data.valid = false;
         }
+        graph.add_pass(pass.build());
         Ok(())
     }
 }

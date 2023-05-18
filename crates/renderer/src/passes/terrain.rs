@@ -42,14 +42,14 @@ impl TerrainRenderer {
             .blend_attachment_none()
             .tessellation(4, vk::PipelineTessellationStateCreateFlags::empty())
             .into_dynamic()
-            .attach_shader("shaders/src/terrain.vert.hlsl", vk::ShaderStageFlags::VERTEX)
-            .attach_shader("shaders/src/terrain.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
+            .attach_shader("shaders/src/terrain.vs.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/terrain.fs.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .attach_shader(
-                "shaders/src/terrain.hull.hlsl",
+                "shaders/src/terrain.hs.hlsl",
                 vk::ShaderStageFlags::TESSELLATION_CONTROL,
             )
             .attach_shader(
-                "shaders/src/terrain.dom.hlsl",
+                "shaders/src/terrain.ds.hlsl",
                 vk::ShaderStageFlags::TESSELLATION_EVALUATION,
             )
             .build(bus, ctx.pipelines.clone())?;

@@ -34,8 +34,8 @@ impl AtmosphereRenderer {
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
             .samples(vk::SampleCountFlags::TYPE_8) // TODO: config, sample shading
             .into_dynamic()
-            .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
-            .attach_shader("shaders/src/atmosphere.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
+            .attach_shader("shaders/src/fullscreen.vs.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/atmosphere.fs.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(bus, ctx.pipelines.clone())?;
 
         Ok(AtmosphereRenderer {

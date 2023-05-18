@@ -71,11 +71,10 @@ impl TerrainDecal {
                                 let mouse = di.read_sync::<WorldMousePosition>().unwrap();
                                 let overlay = di.read_sync::<WorldOverlayInfo>().unwrap();
                                 let Some(decal) = &overlay.brush_decal else { return Ok(cmd) };
-                                let Some(mut pos) = mouse.world_space else { return Ok(cmd) };
-                                let decal_radius = decal.radius as f32;
-                                let decal_radius_inverse = 1.0 / decal_radius;
+                                let Some(pos) = mouse.world_space else { return Ok(cmd) };
+                                let decal_radius_inverse = 1.0 / decal.radius;
                                 let transform = Mat4::from_scale_rotation_translation(
-                                    Vec3::splat(decal_radius),
+                                    Vec3::splat(decal.radius),
                                     Quat::from_rotation_x(90.0f32.to_radians()),
                                     pos,
                                 );
@@ -92,12 +91,11 @@ impl TerrainDecal {
                                 let mut transform_data = ifc.allocate_scratch_ubo(
                                     std::mem::size_of_val(&transforms) as u64,
                                 )?;
-                                pos.y -= decal_radius / 2.0;
                                 transform_data.mapped_slice()?.copy_from_slice(&transforms);
                                 let mut sizes = ifc.allocate_scratch_ubo(8)?;
                                 sizes
                                     .mapped_slice()?
-                                    .copy_from_slice(&[decal_radius, decal_radius_inverse]);
+                                    .copy_from_slice(&[decal.radius, decal_radius_inverse]);
                                 cmd = cmd
                                     .bind_graphics_pipeline("terrain_decal")?
                                     .full_viewport_scissor()

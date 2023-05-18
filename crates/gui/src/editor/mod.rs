@@ -19,7 +19,7 @@ pub mod world_view;
 #[derive(Debug)]
 pub struct BrushDecalInfo {
     /// Radius of the brush decal, in texels on the heightmap.
-    pub radius: u32,
+    pub radius: f32,
 }
 
 /// Stores information on what kind of overlays must be drawn over the world view.

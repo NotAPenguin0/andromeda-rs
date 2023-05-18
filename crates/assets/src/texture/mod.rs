@@ -44,3 +44,13 @@ impl<F: TextureFormat + 'static> Asset for Texture<F> {
         loader::load(info, bus)
     }
 }
+
+impl<F: TextureFormat> Texture<F> {
+    pub fn width(&self) -> u32 {
+        self.image.width()
+    }
+
+    pub fn height(&self) -> u32 {
+        self.image.height()
+    }
+}

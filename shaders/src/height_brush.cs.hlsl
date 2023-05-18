@@ -25,15 +25,25 @@ float calculate_weight(float distance) {
     return weight_function(distance_ratio);
 }
 
+bool inside_patch_rect(int2 center, int2 offset) {
+    return abs(offset.x) <= pc.size / 2 && abs(offset.y) <= pc.size / 2;
+}
+
 [numthreads(16, 16, 1)]
 void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
     uint w, h;
     heights.GetDimensions(w, h);
-    int2 texel = int2(float2(w, h) * pc.uv);
+    int2 center = int2(float2(w, h) * pc.uv);
     int2 offset = int2(GlobalInvocationID.xy) - int(pc.size / 2);
-    texel = texel + offset;
-    if (texel.x < 0 || texel.y < 0 || texel.x >= w || texel.y >= h)
+    int2 texel = center + offset;
+    if (texel.x < 0 || texel.y < 0 || texel.x >= w || texel.y >= h) {
         return;
+    }
+
+    if (!inside_patch_rect(center, offset)) {
+        return;
+    }
+
     float dist = length(float2(offset));
     float weight = calculate_weight(dist);
     float height = heights.Load(int3(texel, 0)) + weight * pc.weight;

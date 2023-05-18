@@ -18,7 +18,7 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         Self {
-            sun_direction: Rotation(Vec3::new(45f32.to_radians(), 0.0, 0.0)),
+            sun_direction: Rotation(Vec3::new(12.0f32.to_radians(), 0.0, 0.0)),
             atmosphere: AtmosphereInfo::earth(),
             terrain: None,
             options: Default::default(),

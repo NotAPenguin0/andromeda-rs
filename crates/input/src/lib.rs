@@ -22,6 +22,7 @@ pub enum MouseButton {
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum Key {
     Shift,
+    Escape,
 }
 
 #[derive(Default, Debug, Clone, Copy)]

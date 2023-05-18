@@ -14,7 +14,7 @@ use math::{Position, Rotation};
 use phobos::PipelineStage;
 use scheduler::EventBus;
 use statistics::RendererStatistics;
-use winit::event::{Event, MouseScrollDelta, WindowEvent};
+use winit::event::{ElementState, Event, MouseScrollDelta, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::Window;
 use world::World;
@@ -141,8 +141,26 @@ impl Driver {
                     WindowEvent::ReceivedCharacter(_) => {}
                     WindowEvent::Focused(_) => {}
                     WindowEvent::KeyboardInput {
+                        input,
                         ..
-                    } => {}
+                    } => match input.virtual_keycode {
+                        None => {}
+                        Some(VirtualKeyCode::Escape) => match input.state {
+                            ElementState::Pressed => {
+                                self.bus.publish(&InputEvent::Button(KeyState {
+                                    state: ButtonState::Pressed,
+                                    button: Key::Escape,
+                                }))?;
+                            }
+                            ElementState::Released => {
+                                self.bus.publish(&InputEvent::Button(KeyState {
+                                    state: ButtonState::Released,
+                                    button: Key::Escape,
+                                }))?;
+                            }
+                        },
+                        Some(_) => {}
+                    },
                     WindowEvent::ModifiersChanged(state) => {
                         if state.shift() {
                             self.bus.publish(&InputEvent::Button(KeyState {

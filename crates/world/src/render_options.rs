@@ -7,7 +7,7 @@ pub struct RenderOptions {
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
-            tessellation_level: 8,
+            tessellation_level: 128,
             wireframe: false,
         }
     }

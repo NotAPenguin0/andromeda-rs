@@ -17,8 +17,6 @@ struct DSOutput {
     float4 Position : SV_POSITION;
     [[vk::location(0)]]
     float2 UV : UV0;
-    [[vk::location(1)]]
-    float3 WorldPos : WPOS0;
 };
 
 [[vk::push_constant]]
@@ -48,7 +46,6 @@ DSOutput main(ConstantsHSOutput input, float2 TessCoord : SV_DomainLocation, con
     float2 uv = lerp(uv0, uv1, TessCoord.y);
     
     position.y = heightmap.SampleLevel(smp, uv, 0.0) * pc.height_scaling;
-    output.WorldPos = position.xyz;
     output.Position = mul(projection_view, position);
     output.UV = uv;
     return output;

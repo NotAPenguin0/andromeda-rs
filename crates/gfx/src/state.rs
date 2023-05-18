@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3};
+use glam::{Mat4, UVec2, Vec3};
 use phobos::VirtualResource;
 
 pub struct SceneResources {
@@ -29,4 +29,6 @@ pub struct RenderState {
     pub sun_direction: Vec3,
     /// Camera position in world space
     pub cam_position: Vec3,
+    /// Main render target size in pixels
+    pub render_size: UVec2,
 }

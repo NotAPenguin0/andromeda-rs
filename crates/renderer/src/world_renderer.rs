@@ -13,10 +13,11 @@ use world::World;
 
 use crate::passes::atmosphere::AtmosphereRenderer;
 use crate::passes::terrain::TerrainRenderer;
+use crate::passes::terrain_decal::TerrainDecal;
 use crate::passes::world_position::WorldPositionReconstruct;
 use crate::postprocess::tonemap::Tonemap;
 use crate::ui_integration::UIIntegration;
-use crate::util::targets::{RenderTargets, SizeGroup};
+use crate::util::targets::{RenderTargets, SizeGroup, TargetSize};
 
 /// The world renderer is responsible for all the rendering logic
 /// of the scene.
@@ -27,6 +28,7 @@ pub struct WorldRenderer {
     atmosphere: AtmosphereRenderer,
     terrain: TerrainRenderer,
     world_pos_reconstruct: WorldPositionReconstruct,
+    terrain_decal: TerrainDecal,
     state: RenderState,
 }
 
@@ -93,7 +95,8 @@ impl WorldRenderer {
             tonemap,
             atmosphere: AtmosphereRenderer::new(ctx.clone(), &mut bus)?,
             terrain: TerrainRenderer::new(ctx.clone(), &mut bus)?,
-            world_pos_reconstruct: WorldPositionReconstruct::new(ctx, &mut bus)?,
+            world_pos_reconstruct: WorldPositionReconstruct::new(ctx.clone(), &mut bus)?,
+            terrain_decal: TerrainDecal::new(ctx, bus.clone())?,
             bus,
             state,
         })
@@ -131,13 +134,17 @@ impl WorldRenderer {
         targets.next_frame();
     }
 
-    /// Get the current render aspect ratio.
     /// # DI Access
     /// - Read [`RenderTargets`]
-    pub fn aspect_ratio(&self) -> f32 {
+    pub fn output_resolution(&self) -> TargetSize {
         let inject = self.bus.data().read().unwrap();
         let targets = inject.read_sync::<RenderTargets>().unwrap();
-        let resolution = targets.size_group_resolution(SizeGroup::OutputResolution);
+        targets.size_group_resolution(SizeGroup::OutputResolution)
+    }
+
+    /// Get the current render aspect ratio.
+    pub fn aspect_ratio(&self) -> f32 {
+        let resolution = self.output_resolution();
         resolution.width as f32 / resolution.height as f32
     }
 
@@ -161,6 +168,7 @@ impl WorldRenderer {
         self.state.inverse_view_rotation =
             Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.sun_direction = -world.sun_direction.front_direction();
+        self.state.render_size = self.output_resolution().into();
         Ok(())
     }
 
@@ -209,6 +217,14 @@ impl WorldRenderer {
         let resolved_depth = graph.latest_version(&resolved_depth)?;
         self.world_pos_reconstruct
             .render(&world, &mut graph, &resolved_depth, &self.state)?;
+        // Render decal
+        self.terrain_decal.render(
+            &mut graph,
+            &resolved_output,
+            &resolved_depth,
+            world,
+            &self.state,
+        )?;
         // Apply tonemapping
         self.tonemap.render(&mut graph, &resolved_output)?;
         // Alias our final result to the expected name

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 use derivative::Derivative;
 use gfx::{PairedImageView, SharedContext};
+use glam::UVec2;
 use phobos::{vk, DeletionQueue, Image, ImageView, PhysicalResourceBindings};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
@@ -16,6 +17,15 @@ impl TargetSize {
         TargetSize {
             width,
             height,
+        }
+    }
+}
+
+impl From<TargetSize> for UVec2 {
+    fn from(value: TargetSize) -> Self {
+        Self {
+            x: value.width,
+            y: value.height,
         }
     }
 }

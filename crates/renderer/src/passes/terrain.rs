@@ -113,35 +113,6 @@ impl TerrainRenderer {
                                 lighting_ubo
                                     .mapped_slice()?
                                     .copy_from_slice(std::slice::from_ref(&state.sun_direction));
-                                #[derive(Copy, Clone)]
-                                #[repr(C)]
-                                struct Utils {
-                                    pub mouse_pos: Vec4,
-                                    pub mouse_uv: Vec2,
-                                    pub decal_texel_radius: u32,
-                                }
-
-                                let mut util_ubo =
-                                    ifc.allocate_scratch_ubo(std::mem::size_of::<Utils>() as u64)?;
-                                {
-                                    let mouse = di.read_sync::<WorldMousePosition>().unwrap();
-                                    let overlay = di.read_sync::<WorldOverlayInfo>().unwrap();
-                                    let data = Utils {
-                                        mouse_pos: mouse
-                                            .world_space
-                                            .unwrap_or(Vec3::new(0.0, -100.0, 0.0))
-                                            .xyzx(),
-                                        mouse_uv: mouse.terrain_uv.unwrap_or(Vec2::new(-1.0, -1.0)),
-                                        decal_texel_radius: overlay
-                                            .brush_decal
-                                            .as_ref()
-                                            .map(|info| info.radius)
-                                            .unwrap_or_default(),
-                                    };
-                                    util_ubo
-                                        .mapped_slice()?
-                                        .copy_from_slice(std::slice::from_ref(&data));
-                                }
                                 let tess_factor: u32 = world.options.tessellation_level;
                                 let cmd = cmd
                                     .take()
@@ -166,16 +137,15 @@ impl TerrainRenderer {
                                         &self.heightmap_sampler,
                                     )?
                                     .bind_uniform_buffer(0, 2, &lighting_ubo)?
-                                    .bind_uniform_buffer(0, 3, &util_ubo)?
                                     .bind_sampled_image(
                                         0,
-                                        4,
+                                        3,
                                         &normal_map.image.image.view,
                                         &self.linear_sampler,
                                     )?
                                     .bind_sampled_image(
                                         0,
-                                        5,
+                                        4,
                                         &color.image.view,
                                         &self.linear_sampler,
                                     )?

@@ -1,9 +1,9 @@
 use anyhow::Result;
-use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent};
+use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent, SmoothHeight};
 use egui::{Context, PointerButton, Response, Slider};
 use events::DragWorldView;
 use inject::DI;
-use input::{ButtonState, InputState, MouseButton, MousePosition};
+use input::{ButtonState, InputState, Key, MouseButton, MousePosition};
 use scheduler::EventBus;
 
 use crate::editor::{BrushDecalInfo, WorldOverlayInfo};
@@ -54,7 +54,12 @@ impl BrushWidget {
                     aligned_label_with(ui, "Strength", |ui| {
                         ui.add(Slider::new(&mut self.settings.weight, 0.01..=5.0));
                     });
-                })
+                });
+                ui.collapsing("Brushes", |ui| {
+                    if ui.button("↕").clicked() {
+                        self.active_brush = Some(BrushType::new(SmoothHeight {}));
+                    }
+                });
             });
         // If we have an active brush, set the overlay decal to its radius
         let di = self.bus.data().read().unwrap();
@@ -76,6 +81,9 @@ impl BrushWidget {
         let di = self.bus.data().read().unwrap();
         let input = di.read_sync::<InputState>().unwrap();
 
+        if input.get_key(Key::Escape) == ButtonState::Pressed {
+            self.active_brush = None;
+        }
         // If a drag was started, begin the brush stroke
         if response.drag_started_by(PointerButton::Primary) {
             self.settings.invert = false;

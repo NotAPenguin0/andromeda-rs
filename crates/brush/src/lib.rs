@@ -50,7 +50,6 @@ pub enum BrushType {
 }
 
 impl BrushType {
-    /// Helper to create the brush enum more easily
     pub fn new<B: Into<Self> + Brush>(brush: B) -> Self {
         brush.into()
     }

@@ -18,7 +18,7 @@ use world::World;
 use crate::{Brush, BrushSettings};
 
 /// Simple height brush that smoothly changes the height in the applied area
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct SmoothHeight {}
 
 fn record_update_normals<'q>(
@@ -187,7 +187,6 @@ impl Brush for SmoothHeight {
 
         let di = bus.data().read().unwrap();
         let world = di.read_sync::<World>().unwrap();
-        // Grab a linear sampler to use
         let samplers = di.get::<Samplers>().unwrap();
 
         // We will apply our brush mainly to the heightmap texture for now. To know how

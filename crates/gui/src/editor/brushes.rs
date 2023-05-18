@@ -8,6 +8,7 @@ use scheduler::EventBus;
 
 use crate::editor::{BrushDecalInfo, WorldOverlayInfo};
 use crate::widgets::aligned_label::aligned_label_with;
+use crate::widgets::toolbar::Toolbar;
 
 #[derive(Debug)]
 pub struct BrushWidget {
@@ -43,23 +44,14 @@ impl BrushWidget {
 
 impl BrushWidget {
     pub fn show(&mut self, ctx: &Context) -> Result<()> {
-        egui::Window::new("Brushes")
+        egui::Window::new("Brush toolbar")
             .movable(true)
             .resizable(true)
             .show(ctx, |ui| {
-                ui.collapsing("General settings", |ui| {
-                    aligned_label_with(ui, "Radius", |ui| {
-                        ui.add(Slider::new(&mut self.settings.radius, 1.0..=128.0));
-                    });
-                    aligned_label_with(ui, "Strength", |ui| {
-                        ui.add(Slider::new(&mut self.settings.weight, 0.01..=5.0));
-                    });
-                });
-                ui.collapsing("Brushes", |ui| {
-                    if ui.button("↕").clicked() {
-                        self.active_brush = Some(BrushType::new(SmoothHeight {}));
-                    }
-                });
+                Toolbar::new(&mut self.active_brush)
+                    .tool("↕", SmoothHeight::default().into())
+                    .show(ui);
+                // "↕"
             });
         // If we have an active brush, set the overlay decal to its radius
         let di = self.bus.data().read().unwrap();

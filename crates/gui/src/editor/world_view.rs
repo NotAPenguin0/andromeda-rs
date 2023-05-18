@@ -17,32 +17,7 @@ use crate::widgets::resizable_image::resizable_image_window;
 fn behaviour(response: Response, bus: &EventBus<DI>, brushes: &mut BrushWidget) {
     enable_camera_over(&response, bus).safe_unwrap();
     update_screen_space_position_over(&response, bus);
-
-    let di = bus.data().read().unwrap();
-    let input = di.read_sync::<InputState>().unwrap();
-
-    // If a drag was started, begin the brush stroke
-    if response.drag_started_by(PointerButton::Primary) {
-        brushes.begin_stroke().safe_unwrap();
-    }
-
-    if response.drag_released_by(PointerButton::Primary) {
-        brushes.end_stroke().safe_unwrap();
-    }
-
-    // Note: is_dragged_by() would not return true if the mouse is not moving
-    if response.hovered() && input.get_mouse_key(MouseButton::Left) == ButtonState::Pressed {
-        let mouse = input.mouse();
-        let left_top = response.rect.left_top();
-        let window_space_pos = MousePosition {
-            x: mouse.x - left_top.x as f64,
-            y: mouse.y - left_top.y as f64,
-        };
-        bus.publish(&DragWorldView {
-            position: window_space_pos,
-        })
-        .safe_unwrap();
-    }
+    brushes.control(&response).safe_unwrap();
 }
 
 /// Show the world view

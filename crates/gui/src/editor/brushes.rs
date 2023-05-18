@@ -1,7 +1,9 @@
 use anyhow::Result;
 use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent};
-use egui::{Context, Slider};
+use egui::{Context, PointerButton, Response, Slider};
+use events::DragWorldView;
 use inject::DI;
+use input::{ButtonState, InputState, MouseButton, MousePosition};
 use scheduler::EventBus;
 
 use crate::editor::{BrushDecalInfo, WorldOverlayInfo};
@@ -12,6 +14,31 @@ pub struct BrushWidget {
     pub bus: EventBus<DI>,
     pub settings: BrushSettings,
     pub active_brush: Option<BrushType>,
+}
+
+impl BrushWidget {
+    fn begin_stroke(&self) -> Result<()> {
+        match &self.active_brush {
+            None => {}
+            Some(brush) => {
+                self.bus.publish(&BeginStrokeEvent {
+                    settings: self.settings,
+                    brush: *brush,
+                })?;
+            }
+        }
+        Ok(())
+    }
+
+    fn end_stroke(&self) -> Result<()> {
+        {
+            let di = self.bus.data().read().unwrap();
+            let mut overlay = di.write_sync::<WorldOverlayInfo>().unwrap();
+            overlay.brush_decal = None;
+        }
+        self.bus.publish(&EndStrokeEvent)?;
+        Ok(())
+    }
 }
 
 impl BrushWidget {
@@ -45,26 +72,38 @@ impl BrushWidget {
         Ok(())
     }
 
-    pub fn begin_stroke(&self) -> Result<()> {
-        match &self.active_brush {
-            None => {}
-            Some(brush) => {
-                self.bus.publish(&BeginStrokeEvent {
-                    settings: self.settings,
-                    brush: *brush,
-                })?;
-            }
-        }
-        Ok(())
-    }
+    pub fn control(&mut self, response: &Response) -> Result<()> {
+        let di = self.bus.data().read().unwrap();
+        let input = di.read_sync::<InputState>().unwrap();
 
-    pub fn end_stroke(&self) -> Result<()> {
-        {
-            let di = self.bus.data().read().unwrap();
-            let mut overlay = di.write_sync::<WorldOverlayInfo>().unwrap();
-            overlay.brush_decal = None;
+        // If a drag was started, begin the brush stroke
+        if response.drag_started_by(PointerButton::Primary) {
+            self.settings.invert = false;
+            self.begin_stroke()?;
+        } else if response.drag_started_by(PointerButton::Secondary) {
+            self.settings.invert = true;
+            self.begin_stroke()?;
         }
-        self.bus.publish(&EndStrokeEvent)?;
+
+        if response.drag_released_by(PointerButton::Primary)
+            || response.drag_released_by(PointerButton::Secondary)
+        {
+            self.end_stroke()?;
+        }
+
+        if response.dragged_by(PointerButton::Primary)
+            || response.dragged_by(PointerButton::Secondary)
+        {
+            let mouse = input.mouse();
+            let left_top = response.rect.left_top();
+            let window_space_pos = MousePosition {
+                x: mouse.x - left_top.x as f64,
+                y: mouse.y - left_top.y as f64,
+            };
+            self.bus.publish(&DragWorldView {
+                position: window_space_pos,
+            })?;
+        }
         Ok(())
     }
 }

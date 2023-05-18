@@ -15,6 +15,7 @@ use phobos::{
     VirtualResource,
 };
 use scheduler::EventBus;
+use statistics::TimedCommandBuffer;
 use util::mouse_position::WorldMousePosition;
 use world::World;
 
@@ -89,7 +90,7 @@ impl TerrainDecal {
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
             .sample_image(&graph.latest_version(&depth)?, PipelineStage::FRAGMENT_SHADER)
             .execute_fn(move |cmd, ifc, bindings, stats| {
-                let mut cmd = Some(cmd);
+                let mut cmd = Some(cmd.begin_section(stats, "brush_decal")?);
                 if let Some(terrain) = world.terrain {
                     let di = bus.data().read().unwrap();
                     let assets = di.get::<AssetStorage>().unwrap();
@@ -157,7 +158,7 @@ impl TerrainDecal {
                         None => {}
                     }
                 }
-                Ok(cmd.unwrap())
+                Ok(cmd.unwrap().end_section(stats, "brush_decal")?)
             })
             .build();
         graph.add_pass(pass);

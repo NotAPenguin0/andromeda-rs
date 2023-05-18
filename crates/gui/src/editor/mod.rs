@@ -48,7 +48,11 @@ impl Editor {
             bus: bus.clone(),
             brush_widget: BrushWidget {
                 bus,
-                settings: Default::default(),
+                settings: BrushSettings {
+                    radius: 32.0,
+                    weight: 1.0,
+                    invert: true,
+                },
                 active_brush: Some(BrushType::new(SmoothHeight {})),
             },
         }

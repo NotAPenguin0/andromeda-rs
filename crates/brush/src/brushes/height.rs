@@ -126,8 +126,12 @@ fn update_heightmap(
     uv: Vec2,
     bus: &EventBus<DI>,
     sampler: &Sampler,
-    settings: &BrushSettings,
+    mut settings: BrushSettings,
 ) -> Result<()> {
+    // Inverted height brush is simply done by having a negative weight
+    if settings.invert {
+        settings.weight = -settings.weight;
+    }
     let di = bus.data().read().unwrap();
     let (terrain_handle, opts) = {
         let world = di.read_sync::<World>().unwrap();
@@ -154,7 +158,7 @@ fn update_heightmap(
                     cmd,
                     uv,
                     pixel_radius,
-                    settings,
+                    &settings,
                     sampler,
                     heights,
                     normals,
@@ -190,7 +194,7 @@ impl Brush for SmoothHeight {
         // to do this, we need to find the UV coordinates of the heightmap texture
         // at the position we clicked at.
         let uv = world.terrain_options.uv_at(position);
-        update_heightmap(position, uv, bus, &samplers.linear, settings)?;
+        update_heightmap(position, uv, bus, &samplers.linear, *settings)?;
         Ok(())
     }
 }

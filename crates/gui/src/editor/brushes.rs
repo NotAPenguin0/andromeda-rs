@@ -64,7 +64,7 @@ impl BrushWidget {
                         ui.vertical_centered(|ui| {
                             Toolbar::new(&mut self.active_brush)
                                 .size(toolbar_button_size)
-                                .tool("↕", SmoothHeight::default().into())
+                                .tool("↕", "Height brush", SmoothHeight::default().into())
                                 .show(ui);
                         });
                     });

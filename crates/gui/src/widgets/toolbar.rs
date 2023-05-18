@@ -5,6 +5,7 @@ use egui::{
 
 pub struct ToolButton<T> {
     label: String,
+    tooltip: String,
     tool: T,
 }
 
@@ -42,6 +43,7 @@ fn show_button(ui: &mut Ui, label: impl Into<String>, active: bool, size: f32) -
 impl<T> ToolButton<T> {
     fn show(self, ui: &mut Ui, active: bool, size: f32) -> InnerResponse<T> {
         let response = show_button(ui, self.label, active, size);
+        let response = response.on_hover_text(self.tooltip);
         InnerResponse {
             inner: self.tool,
             response,
@@ -50,9 +52,10 @@ impl<T> ToolButton<T> {
 }
 
 impl<T> ToolButton<T> {
-    pub fn new(label: impl Into<String>, tool: T) -> Self {
+    pub fn new(label: impl Into<String>, tooltip: impl Into<String>, tool: T) -> Self {
         Self {
             label: label.into(),
+            tooltip: tooltip.into(),
             tool,
         }
     }
@@ -86,8 +89,8 @@ impl<'t, T> Toolbar<'t, T> {
         self
     }
 
-    pub fn tool(mut self, label: impl Into<String>, tool: T) -> Self {
-        let button = ToolButton::new(label, tool);
+    pub fn tool(mut self, icon: impl Into<String>, tooltip: impl Into<String>, tool: T) -> Self {
+        let button = ToolButton::new(icon, tooltip, tool);
         self.tools.push(button);
         self
     }
@@ -101,7 +104,9 @@ impl<'t, T> Toolbar<'t, T> {
                     *self.active = Some(response.inner);
                 }
             }
-            if show_button(ui, "🚫", false, self.size).clicked() {
+            let cancel_response = show_button(ui, "🚫", false, self.size);
+            let cancel_response = cancel_response.on_hover_text("Disable brush");
+            if cancel_response.clicked() {
                 *self.active = None;
             }
         });

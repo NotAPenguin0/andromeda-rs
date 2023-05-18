@@ -101,7 +101,7 @@ impl WorldPositionReconstruct {
             let sampler = &self.sampler;
             let view = &self.full_view;
             let pass = PassBuilder::new("world_pos_reconstruct")
-                .sample_image(&depth, PipelineStage::COMPUTE_SHADER)
+                .sample_image(&graph.latest_version(depth)?, PipelineStage::COMPUTE_SHADER)
                 .execute_fn(move |cmd, ifc, bindings, stats| {
                     #[repr(C)]
                     struct CameraData {

@@ -46,8 +46,8 @@ impl WorldRenderer {
             .cull_mask(vk::CullModeFlags::NONE)
             .samples(vk::SampleCountFlags::TYPE_8) // TODO: Config, etc.
             .into_dynamic()
-            .attach_shader("shaders/src/simple_mesh.vert.hlsl", vk::ShaderStageFlags::VERTEX)
-            .attach_shader("shaders/src/solid_color.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
+            .attach_shader("shaders/src/simple_mesh.vs.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/solid_color.fs.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(&mut bus, ctx.pipelines.clone())?;
 
         let mut targets = RenderTargets::new(ctx.clone())?;

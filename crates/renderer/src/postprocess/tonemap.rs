@@ -31,8 +31,8 @@ impl Tonemap {
             .depth(false, false, false, vk::CompareOp::ALWAYS)
             .blend_attachment_none()
             .into_dynamic()
-            .attach_shader("shaders/src/fullscreen.vert.hlsl", vk::ShaderStageFlags::VERTEX)
-            .attach_shader("shaders/src/tonemap.frag.hlsl", vk::ShaderStageFlags::FRAGMENT)
+            .attach_shader("shaders/src/fullscreen.vs.hlsl", vk::ShaderStageFlags::VERTEX)
+            .attach_shader("shaders/src/tonemap.fs.hlsl", vk::ShaderStageFlags::FRAGMENT)
             .build(bus, ctx.pipelines.clone())?;
 
         targets.register_color_target(

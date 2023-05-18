@@ -49,7 +49,7 @@ impl NormalMap {
         ComputePipelineBuilder::new("terrain_normals")
             .persistent()
             .into_dynamic()
-            .set_shader("shaders/src/terrain_normals.comp.hlsl")
+            .set_shader("shaders/src/terrain_normals.cs.hlsl")
             .build(bus, ctx.pipelines)
     }
 }

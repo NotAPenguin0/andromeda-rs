@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use half::f16;
 use image::DynamicImage;
 use phobos::vk;
-use phobos::vk::Format;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::texture::buffer::ImageBuffer;

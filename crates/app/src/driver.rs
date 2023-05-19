@@ -71,7 +71,7 @@ impl Driver {
             let mut world = inject.write_sync::<World>().unwrap();
             let assets = inject.get::<AssetStorage>().unwrap();
             world.terrain = Some(assets.load(TerrainLoadInfo::FromHeightmap {
-                height_path: "data/heightmaps/mountain.png".into(),
+                height_path: "data/heightmaps/deccer.png".into(),
                 texture_path: "data/textures/blank.png".into(),
                 options: world.terrain_options,
             }));

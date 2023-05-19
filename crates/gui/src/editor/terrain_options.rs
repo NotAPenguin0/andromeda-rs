@@ -23,7 +23,7 @@ pub fn show(context: &egui::Context, bus: &EventBus<DI>, world: &mut World) {
                 .suffix(" m")
                 .show(ui);
             dirty |= aligned_label_with(ui, "Patch resolution", |ui| {
-                ui.add(Slider::new(&mut world.terrain_options.patch_resolution, 1..=32))
+                ui.add(Slider::new(&mut world.terrain_options.patch_resolution, 1..=64))
                     .changed()
             })
             .inner;

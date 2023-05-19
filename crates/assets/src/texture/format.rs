@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use half::f16;
 use image::DynamicImage;
 use phobos::vk;
+use phobos::vk::Format;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::texture::buffer::ImageBuffer;
@@ -54,6 +55,18 @@ impl TextureFormat for Grayscale<u16> {
     fn from_dynamic_image(img: DynamicImage) -> ImageBuffer<Self::Pixel> {
         let img = img.into_luma16();
         ImageBuffer::from_raw(img.into_raw())
+    }
+}
+
+impl TextureFormat for Grayscale<f32> {
+    type Pixel = LumaPixel<f32>;
+    const VK_FORMAT: vk::Format = vk::Format::R32_SFLOAT;
+
+    fn from_dynamic_image(img: DynamicImage) -> ImageBuffer<Self::Pixel> {
+        let img = img.into_luma16();
+        let raw = img.into_raw();
+        let as_fp = raw.into_par_iter().map(|px| px as f32).collect::<Vec<_>>();
+        ImageBuffer::from_raw(as_fp)
     }
 }
 

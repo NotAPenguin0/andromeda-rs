@@ -1,3 +1,4 @@
+use anyhow::Result;
 use assets::handle::Handle;
 use assets::storage::AssetStorage;
 use assets::texture::format::{SRgba, TextureFormat};
@@ -6,7 +7,7 @@ use assets::{Heightmap, NormalMap, Terrain, TerrainOptions, TerrainPlane};
 use glam::Vec3;
 use inject::DI;
 use phobos::domain::ExecutionDomain;
-use phobos::{vk, IncompleteCommandBuffer, PipelineStage};
+use phobos::{vk, ComputeCmdBuffer, IncompleteCommandBuffer, PipelineStage};
 use scheduler::EventBus;
 use world::World;
 
@@ -76,4 +77,9 @@ pub fn prepare_for_read<'q, D: ExecutionDomain, F: TextureFormat>(
         vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
         dst_access,
     )
+}
+
+pub fn dispatch_patch_rect<C: ComputeCmdBuffer>(cmd: C, radius: u32, local_size: u32) -> Result<C> {
+    let invocations = (radius as f32 / local_size as f32).ceil() as u32;
+    cmd.dispatch(invocations, invocations, 1)
 }

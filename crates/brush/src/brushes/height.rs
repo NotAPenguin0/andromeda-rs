@@ -17,7 +17,8 @@ use time::Time;
 use world::World;
 
 use crate::util::{
-    get_terrain_info, position_on_terrain, prepare_for_read, prepare_for_write, with_ready_terrain,
+    dispatch_patch_rect, get_terrain_info, position_on_terrain, prepare_for_read,
+    prepare_for_write, with_ready_terrain,
 };
 use crate::{Brush, BrushSettings};
 
@@ -66,7 +67,6 @@ impl SmoothHeight {
         // Bind the pipeline we will use to update the heightmap
         let cmd = cmd.bind_compute_pipeline("height_brush")?;
         // Scale weight with frametime for consistency across runs and different frame rates
-
         let weight = {
             let di = bus.data().read().unwrap();
             let time = di.read_sync::<Time>().unwrap();
@@ -84,11 +84,7 @@ impl SmoothHeight {
                 cmd = cmd.push_constant(vk::ShaderStageFlags::COMPUTE, 16, &sigma);
             }
         };
-        let cmd = cmd.dispatch(
-            (radius as f32 / 16.0f32).ceil() as u32,
-            (radius as f32 / 16.0f32).ceil() as u32,
-            1,
-        )?;
+        let cmd = dispatch_patch_rect(cmd, radius, 16)?;
         Ok(prepare_for_read(
             &heights.image,
             cmd,
@@ -120,12 +116,8 @@ impl SmoothHeight {
             .bind_storage_image(0, 0, &normals.image.image.view)?
             .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
             .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-            .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size)
-            .dispatch(
-                (size as f32 / 16.0f32).ceil() as u32,
-                (size as f32 / 16.0f32).ceil() as u32,
-                1,
-            )?;
+            .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size);
+        let cmd = dispatch_patch_rect(cmd, size, 16)?;
         Ok(prepare_for_read(
             &normals.image,
             cmd,

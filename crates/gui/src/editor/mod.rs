@@ -3,8 +3,8 @@ use std::time::Duration;
 use anyhow::Result;
 use brush::{BrushSettings, BrushType, SmoothHeight};
 use derivative::Derivative;
-use egui_notify::Toasts;
-use error::ErrorEvent;
+use egui_notify::{ToastLevel, Toasts};
+use error::{MessageEvent, MessageLevel};
 use events::Tick;
 use inject::DI;
 use scheduler::{EventBus, EventContext, StoredSystem, System};
@@ -108,14 +108,24 @@ fn handle_editor_tick(
     Ok(())
 }
 
+fn to_toast_level(lvl: MessageLevel) -> ToastLevel {
+    match lvl {
+        MessageLevel::Success => ToastLevel::Success,
+        MessageLevel::Info => ToastLevel::Info,
+        MessageLevel::Warning => ToastLevel::Warning,
+        MessageLevel::Error => ToastLevel::Error,
+    }
+}
+
 fn handle_error_sink(
     editor: &mut Editor,
-    event: ErrorEvent,
+    event: MessageEvent,
     _ctx: &mut EventContext<DI>,
 ) -> Result<()> {
     editor
         .notify
-        .error(event.message)
+        .basic(event.message)
+        .set_level(to_toast_level(event.level))
         .set_closable(true)
         .set_duration(Some(Duration::from_secs(3)));
     Ok(())

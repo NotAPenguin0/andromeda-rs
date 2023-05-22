@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use error::publish_success;
 use gfx::util::paired_image_view::PairedImageView;
 use gfx::util::sampler::create_raw_sampler;
 use gfx::SharedContext;
@@ -117,6 +118,7 @@ fn load_from_heights(heights: Handle<Heightmap>, bus: EventBus<DI>) -> Result<No
                 bus.clone(),
             )?;
             info!("Generated normal map");
+            publish_success!(bus, "Successfully generated normal map.");
             Ok(NormalMap {
                 image,
             })

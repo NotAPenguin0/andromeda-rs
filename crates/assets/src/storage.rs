@@ -119,7 +119,7 @@ impl AssetStorage {
     // Simple logging for now, we can add an event for this later and let systems subscribe to it.
     fn report_failure(bus: &EventBus<DI>, error: &anyhow::Error) {
         error!("Error loading asset: {error}");
-        let _ = publish_error!(bus, "Error loading asset: {error}");
+        publish_error!(bus, "Error loading asset: {error}");
     }
 
     /// Acquire a read lock to the asset container and call the given callback with this lock.

@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use error::publish_success;
 use gfx::{upload_image, SharedContext};
 use inject::DI;
 use log::{info, trace};
@@ -67,6 +68,7 @@ fn load_from_file<F: TextureFormat>(
         vk::ImageUsageFlags::SAMPLED | usage_flags.unwrap_or_default(),
     )?;
     info!("Successfully loaded texture {path:?}");
+    publish_success!(bus, "Successfully loaded texture {path:?}");
     Ok(Texture {
         image,
         marker: PhantomData,

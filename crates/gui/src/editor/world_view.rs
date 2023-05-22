@@ -1,8 +1,5 @@
-use brush::{BeginStrokeEvent, BrushSettings, BrushType, EndStrokeEvent, SmoothHeight};
-use egui::{PointerButton, Response};
-use events::DragWorldView;
+use egui::Response;
 use inject::DI;
-use input::{ButtonState, InputState, MouseButton, MousePosition};
 use scheduler::EventBus;
 use util::SafeUnwrap;
 

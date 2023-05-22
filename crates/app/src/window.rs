@@ -2,7 +2,7 @@ use anyhow::Result;
 use gfx::SharedContext;
 use phobos::domain::ExecutionDomain;
 use phobos::sync::submit_batch::SubmitBatch;
-use phobos::{Allocator, CommandBuffer, DefaultAllocator, FrameManager, InFlightContext, Surface};
+use phobos::{Allocator, DefaultAllocator, FrameManager, InFlightContext, Surface};
 use winit::event_loop::{EventLoop, EventLoopBuilder};
 use winit::window::{Window, WindowBuilder, WindowId};
 

@@ -1,15 +1,13 @@
 use anyhow::{bail, Result};
-use assets::storage::AssetStorage;
 use assets::{Heightmap, NormalMap, TerrainOptions};
-use gfx::{Samplers, SharedContext};
+use gfx::SharedContext;
 use glam::{Vec2, Vec3};
 use inject::DI;
-use log::trace;
 use pass::GpuWork;
 use phobos::domain::All;
 use phobos::{
     vk, CommandBuffer, ComputeCmdBuffer, IncompleteCmdBuffer, IncompleteCommandBuffer,
-    PipelineStage, Sampler,
+    PipelineStage,
 };
 use scheduler::EventBus;
 use strum_macros::Display;

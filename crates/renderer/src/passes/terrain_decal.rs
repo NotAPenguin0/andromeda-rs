@@ -8,7 +8,6 @@ use glam::{Mat4, Quat, Vec3};
 use gui::editor::WorldOverlayInfo;
 use hot_reload::IntoDynamic;
 use inject::DI;
-use log::info;
 use pass::FrameGraph;
 use phobos::{
     vk, Allocator, GraphicsCmdBuffer, PassBuilder, PipelineBuilder, PipelineStage, Sampler,
@@ -60,7 +59,7 @@ impl TerrainDecal {
 }
 
 impl TerrainDecal {
-    pub fn new(ctx: gfx::SharedContext, mut bus: EventBus<DI>) -> Result<Self> {
+    pub fn new(ctx: gfx::SharedContext, bus: EventBus<DI>) -> Result<Self> {
         Ok(Self {
             bus,
             depth_sampler: create_raw_sampler(&ctx)?,
@@ -96,7 +95,7 @@ impl TerrainDecal {
                     let assets = di.get::<AssetStorage>().unwrap();
                     match assets
                         .with_if_ready(terrain, |terrain| {
-                            terrain.with_if_ready(assets, |heightmap, normal_map, color, mesh| {
+                            terrain.with_if_ready(assets, |_, _, _, _| {
                                 let mut cmd = cmd.take().unwrap();
                                 let mouse = di.read_sync::<WorldMousePosition>().unwrap();
                                 let overlay = di.read_sync::<WorldOverlayInfo>().unwrap();

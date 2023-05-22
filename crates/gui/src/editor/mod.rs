@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use brush::{BrushSettings, BrushType, SmoothHeight};
+use brush::BrushSettings;
 use derivative::Derivative;
 use egui_notify::{ToastLevel, Toasts};
 use error::{MessageEvent, MessageLevel};

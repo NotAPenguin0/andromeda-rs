@@ -1,5 +1,5 @@
 use egui::Response;
-use glam::{Vec2, Vec3};
+use glam::Vec2;
 use inject::DI;
 use input::InputState;
 use scheduler::EventBus;

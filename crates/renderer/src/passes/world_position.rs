@@ -1,18 +1,15 @@
-use std::iter::Cycle;
-
 use anyhow::Result;
 use egui::Vec2;
 use gfx::create_raw_sampler;
 use gfx::state::RenderState;
-use glam::{Mat4, Vec3, Vec4, Vec4Swizzles};
+use glam::{Mat4, Vec4, Vec4Swizzles};
 use hot_reload::IntoDynamic;
 use inject::DI;
-use log::{info, trace};
 use pass::FrameGraph;
 use phobos::wsi::frame::FRAMES_IN_FLIGHT;
 use phobos::{
-    image, vk, Buffer, BufferView, ComputeCmdBuffer, ComputePipelineBuilder, GraphicsCmdBuffer,
-    MemoryType, PassBuilder, PipelineStage, Sampler, VirtualResource,
+    image, vk, Buffer, BufferView, ComputeCmdBuffer, ComputePipelineBuilder, MemoryType,
+    PassBuilder, PipelineStage, Sampler, VirtualResource,
 };
 use scheduler::EventBus;
 use util::mouse_position::WorldMousePosition;
@@ -103,7 +100,7 @@ impl WorldPositionReconstruct {
             data.valid = true;
             let sampler = &self.sampler;
             let view = &self.full_view;
-            pass = pass.execute_fn(move |cmd, ifc, bindings, stats| {
+            pass = pass.execute_fn(move |cmd, ifc, bindings, _stats| {
                 #[repr(C)]
                 struct CameraData {
                     inv_projection: Mat4,

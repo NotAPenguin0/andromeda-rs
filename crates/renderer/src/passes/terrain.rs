@@ -2,8 +2,7 @@ use anyhow::Result;
 use assets::storage::AssetStorage;
 use gfx::state::RenderState;
 use gfx::{create_linear_sampler, create_raw_sampler};
-use glam::{Mat4, Vec2, Vec3, Vec3Swizzles, Vec4};
-use gui::editor::WorldOverlayInfo;
+use glam::{Mat4, Vec4};
 use hot_reload::IntoDynamic;
 use inject::DI;
 use pass::FrameGraph;
@@ -12,7 +11,6 @@ use phobos::prelude as ph;
 use phobos::prelude::traits::*;
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
-use util::mouse_position::WorldMousePosition;
 use world::World;
 
 /// The terrain renderer. Stores resources it needs for rendering.

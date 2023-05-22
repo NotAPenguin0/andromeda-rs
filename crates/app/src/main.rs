@@ -8,7 +8,6 @@ extern crate pretty_env_logger;
 use anyhow::Result;
 use error::publish_error;
 use log::error;
-use util::safe_error::SafeUnwrap;
 use winit::event_loop::ControlFlow;
 
 use crate::driver::Driver;

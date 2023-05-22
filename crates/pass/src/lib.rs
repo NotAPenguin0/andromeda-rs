@@ -5,7 +5,6 @@ pub use pass::*;
 use phobos::domain::All;
 use phobos::sync::submit_batch::SubmitBatch;
 use scheduler::EventBus;
-use tokio::task::block_in_place;
 
 pub mod graph;
 pub mod pass;

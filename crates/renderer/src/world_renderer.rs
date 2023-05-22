@@ -1,12 +1,12 @@
 use anyhow::Result;
 use camera::CameraState;
-use gfx::state::{RenderState, SceneResources};
+use gfx::state::RenderState;
 use gfx::SharedContext;
 use glam::{Mat3, Mat4};
 use gui::util::image_provider::ImageProvider;
 use hot_reload::IntoDynamic;
 use inject::DI;
-use pass::{FrameGraph, GpuWork};
+use pass::FrameGraph;
 use phobos::{image, vk, PassBuilder, PhysicalResourceBindings, PipelineBuilder, VirtualResource};
 use scheduler::EventBus;
 use world::World;

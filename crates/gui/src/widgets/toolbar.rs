@@ -1,7 +1,4 @@
-use egui::{
-    Align, Align2, Context, FontSelection, InnerResponse, NumExt, Response, RichText,
-    SelectableLabel, Sense, TextStyle, Ui, Vec2, Widget, WidgetText,
-};
+use egui::{InnerResponse, NumExt, Response, RichText, Sense, TextStyle, Ui, Vec2, WidgetText};
 
 pub struct ToolButton<T> {
     label: String,

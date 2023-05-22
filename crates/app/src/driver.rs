@@ -71,7 +71,7 @@ impl Driver {
             let mut world = inject.write_sync::<World>().unwrap();
             let assets = inject.get::<AssetStorage>().unwrap();
             world.terrain = Some(assets.load(TerrainLoadInfo::FromHeightmap {
-                height_path: "data/heightmaps/deccer.png".into(),
+                height_path: "data/heightmaps/mountain.png".into(),
                 texture_path: "data/textures/blank.png".into(),
                 options: world.terrain_options,
             }));
@@ -102,7 +102,7 @@ impl Driver {
                         .new_frame();
                 }
 
-                self.bus.publish(&Tick)?;
+                self.bus.publish(Tick)?;
 
                 let inject = self.bus.data().read().unwrap();
                 let world = inject.read_sync::<World>().unwrap();
@@ -147,13 +147,13 @@ impl Driver {
                         None => {}
                         Some(VirtualKeyCode::Escape) => match input.state {
                             ElementState::Pressed => {
-                                self.bus.publish(&InputEvent::Button(KeyState {
+                                self.bus.publish(InputEvent::Button(KeyState {
                                     state: ButtonState::Pressed,
                                     button: Key::Escape,
                                 }))?;
                             }
                             ElementState::Released => {
-                                self.bus.publish(&InputEvent::Button(KeyState {
+                                self.bus.publish(InputEvent::Button(KeyState {
                                     state: ButtonState::Released,
                                     button: Key::Escape,
                                 }))?;
@@ -163,12 +163,12 @@ impl Driver {
                     },
                     WindowEvent::ModifiersChanged(state) => {
                         if state.shift() {
-                            self.bus.publish(&InputEvent::Button(KeyState {
+                            self.bus.publish(InputEvent::Button(KeyState {
                                 state: ButtonState::Pressed,
                                 button: Key::Shift,
                             }))?;
                         } else {
-                            self.bus.publish(&InputEvent::Button(KeyState {
+                            self.bus.publish(InputEvent::Button(KeyState {
                                 state: ButtonState::Released,
                                 button: Key::Shift,
                             }))?;
@@ -188,11 +188,11 @@ impl Driver {
                             .unwrap()
                             .mouse();
                         // Publish two events: One for the absolute mouse position, one for the mouse movement
-                        self.bus.publish(&InputEvent::MousePosition(MousePosition {
+                        self.bus.publish(InputEvent::MousePosition(MousePosition {
                             x: position.x,
                             y: position.y,
                         }))?;
-                        self.bus.publish(&InputEvent::MouseMove(MouseDelta {
+                        self.bus.publish(InputEvent::MouseMove(MouseDelta {
                             x: position.x - prev.x,
                             y: position.y - prev.y,
                         }))?;
@@ -209,13 +209,13 @@ impl Driver {
                     } => {
                         match delta {
                             MouseScrollDelta::LineDelta(x, y) => {
-                                self.bus.publish(&InputEvent::Scroll(ScrollInfo {
+                                self.bus.publish(InputEvent::Scroll(ScrollInfo {
                                     delta_x: x,
                                     delta_y: y,
                                 }))?;
                             }
                             MouseScrollDelta::PixelDelta(px) => {
-                                self.bus.publish(&InputEvent::Scroll(ScrollInfo {
+                                self.bus.publish(InputEvent::Scroll(ScrollInfo {
                                     delta_x: px.x as f32,
                                     delta_y: px.y as f32,
                                 }))?;
@@ -227,11 +227,10 @@ impl Driver {
                         button,
                         ..
                     } => {
-                        self.bus
-                            .publish(&InputEvent::MouseButton(MouseButtonState {
-                                state: state.into(),
-                                button: button.into(),
-                            }))?;
+                        self.bus.publish(InputEvent::MouseButton(MouseButtonState {
+                            state: state.into(),
+                            button: button.into(),
+                        }))?;
                     }
                     WindowEvent::TouchpadMagnify {
                         ..

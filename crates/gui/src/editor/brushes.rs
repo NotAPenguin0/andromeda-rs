@@ -25,7 +25,7 @@ impl BrushWidget {
         match &self.active_brush {
             None => {}
             Some(brush) => {
-                self.bus.publish(&BeginStrokeEvent {
+                self.bus.publish(BeginStrokeEvent {
                     settings: self.settings,
                     brush: *brush,
                 })?;
@@ -40,7 +40,7 @@ impl BrushWidget {
             let mut overlay = di.write_sync::<WorldOverlayInfo>().unwrap();
             overlay.brush_decal = None;
         }
-        self.bus.publish(&EndStrokeEvent)?;
+        self.bus.publish(EndStrokeEvent)?;
         Ok(())
     }
 }
@@ -170,7 +170,7 @@ impl BrushWidget {
                 x: mouse.x - left_top.x as f64,
                 y: mouse.y - left_top.y as f64,
             };
-            self.bus.publish(&DragWorldView {
+            self.bus.publish(DragWorldView {
                 position: window_space_pos,
             })?;
         }

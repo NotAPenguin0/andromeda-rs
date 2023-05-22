@@ -20,7 +20,7 @@ impl<T: Clone + Send + Sync + 'static> EventContext<T> {
         }
     }
 
-    pub fn publish<E: Event + 'static>(&mut self, event: &E) -> Result<Vec<E::Result>> {
+    pub fn publish<E: Event + 'static>(&mut self, event: E) -> Result<Vec<E::Result>> {
         self.bus.publish(event)
     }
 

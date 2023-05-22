@@ -25,3 +25,18 @@ impl<
         self(system, event, context)
     }
 }
+
+pub trait SinkHandler<S, E: Event, T: 'static> {
+    fn handle(&self, system: &mut S, event: E, context: &mut EventContext<T>) -> Result<E::Result>;
+}
+
+impl<S, E, T, F> SinkHandler<S, E, T> for F
+where
+    E: Event + 'static,
+    T: 'static,
+    F: Fn(&mut S, E, &mut EventContext<T>) -> Result<E::Result>,
+{
+    fn handle(&self, system: &mut S, event: E, context: &mut EventContext<T>) -> Result<E::Result> {
+        self(system, event, context)
+    }
+}

@@ -7,6 +7,7 @@ use crate::bus::EventBus;
 use crate::caller::Caller;
 use crate::event::{Event, EventContext};
 use crate::handler::Handler;
+use crate::SinkHandler;
 
 /// A system must implement this to subscribe to events on the bus
 pub trait System<T> {
@@ -30,6 +31,18 @@ impl<S: 'static> StoredSystemInner<S> {
             .handlers
             .get_dyn::<dyn Handler<S, E, T>>()
             .ok_or_else(|| anyhow!("No handler for this event"))?;
+        handler.handle(&mut self.state, event, context)
+    }
+
+    fn handle_sink<E: Event + 'static, T: 'static>(
+        &mut self,
+        event: E,
+        context: &mut EventContext<T>,
+    ) -> Result<E::Result> {
+        let handler = self
+            .handlers
+            .get_dyn::<dyn SinkHandler<S, E, T>>()
+            .ok_or_else(|| anyhow!("No sink handler for this event"))?;
         handler.handle(&mut self.state, event, context)
     }
 }
@@ -60,6 +73,17 @@ impl<S: 'static> StoredSystem<S> {
             .unwrap()
             .handlers
             .put_dyn::<dyn Handler<S, E, T>>(handler);
+    }
+
+    pub(crate) fn subscribe_sink<E: Event + 'static, T: 'static>(
+        &self,
+        handler: impl SinkHandler<S, E, T> + 'static,
+    ) {
+        self.0
+            .lock()
+            .unwrap()
+            .handlers
+            .put_dyn::<dyn SinkHandler<S, E, T>>(handler);
     }
 }
 

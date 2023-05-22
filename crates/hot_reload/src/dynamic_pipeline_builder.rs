@@ -53,7 +53,7 @@ impl DynamicPipelineBuilder {
             .shaders
             .into_iter()
             .map(|shader| {
-                bus.publish(&AddShaderEvent {
+                bus.publish(AddShaderEvent {
                     path: shader.path,
                     stage: shader.stage,
                     pipeline: shader.pipeline,
@@ -93,7 +93,7 @@ impl DynamicComputePipelineBuilder {
         cache.create_named_compute_pipeline(pci)?;
 
         let shader = self.shader.expect("Must set a shader");
-        bus.publish(&AddShaderEvent {
+        bus.publish(AddShaderEvent {
             path: shader.path,
             stage: shader.stage,
             pipeline: shader.pipeline,

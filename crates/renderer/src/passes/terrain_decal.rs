@@ -18,6 +18,8 @@ use statistics::TimedCommandBuffer;
 use util::mouse_position::WorldMousePosition;
 use world::World;
 
+use crate::ubo_struct;
+
 #[derive(Debug)]
 pub struct TerrainDecal {
     bus: EventBus<DI>,
@@ -110,17 +112,23 @@ impl TerrainDecal {
                                 let to_decal_space =
                                     Mat4::orthographic_rh(-0.5, 0.5, -0.5, 0.5, 0.001, 100.0)
                                         * transform.inverse();
-                                let transforms = [
-                                    state.projection_view,
-                                    state.inverse_projection,
-                                    state.inverse_view,
-                                    transform,
-                                    to_decal_space,
-                                ];
-                                let mut transform_data = ifc.allocate_scratch_ubo(
-                                    std::mem::size_of_val(&transforms) as u64,
-                                )?;
-                                transform_data.mapped_slice()?.copy_from_slice(&transforms);
+
+                                ubo_struct!(
+                                    transforms,
+                                    ifc,
+                                    struct Transform {
+                                        projection_view: Mat4,
+                                        inverse_projection: Mat4,
+                                        inverse_view: Mat4,
+                                        transform: Mat4,
+                                        to_decal_space: Mat4,
+                                    }
+                                );
+                                transforms.projection_view = state.projection_view;
+                                transforms.inverse_projection = state.inverse_projection;
+                                transforms.inverse_view = state.inverse_view;
+                                transforms.transform = transform;
+                                transforms.to_decal_space = to_decal_space;
                                 let mut sizes = ifc.allocate_scratch_ubo(8)?;
                                 sizes
                                     .mapped_slice()?
@@ -128,7 +136,7 @@ impl TerrainDecal {
                                 cmd = cmd
                                     .bind_graphics_pipeline(&pipeline)?
                                     .full_viewport_scissor()
-                                    .bind_uniform_buffer(0, 0, &transform_data)?
+                                    .bind_uniform_buffer(0, 0, &transforms_buffer)?
                                     .resolve_and_bind_sampled_image(
                                         0, 1, &depth, sampler, bindings,
                                     )?

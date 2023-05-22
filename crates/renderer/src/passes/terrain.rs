@@ -2,7 +2,7 @@ use anyhow::Result;
 use assets::storage::AssetStorage;
 use gfx::state::RenderState;
 use gfx::{create_linear_sampler, create_raw_sampler};
-use glam::{Mat4, Vec4};
+use glam::{Mat4, Vec3Swizzles, Vec4};
 use hot_reload::IntoDynamic;
 use inject::DI;
 use pass::FrameGraph;
@@ -12,6 +12,8 @@ use phobos::prelude::traits::*;
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 use world::World;
+
+use crate::ubo_struct;
 
 /// The terrain renderer. Stores resources it needs for rendering.
 /// This struct renders the main terrain mesh.
@@ -99,18 +101,24 @@ impl TerrainRenderer {
                     match assets
                         .with_if_ready(terrain, |terrain| {
                             terrain.with_if_ready(assets, |heightmap, normal_map, color, mesh| {
-                                let mut cam_ubo = ifc.allocate_scratch_ubo(
-                                    std::mem::size_of::<Mat4>() as vk::DeviceSize,
-                                )?;
-                                cam_ubo
-                                    .mapped_slice()?
-                                    .copy_from_slice(std::slice::from_ref(&state.projection_view));
-                                let mut lighting_ubo = ifc.allocate_scratch_ubo(
-                                    std::mem::size_of::<Vec4>() as vk::DeviceSize,
-                                )?;
-                                lighting_ubo
-                                    .mapped_slice()?
-                                    .copy_from_slice(std::slice::from_ref(&state.sun_direction));
+                                ubo_struct!(
+                                    camera,
+                                    ifc,
+                                    struct Camera {
+                                        projection_view: Mat4,
+                                    }
+                                );
+                                camera.projection_view = state.projection_view;
+
+                                ubo_struct!(
+                                    lighting,
+                                    ifc,
+                                    struct Lighting {
+                                        sun_direction: Vec4,
+                                    }
+                                );
+                                lighting.sun_direction = state.sun_direction.xyzx();
+
                                 let tess_factor: u32 = world.options.tessellation_level;
                                 let cmd = cmd
                                     .take()
@@ -127,14 +135,14 @@ impl TerrainRenderer {
                                         4,
                                         &world.terrain_options.vertical_scale,
                                     )
-                                    .bind_uniform_buffer(0, 0, &cam_ubo)?
+                                    .bind_uniform_buffer(0, 0, &camera_buffer)?
                                     .bind_sampled_image(
                                         0,
                                         1,
                                         &heightmap.image.image.view,
                                         &self.heightmap_sampler,
                                     )?
-                                    .bind_uniform_buffer(0, 2, &lighting_ubo)?
+                                    .bind_uniform_buffer(0, 2, &lighting_buffer)?
                                     .bind_sampled_image(
                                         0,
                                         3,

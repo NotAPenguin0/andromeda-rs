@@ -18,7 +18,7 @@ use statistics::TimedCommandBuffer;
 use util::mouse_position::WorldMousePosition;
 use world::World;
 
-use crate::ubo_struct;
+use crate::{ubo_struct, ubo_struct_assign};
 
 #[derive(Debug)]
 pub struct TerrainDecal {
@@ -113,22 +113,14 @@ impl TerrainDecal {
                                     Mat4::orthographic_rh(-0.5, 0.5, -0.5, 0.5, 0.001, 100.0)
                                         * transform.inverse();
 
-                                ubo_struct!(
-                                    transforms,
-                                    ifc,
-                                    struct Transform {
-                                        projection_view: Mat4,
-                                        inverse_projection: Mat4,
-                                        inverse_view: Mat4,
-                                        transform: Mat4,
-                                        to_decal_space: Mat4,
-                                    }
-                                );
-                                transforms.projection_view = state.projection_view;
-                                transforms.inverse_projection = state.inverse_projection;
-                                transforms.inverse_view = state.inverse_view;
-                                transforms.transform = transform;
-                                transforms.to_decal_space = to_decal_space;
+                                ubo_struct_assign!(transforms, ifc, struct Transform {
+                                    projection_view: Mat4 = state.projection_view,
+                                    inverse_projection: Mat4 = state.inverse_projection,
+                                    inverse_view: Mat4 = state.inverse_view,
+                                    transform: Mat4 = transform,
+                                    to_decal_space: Mat4 = to_decal_space,
+                                });
+
                                 let mut sizes = ifc.allocate_scratch_ubo(8)?;
                                 sizes
                                     .mapped_slice()?

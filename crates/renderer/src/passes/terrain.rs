@@ -13,7 +13,7 @@ use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 use world::World;
 
-use crate::ubo_struct;
+use crate::{ubo_struct, ubo_struct_assign};
 
 /// The terrain renderer. Stores resources it needs for rendering.
 /// This struct renders the main terrain mesh.
@@ -101,23 +101,21 @@ impl TerrainRenderer {
                     match assets
                         .with_if_ready(terrain, |terrain| {
                             terrain.with_if_ready(assets, |heightmap, normal_map, color, mesh| {
-                                ubo_struct!(
+                                ubo_struct_assign!(
                                     camera,
                                     ifc,
                                     struct Camera {
-                                        projection_view: Mat4,
+                                        projection_view: Mat4 = state.projection_view,
                                     }
                                 );
-                                camera.projection_view = state.projection_view;
 
-                                ubo_struct!(
+                                ubo_struct_assign!(
                                     lighting,
                                     ifc,
                                     struct Lighting {
-                                        sun_direction: Vec4,
+                                        sun_direction: Vec4 = state.sun_direction.xyzx(),
                                     }
                                 );
-                                lighting.sun_direction = state.sun_direction.xyzx();
 
                                 let tess_factor: u32 = world.options.tessellation_level;
                                 let cmd = cmd

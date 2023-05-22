@@ -16,6 +16,8 @@ use util::mouse_position::WorldMousePosition;
 use util::RingBuffer;
 use world::World;
 
+use crate::ubo_struct_assign;
+
 #[derive(Debug)]
 struct ReadbackData {
     valid: bool,
@@ -101,16 +103,12 @@ impl WorldPositionReconstruct {
             let sampler = &self.sampler;
             let view = &self.full_view;
             pass = pass.execute_fn(move |cmd, ifc, bindings, _stats| {
-                #[repr(C)]
-                struct CameraData {
-                    inv_projection: Mat4,
-                    inv_view: Mat4,
-                }
-                let mut cam_view =
-                    ifc.allocate_scratch_ubo(2 * std::mem::size_of::<Mat4>() as u64)?;
-                let cam_data = cam_view.mapped_slice::<CameraData>()?;
-                cam_data[0].inv_projection = state.inverse_projection;
-                cam_data[0].inv_view = state.inverse_view;
+                ubo_struct_assign!(camera, ifc,
+                struct Camera {
+                    inv_projection: Mat4 = state.inverse_projection,
+                    inv_view: Mat4 = state.inverse_view,
+                });
+
                 cmd.bind_compute_pipeline("world_pos_reconstruct")?
                     .resolve_and_bind_sampled_image(
                         0,
@@ -126,7 +124,7 @@ impl WorldPositionReconstruct {
                         &cur_idx,
                     )
                     .bind_storage_buffer(0, 1, view)?
-                    .bind_uniform_buffer(0, 2, &cam_view)?
+                    .bind_uniform_buffer(0, 2, &camera_buffer)?
                     .dispatch(1, 1, 1)
             })
         } else {

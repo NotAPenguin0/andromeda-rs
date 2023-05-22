@@ -11,7 +11,7 @@ use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 use world::World;
 
-use crate::ubo_struct;
+use crate::{ubo_struct, ubo_struct_assign};
 
 /// The atmosphere renderer is responsible for rendering the
 /// atmosphere into the frame graph.
@@ -66,50 +66,41 @@ impl AtmosphereRenderer {
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
             .depth_attachment(&graph.latest_version(depth)?, vk::AttachmentLoadOp::LOAD, None)?
             .execute_fn(|mut cmd, ifc, _bindings, stats: &mut RendererStatistics| {
-                ubo_struct!(
+                ubo_struct_assign!(
                     camera,
                     ifc,
                     struct Camera {
-                        pv: Mat4,
-                        inv_proj: Mat4,
-                        inv_view_rotation: Mat4,
-                        cam_pos: Vec4,
+                        pv: Mat4 = state.projection_view,
+                        inv_proj: Mat4 = state.inverse_projection,
+                        inv_view_rotation: Mat4 = state.inverse_view_rotation,
+                        cam_pos: Vec4 = state.cam_position.xyzx(),
                     }
                 );
-                camera.pv = state.projection_view;
-                camera.inv_proj = state.inverse_projection;
-                camera.inv_view_rotation = state.inverse_view_rotation;
-                camera.cam_pos = state.cam_position.xyzx(); // last component does not matter
 
-                ubo_struct!(
+                ubo_struct_assign!(
                     atmosphere,
                     ifc,
                     struct Atmosphere {
-                        radii_mie_albedo_g: Vec4,
-                        rayleigh: Vec4,
-                        mie: Vec4,
-                        ozone_sun: Vec4,
+                        radii_mie_albedo_g: Vec4 = Vec4::new(
+                            world.atmosphere.planet_radius,
+                            world.atmosphere.atmosphere_radius,
+                            world.atmosphere.mie_albedo,
+                            world.atmosphere.mie_g,
+                        ),
+                        rayleigh: Vec4 = Vec4::from((
+                            world.atmosphere.rayleigh_coefficients,
+                            world.atmosphere.rayleigh_scatter_height,
+                        )),
+                        mie: Vec4 = Vec4::from((
+                            world.atmosphere.mie_coefficients,
+                            world.atmosphere.mie_scatter_height,
+                        )),
+                        ozone_sun: Vec4 = Vec4::from((
+                            world.atmosphere.ozone_coefficients,
+                            world.atmosphere.sun_intensity,
+                        )),
                     }
                 );
-
-                atmosphere.radii_mie_albedo_g = Vec4::new(
-                    world.atmosphere.planet_radius,
-                    world.atmosphere.atmosphere_radius,
-                    world.atmosphere.mie_albedo,
-                    world.atmosphere.mie_g,
-                );
-                atmosphere.rayleigh = Vec4::from((
-                    world.atmosphere.rayleigh_coefficients,
-                    world.atmosphere.rayleigh_scatter_height,
-                ));
-                atmosphere.mie = Vec4::from((
-                    world.atmosphere.mie_coefficients,
-                    world.atmosphere.mie_scatter_height,
-                ));
-                atmosphere.ozone_sun = Vec4::from((
-                    world.atmosphere.ozone_coefficients,
-                    world.atmosphere.sun_intensity,
-                ));
 
                 let pc = Vec4::from((state.sun_direction, 0.0));
 
@@ -119,7 +110,7 @@ impl AtmosphereRenderer {
                     .full_viewport_scissor()
                     .bind_uniform_buffer(0, 0, &camera_buffer)?
                     .bind_uniform_buffer(0, 1, &atmosphere_buffer)?
-                    .push_constants(vk::ShaderStageFlags::FRAGMENT, 0, std::slice::from_ref(&pc))
+                    .push_constant(vk::ShaderStageFlags::FRAGMENT, 0, &pc)
                     .draw(6, 1, 0, 0)?
                     .end_section(stats, "atmosphere")?;
                 Ok(cmd)

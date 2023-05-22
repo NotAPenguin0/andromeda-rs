@@ -1,23 +1,28 @@
+use std::any::type_name;
 use std::ops::Deref;
 use std::sync::Arc;
 
 use anyhow::Result;
 use inject::ErasedStorage;
+use log::warn;
 use util::RwLock;
 
 use crate::caller::Caller;
 use crate::event::{Event, EventContext};
 use crate::handler::Handler;
 use crate::system::{StoredSystem, System};
+use crate::{SinkCaller, SinkHandler};
 
 struct TypedEventBus<E: Event, T> {
     systems: Vec<Box<dyn Caller<E, T>>>,
+    sink: Option<Box<dyn SinkCaller<E, T>>>,
 }
 
 impl<E: Event + 'static, T: 'static> TypedEventBus<E, T> {
     pub fn new() -> Self {
         Self {
             systems: vec![],
+            sink: None,
         }
     }
 
@@ -30,10 +35,31 @@ impl<E: Event + 'static, T: 'static> TypedEventBus<E, T> {
         self.systems.push(Box::new(system));
     }
 
+    /// Register a sink handler for this event. Overwrites any old sink handler (with a warning)
+    pub fn register_sink<S: 'static>(
+        &mut self,
+        system: StoredSystem<S>,
+        handler: impl SinkHandler<S, E, T> + 'static,
+    ) {
+        if self.sink.is_some() {
+            warn!(
+                "Overwriting sink handler for event {} with new system {}",
+                type_name::<E>(),
+                type_name::<S>()
+            );
+        }
+        system.subscribe_sink(handler);
+        self.sink = Some(Box::new(system));
+    }
+
     fn publish(&self, event: E, context: &mut EventContext<T>) -> Result<Vec<E::Result>> {
         let mut results = Vec::with_capacity(self.systems.len());
         for system in &self.systems {
             results.push(system.call(&event, context)?);
+        }
+
+        if let Some(sink) = &self.sink {
+            results.push(sink.call(event, context)?);
         }
         Ok(results)
     }
@@ -133,6 +159,18 @@ impl<T: Clone + Send + Sync + 'static> EventBus<T> {
             bus.write()
                 .unwrap()
                 .register_system(system.clone(), handler);
+        });
+    }
+
+    /// Subscribe to be the sink of an event. Each event can only have one sink. This handler is called after all
+    /// other handlers of the event, and receives ownership of the event when called.
+    pub fn subscribe_sink<S: 'static, E: Event + 'static>(
+        &self,
+        system: &StoredSystem<S>,
+        handler: impl SinkHandler<S, E, T> + 'static,
+    ) {
+        self.with_event_bus(|bus| {
+            bus.write().unwrap().register_sink(system.clone(), handler);
         });
     }
 

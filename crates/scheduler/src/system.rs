@@ -7,7 +7,7 @@ use crate::bus::EventBus;
 use crate::caller::Caller;
 use crate::event::{Event, EventContext};
 use crate::handler::Handler;
-use crate::SinkHandler;
+use crate::{SinkCaller, SinkHandler};
 
 /// A system must implement this to subscribe to events on the bus
 pub trait System<T> {
@@ -90,5 +90,11 @@ impl<S: 'static> StoredSystem<S> {
 impl<S: 'static, E: Event + 'static, T: 'static> Caller<E, T> for StoredSystem<S> {
     fn call(&self, event: &E, context: &mut EventContext<T>) -> Result<E::Result> {
         self.0.lock().unwrap().handle(event, context)
+    }
+}
+
+impl<S: 'static, E: Event + 'static, T: 'static> SinkCaller<E, T> for StoredSystem<S> {
+    fn call(&self, event: E, context: &mut EventContext<T>) -> Result<E::Result> {
+        self.0.lock().unwrap().handle_sink(event, context)
     }
 }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use error::publish_error;
 use inject::{ErasedStorage, DI};
 use log::error;
 use scheduler::EventBus;
@@ -116,8 +117,9 @@ impl AssetStorageInner {
 
 impl AssetStorage {
     // Simple logging for now, we can add an event for this later and let systems subscribe to it.
-    fn report_failure(error: &anyhow::Error) {
+    fn report_failure(bus: &EventBus<DI>, error: &anyhow::Error) {
         error!("Error loading asset: {error}");
+        let _ = publish_error!(bus, "Error loading asset: {error}");
     }
 
     /// Acquire a read lock to the asset container and call the given callback with this lock.
@@ -192,7 +194,7 @@ impl AssetStorage {
                     AssetEntry::Ready(value)
                 }
                 Err(err) => {
-                    Self::report_failure(&err);
+                    Self::report_failure(&self.bus, &err);
                     sender.send(AssetLoadMessage::Fail).unwrap();
                     AssetEntry::Failed(err)
                 }

@@ -1,5 +1,10 @@
+use std::time::Duration;
+
 use anyhow::Result;
 use brush::{BrushSettings, BrushType, SmoothHeight};
+use derivative::Derivative;
+use egui_notify::Toasts;
+use error::ErrorEvent;
 use events::Tick;
 use inject::DI;
 use scheduler::{EventBus, EventContext, StoredSystem, System};
@@ -34,17 +39,22 @@ pub struct WorldOverlayInfo {
     pub brush_decal: Option<BrushDecalInfo>,
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Editor {
     context: egui::Context,
+    #[derivative(Debug = "ignore")]
+    notify: Toasts,
     bus: EventBus<DI>,
     brush_widget: BrushWidget,
 }
 
 impl Editor {
     pub fn new(context: egui::Context, bus: EventBus<DI>) -> Self {
+        let notify = Toasts::default();
         Self {
             context,
+            notify,
             bus: bus.clone(),
             brush_widget: BrushWidget {
                 bus,
@@ -70,6 +80,8 @@ impl Editor {
             self.brush_widget.show(&self.context).safe_unwrap();
         });
 
+        // Show all notifications
+        self.notify.show(&self.context);
         self.context.request_repaint();
     }
 }
@@ -79,6 +91,7 @@ impl System<DI> for Editor {
     where
         Self: Sized, {
         event_bus.subscribe(system, handle_editor_tick);
+        event_bus.subscribe_sink(system, handle_error_sink);
     }
 }
 
@@ -92,5 +105,18 @@ fn handle_editor_tick(
     let inject = ctx.read().unwrap();
     let mut world = inject.write_sync::<World>().unwrap();
     editor.show(&mut world);
+    Ok(())
+}
+
+fn handle_error_sink(
+    editor: &mut Editor,
+    event: ErrorEvent,
+    _ctx: &mut EventContext<DI>,
+) -> Result<()> {
+    editor
+        .notify
+        .error(event.message)
+        .set_closable(true)
+        .set_duration(Some(Duration::from_secs(3)));
     Ok(())
 }

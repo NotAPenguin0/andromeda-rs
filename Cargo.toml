@@ -25,6 +25,7 @@ members = [
     "crates/pass",
     "crates/brush",
     "crates/time",
+    "crates/error",
 ]
 
 [dependencies]

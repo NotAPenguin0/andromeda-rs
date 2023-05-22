@@ -11,6 +11,8 @@ log = "0.4.17"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 enum_dispatch = "0.3.11"
+egui-notify = "0.6.0"
+derivative = "2.2.0"
 input = { path = "../input" }
 inject = { path = "../inject" }
 math = { path = "../math" }
@@ -22,3 +24,4 @@ util = { path = "../util" }
 statistics = { path = "../statistics" }
 events = { path = "../events" }
 brush = { path = "../brush" }
+error = { path = "../error" }

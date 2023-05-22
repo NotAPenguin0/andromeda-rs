@@ -1,0 +1,9 @@
+[package]
+name = "error"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.70"
+scheduler = { path = "../scheduler" }
+inject = { path = "../inject" }

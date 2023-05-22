@@ -21,3 +21,4 @@ scheduler = { path = "../scheduler" }
 inject = { path = "../inject" }
 util = { path = "../util" }
 hot_reload = { path = "../hot_reload" }
+error = { path = "../error" }

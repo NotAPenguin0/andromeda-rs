@@ -11,6 +11,7 @@ glam = "0.24.0"
 winit = "0.28.3"
 derivative = "2.2.0"
 egui = "0.21.0"
+concat-idents = "1.1.4"
 egui-winit-phobos = { git = "https://github.com/NotAPenguin0/egui-winit-phobos" }
 assets = { path = "../assets" }
 camera = { path = "../camera" }

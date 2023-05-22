@@ -18,7 +18,7 @@ use world::World;
 
 use crate::util::{
     dispatch_patch_rect, get_terrain_info, position_on_terrain, prepare_for_read,
-    prepare_for_write, with_ready_terrain,
+    prepare_for_write, update_normals_around_patch, with_ready_terrain,
 };
 use crate::{Brush, BrushSettings};
 
@@ -102,22 +102,8 @@ impl SmoothHeight {
         heights: &Heightmap,
         normals: &NormalMap,
     ) -> Result<IncompleteCommandBuffer<'q, All>> {
-        // Grab a suitable sampler to sample or heightmap
-        let di = bus.data().read().unwrap();
-        let samplers = di.get::<Samplers>().unwrap();
-        let sampler = &samplers.linear;
-
         let cmd = prepare_for_write(&normals.image, cmd, PipelineStage::FRAGMENT_SHADER);
-        // Add a small radius around the brush range because the normals around the entire area
-        // also need to be updated
-        let size = radius + 4;
-        let cmd = cmd.bind_compute_pipeline("normal_recompute")?;
-        let cmd = cmd
-            .bind_storage_image(0, 0, &normals.image.image.view)?
-            .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
-            .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-            .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size);
-        let cmd = dispatch_patch_rect(cmd, size, 16)?;
+        let cmd = update_normals_around_patch(bus, cmd, uv, radius, heights, normals)?;
         Ok(prepare_for_read(
             &normals.image,
             cmd,

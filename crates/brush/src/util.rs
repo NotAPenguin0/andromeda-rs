@@ -4,10 +4,11 @@ use assets::storage::AssetStorage;
 use assets::texture::format::{SRgba, TextureFormat};
 use assets::texture::Texture;
 use assets::{Heightmap, NormalMap, Terrain, TerrainOptions, TerrainPlane};
-use glam::Vec3;
+use gfx::Samplers;
+use glam::{Vec2, Vec3};
 use inject::DI;
 use phobos::domain::ExecutionDomain;
-use phobos::{vk, ComputeCmdBuffer, IncompleteCommandBuffer, PipelineStage};
+use phobos::{vk, ComputeCmdBuffer, ComputeSupport, IncompleteCommandBuffer, PipelineStage};
 use scheduler::EventBus;
 use world::World;
 
@@ -82,4 +83,29 @@ pub fn prepare_for_read<'q, D: ExecutionDomain, F: TextureFormat>(
 pub fn dispatch_patch_rect<C: ComputeCmdBuffer>(cmd: C, radius: u32, local_size: u32) -> Result<C> {
     let invocations = (radius as f32 / local_size as f32).ceil() as u32;
     cmd.dispatch(invocations, invocations, 1)
+}
+
+/// Does no synchronization of accesses to `heights` and `normals`
+pub fn update_normals_around_patch<'q, D: ExecutionDomain + ComputeSupport>(
+    bus: &EventBus<DI>,
+    cmd: IncompleteCommandBuffer<'q, D>,
+    uv: Vec2,
+    patch_radius: u32,
+    heights: &Heightmap,
+    normals: &NormalMap,
+) -> Result<IncompleteCommandBuffer<'q, D>> {
+    // Grab a suitable sampler to sample the heightmap
+    let di = bus.data().read().unwrap();
+    let samplers = di.get::<Samplers>().unwrap();
+    let sampler = &samplers.linear;
+    // Add a small radius around the brush range because the normals around the entire area
+    // also need to be updated
+    let size = patch_radius + 4;
+    let cmd = cmd.bind_compute_pipeline("normal_recompute")?;
+    let cmd = cmd
+        .bind_storage_image(0, 0, &normals.image.image.view)?
+        .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
+        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size);
+    dispatch_patch_rect(cmd, size, 16)
 }

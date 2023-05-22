@@ -16,7 +16,9 @@ use strum_macros::Display;
 use time::Time;
 use world::World;
 
-use crate::util::position_on_terrain;
+use crate::util::{
+    get_terrain_info, position_on_terrain, prepare_for_read, prepare_for_write, with_ready_terrain,
+};
 use crate::{Brush, BrushSettings};
 
 #[derive(Debug, Copy, Clone, PartialEq, Display)]
@@ -40,176 +42,153 @@ pub struct SmoothHeight {
 }
 
 impl SmoothHeight {
-    fn update_heightmap(
+    fn invert_weight(mut settings: BrushSettings) -> BrushSettings {
+        // Inverted height brush is simply done by having a negative weight
+        if settings.invert {
+            settings.weight = -settings.weight;
+        }
+
+        settings
+    }
+
+    fn record_height_update<'q>(
+        &self,
+        bus: &EventBus<DI>,
+        cmd: IncompleteCommandBuffer<'q, All>,
+        uv: Vec2,
+        radius: u32,
+        settings: &BrushSettings,
+        heights: &Heightmap,
+    ) -> Result<IncompleteCommandBuffer<'q, All>> {
+        // We are going to write to this image in a compute shader, so submit a barrier for this first.
+        let cmd =
+            prepare_for_write(&heights.image, cmd, PipelineStage::TESSELLATION_EVALUATION_SHADER);
+        // Bind the pipeline we will use to update the heightmap
+        let cmd = cmd.bind_compute_pipeline("height_brush")?;
+        // Scale weight with frametime for consistency across runs and different frame rates
+
+        let weight = {
+            let di = bus.data().read().unwrap();
+            let time = di.read_sync::<Time>().unwrap();
+            settings.weight * time.delta.as_secs_f32()
+        };
+
+        // Bind the image to the descriptor, push our uvs to the shader and dispatch our compute shader
+        let mut cmd = cmd
+            .bind_storage_image(0, 0, &heights.image.image.view)?
+            .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
+            .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &weight)
+            .push_constant(vk::ShaderStageFlags::COMPUTE, 12, &radius);
+        match self.weight_fn {
+            WeightFunction::Gaussian(sigma) => {
+                cmd = cmd.push_constant(vk::ShaderStageFlags::COMPUTE, 16, &sigma);
+            }
+        };
+        let cmd = cmd.dispatch(
+            (radius as f32 / 16.0f32).ceil() as u32,
+            (radius as f32 / 16.0f32).ceil() as u32,
+            1,
+        )?;
+        Ok(prepare_for_read(
+            &heights.image,
+            cmd,
+            PipelineStage::COMPUTE_SHADER,
+            vk::AccessFlags2::SHADER_SAMPLED_READ,
+        ))
+    }
+
+    fn record_normals_update<'q>(
+        &self,
+        bus: &EventBus<DI>,
+        cmd: IncompleteCommandBuffer<'q, All>,
+        uv: Vec2,
+        radius: u32,
+        heights: &Heightmap,
+        normals: &NormalMap,
+    ) -> Result<IncompleteCommandBuffer<'q, All>> {
+        // Grab a suitable sampler to sample or heightmap
+        let di = bus.data().read().unwrap();
+        let samplers = di.get::<Samplers>().unwrap();
+        let sampler = &samplers.linear;
+
+        let cmd = prepare_for_write(&normals.image, cmd, PipelineStage::FRAGMENT_SHADER);
+        // Add a small radius around the brush range because the normals around the entire area
+        // also need to be updated
+        let size = radius + 4;
+        let cmd = cmd.bind_compute_pipeline("normal_recompute")?;
+        let cmd = cmd
+            .bind_storage_image(0, 0, &normals.image.image.view)?
+            .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
+            .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
+            .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size)
+            .dispatch(
+                (size as f32 / 16.0f32).ceil() as u32,
+                (size as f32 / 16.0f32).ceil() as u32,
+                1,
+            )?;
+        Ok(prepare_for_read(
+            &normals.image,
+            cmd,
+            PipelineStage::BOTTOM_OF_PIPE,
+            vk::AccessFlags2::NONE,
+        ))
+    }
+
+    fn record_update_commands(
+        &self,
+        bus: &EventBus<DI>,
+        cmd: IncompleteCommandBuffer<All>,
+        uv: Vec2,
+        radius: u32,
+        settings: &BrushSettings,
+        heights: &Heightmap,
+        normals: &NormalMap,
+    ) -> Result<CommandBuffer<All>> {
+        let cmd = self.record_height_update(bus, cmd, uv, radius, settings, heights)?;
+        let cmd = self.record_normals_update(bus, cmd, uv, radius, heights, normals)?;
+        cmd.finish()
+    }
+
+    fn apply_to_terrain(
         &self,
         bus: &EventBus<DI>,
         position: Vec3,
         uv: Vec2,
-        mut settings: BrushSettings,
+        settings: BrushSettings,
+        options: TerrainOptions,
+        heights: &Heightmap,
+        normals: &NormalMap,
     ) -> Result<()> {
+        let settings = Self::invert_weight(settings);
+        // Allocate a command buffer and submit it to the current batch
+        let di = bus.data().read().unwrap();
+        let ctx = di.get::<SharedContext>().cloned().unwrap();
+        let cmd = ctx
+            .exec
+            .on_domain::<All, _>(Some(ctx.pipelines.clone()), Some(ctx.descriptors.clone()))?;
+        let radius = options.texel_radius(position, settings.radius, &heights.image);
+        let cmd =
+            self.record_update_commands(bus, cmd, uv, radius, &settings, &heights, &normals)?;
+        GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
         Ok(())
     }
-}
 
-fn record_update_normals<'q>(
-    cmd: IncompleteCommandBuffer<'q, All>,
-    uv: Vec2,
-    pixel_radius: u32,
-    settings: &BrushSettings,
-    sampler: &Sampler,
-    heights: &Heightmap,
-    normals: &NormalMap,
-) -> Result<IncompleteCommandBuffer<'q, All>> {
-    // Transition the normal map for writing
-    let cmd = cmd.transition_image(
-        &normals.image.image.view,
-        PipelineStage::FRAGMENT_SHADER,
-        PipelineStage::COMPUTE_SHADER,
-        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        vk::ImageLayout::GENERAL,
-        vk::AccessFlags2::NONE,
-        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
-    );
-    // Add a small radius around the brush range because the normals around the entire area
-    // also need to be updated
-    let size = pixel_radius + 4;
-    let cmd = cmd.bind_compute_pipeline("normal_recompute")?;
-    let cmd = cmd
-        .bind_storage_image(0, 0, &normals.image.image.view)?
-        .bind_sampled_image(0, 1, &heights.image.image.view, sampler)?
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &size)
-        .dispatch(
-            (size as f32 / 16.0f32).ceil() as u32,
-            (size as f32 / 16.0f32).ceil() as u32,
-            1,
-        )?;
-    // Transition the normal map back to ShaderReadOnlyOptimal for drawing
-    let cmd = cmd.transition_image(
-        &normals.image.image.view,
-        PipelineStage::COMPUTE_SHADER,
-        PipelineStage::BOTTOM_OF_PIPE,
-        vk::ImageLayout::GENERAL,
-        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
-        vk::AccessFlags2::NONE,
-    );
-    Ok(cmd)
-}
-
-fn record_update_commands(
-    bus: &EventBus<DI>,
-    cmd: IncompleteCommandBuffer<All>,
-    uv: Vec2,
-    pixel_radius: u32,
-    settings: &BrushSettings,
-    brush: &SmoothHeight,
-    sampler: &Sampler,
-    heights: &Heightmap,
-    normals: &NormalMap,
-) -> Result<CommandBuffer<All>> {
-    // We are going to write to this image in a compute shader, so submit a barrier for this first.
-    let cmd = cmd.transition_image(
-        &heights.image.image.view,
-        PipelineStage::TESSELLATION_EVALUATION_SHADER,
-        PipelineStage::COMPUTE_SHADER,
-        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        vk::ImageLayout::GENERAL,
-        vk::AccessFlags2::NONE,
-        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
-    );
-    // Bind the pipeline we will use to update the heightmap
-    let cmd = cmd.bind_compute_pipeline("height_brush")?;
-    // Scale weight with frametime for consistency across runs and different speeds
-    let weight = {
-        let di = bus.data().read().unwrap();
-        let time = di.read_sync::<Time>().unwrap();
-        settings.weight * time.delta.as_secs_f32()
-    };
-
-    // Bind the image to the descriptor, push our uvs to the shader and dispatch our compute shader
-    let mut cmd = cmd
-        .bind_storage_image(0, 0, &heights.image.image.view)?
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &uv)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 8, &weight)
-        .push_constant(vk::ShaderStageFlags::COMPUTE, 12, &pixel_radius);
-    match brush.weight_fn {
-        WeightFunction::Gaussian(sigma) => {
-            cmd = cmd.push_constant(vk::ShaderStageFlags::COMPUTE, 16, &sigma);
-        }
-    };
-    let cmd = cmd.dispatch(
-        (pixel_radius as f32 / 16.0f32).ceil() as u32,
-        (pixel_radius as f32 / 16.0f32).ceil() as u32,
-        1,
-    )?;
-    // Transition back to ShaderReadOnlyOptimal for drawing. This also synchronizes access to the heightmap
-    // with the normal map calculation shader
-    let cmd = cmd.transition_image(
-        &heights.image.image.view,
-        PipelineStage::COMPUTE_SHADER,
-        PipelineStage::COMPUTE_SHADER,
-        vk::ImageLayout::GENERAL,
-        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        vk::AccessFlags2::MEMORY_READ | vk::AccessFlags2::MEMORY_WRITE,
-        vk::AccessFlags2::SHADER_SAMPLED_READ,
-    );
-    let cmd = record_update_normals(cmd, uv, pixel_radius, settings, sampler, heights, normals)?;
-    cmd.finish()
-}
-
-fn update_heightmap(
-    position: Vec3,
-    uv: Vec2,
-    bus: &EventBus<DI>,
-    sampler: &Sampler,
-    mut settings: BrushSettings,
-    brush: &SmoothHeight,
-) -> Result<()> {
-    // Inverted height brush is simply done by having a negative weight
-    if settings.invert {
-        settings.weight = -settings.weight;
+    fn apply_at_uv(
+        &self,
+        bus: &EventBus<DI>,
+        position: Vec3,
+        uv: Vec2,
+        settings: BrushSettings,
+    ) -> Result<()> {
+        // Grab the terrain info from the world
+        let (terrain, terrain_options) = get_terrain_info(bus);
+        // If no terrain handle was set, we cannot reasonably use a brush on it
+        let Some(terrain) = terrain else { bail!("Used brush but terrain handle is not set.") };
+        with_ready_terrain(bus, terrain, |heights, normals, _, _| {
+            self.apply_to_terrain(bus, position, uv, settings, terrain_options, heights, normals)
+        })?;
+        Ok(())
     }
-    let di = bus.data().read().unwrap();
-    let (terrain_handle, opts) = {
-        let world = di.read_sync::<World>().unwrap();
-        (world.terrain, world.terrain_options)
-    };
-    // If no terrain handle was set, we cannot reasonably use a brush on it
-    let Some(terrain_handle) = terrain_handle else { bail!("Used brush but terrain handle is not set.") };
-    // Get the asset system so we can wait until the terrain is loaded.
-    // Note that this should usually complete quickly, since without a loaded
-    // terrain we cannot use a brush.
-    let assets = di.get::<AssetStorage>().unwrap();
-    assets
-        .with_when_ready(terrain_handle, |terrain| {
-            terrain.with_when_ready(bus, |heights, normals, _, _| {
-                // Get the graphics context and allocate a command buffer
-                let ctx = di.get::<SharedContext>().cloned().unwrap();
-                let cmd = ctx.exec.on_domain::<All, _>(
-                    Some(ctx.pipelines.clone()),
-                    Some(ctx.descriptors.clone()),
-                )?;
-                let pixel_radius = opts.texel_radius(position, settings.radius, &heights.image);
-                let cmd = record_update_commands(
-                    bus,
-                    cmd,
-                    uv,
-                    pixel_radius,
-                    &settings,
-                    brush,
-                    sampler,
-                    heights,
-                    normals,
-                )?;
-                // Submit our commands once a batch is ready
-                GpuWork::with_batch(bus, move |batch| batch.submit(cmd))??;
-                Ok::<_, anyhow::Error>(())
-            })
-        })
-        .flatten()
-        .unwrap_or(Ok(()))?;
-    Ok(())
 }
 
 impl Brush for SmoothHeight {
@@ -230,13 +209,12 @@ impl Brush for SmoothHeight {
 
         let di = bus.data().read().unwrap();
         let world = di.read_sync::<World>().unwrap();
-        let samplers = di.get::<Samplers>().unwrap();
 
         // We will apply our brush mainly to the heightmap texture for now. To know how
         // to do this, we need to find the UV coordinates of the heightmap texture
         // at the position we clicked at.
         let uv = world.terrain_options.uv_at(position);
-        update_heightmap(position, uv, bus, &samplers.linear, *settings, self)?;
+        self.apply_at_uv(bus, position, uv, *settings)?;
         Ok(())
     }
 }

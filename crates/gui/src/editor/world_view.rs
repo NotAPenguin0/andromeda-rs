@@ -34,6 +34,6 @@ pub fn show(context: &egui::Context, bus: &EventBus<DI>, brushes: &mut BrushWidg
             provider.handle
         },
         |response| behaviour(response, bus, brushes),
-        (800.0, 600.0).into(),
+        (1440.0, 1000.0).into(),
     );
 }

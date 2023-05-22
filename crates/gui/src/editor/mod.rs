@@ -61,7 +61,8 @@ impl Editor {
                 settings: BrushSettings {
                     radius: 32.0,
                     weight: 1.0,
-                    invert: true,
+                    invert: false,
+                    once: false,
                 },
                 active_brush: None,
             },

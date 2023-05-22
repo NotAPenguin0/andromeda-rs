@@ -184,12 +184,14 @@ impl Brush for SmoothHeight {
         }
 
         let di = bus.data().read().unwrap();
-        let world = di.read_sync::<World>().unwrap();
+        let uv = {
+            let world = di.read_sync::<World>().unwrap();
+            // We will apply our brush mainly to the heightmap texture for now. To know how
+            // to do this, we need to find the UV coordinates of the heightmap texture
+            // at the position we clicked at.
+            world.terrain_options.uv_at(position)
+        };
 
-        // We will apply our brush mainly to the heightmap texture for now. To know how
-        // to do this, we need to find the UV coordinates of the heightmap texture
-        // at the position we clicked at.
-        let uv = world.terrain_options.uv_at(position);
         self.apply_at_uv(bus, position, uv, *settings)?;
         Ok(())
     }

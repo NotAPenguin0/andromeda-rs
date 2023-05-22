@@ -86,8 +86,13 @@ impl<'t, T> Toolbar<'t, T> {
         self
     }
 
-    pub fn tool(mut self, icon: impl Into<String>, tooltip: impl Into<String>, tool: T) -> Self {
-        let button = ToolButton::new(icon, tooltip, tool);
+    pub fn tool(
+        mut self,
+        icon: impl Into<String>,
+        tooltip: impl Into<String>,
+        tool: impl Into<T>,
+    ) -> Self {
+        let button = ToolButton::new(icon, tooltip, tool.into());
         self.tools.push(button);
         self
     }

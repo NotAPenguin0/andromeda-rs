@@ -2,7 +2,7 @@ use anyhow::Result;
 use brush::brushes::*;
 use brush::height::WeightFunction;
 use brush::{BeginStrokeEvent, Brush, BrushSettings, BrushType, EndStrokeEvent};
-use egui::{Context, Frame, PointerButton, Response, Slider, Ui};
+use egui::{Checkbox, Context, Frame, PointerButton, Response, Slider, Ui};
 use events::DragWorldView;
 use inject::DI;
 use input::{ButtonState, InputState, Key, MousePosition};
@@ -63,7 +63,8 @@ impl BrushWidget {
                         ui.vertical_centered(|ui| {
                             Toolbar::new(&mut self.active_brush)
                                 .size(toolbar_button_size)
-                                .tool("↕", "Height brush", SmoothHeight::default().into())
+                                .tool("↕", "Height brush", SmoothHeight::default())
+                                .tool("↔", "Equalizer brush", Equalize::default())
                                 .show(ui);
                         });
                     });
@@ -86,6 +87,11 @@ impl BrushWidget {
                         });
                         aligned_label_with(ui, "Strength", |ui| {
                             ui.add(Slider::new(&mut self.settings.weight, 0.01..=5.0));
+                        });
+                        aligned_label_with(ui, "Use when still", |ui| {
+                            let mut inverted = !self.settings.once;
+                            ui.add(Checkbox::without_text(&mut inverted));
+                            self.settings.once = !inverted;
                         });
                     });
                     ui.separator();
@@ -164,15 +170,19 @@ impl BrushWidget {
         if response.dragged_by(PointerButton::Primary)
             || response.dragged_by(PointerButton::Secondary)
         {
-            let mouse = input.mouse();
-            let left_top = response.rect.left_top();
-            let window_space_pos = MousePosition {
-                x: mouse.x - left_top.x as f64,
-                y: mouse.y - left_top.y as f64,
-            };
-            self.bus.publish(DragWorldView {
-                position: window_space_pos,
-            })?;
+            // If we didnt drag, skip doing a drag if brush was set to only apply once
+            if response.drag_delta().length() < 1.0e-9 && self.settings.once {
+            } else {
+                let mouse = input.mouse();
+                let left_top = response.rect.left_top();
+                let window_space_pos = MousePosition {
+                    x: mouse.x - left_top.x as f64,
+                    y: mouse.y - left_top.y as f64,
+                };
+                self.bus.publish(DragWorldView {
+                    position: window_space_pos,
+                })?;
+            }
         }
         Ok(())
     }

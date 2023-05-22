@@ -74,6 +74,9 @@ pub struct BrushSettings {
     pub radius: f32,
     pub weight: f32,
     pub invert: bool,
+    // Only do one tick of the brush per location, instead of
+    // stacking up multiple on every mouse position
+    pub once: bool,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -178,10 +181,10 @@ fn create_brush_pipeline(bus: &EventBus<DI>) -> Result<()> {
         .into_dynamic()
         .set_shader("shaders/src/normal_recompute.cs.hlsl")
         .build(bus, gfx.pipelines.clone())?;
-    ComputePipelineBuilder::new("blur_rect")
+    ComputePipelineBuilder::new("blur_brush")
         .persistent()
         .into_dynamic()
-        .set_shader("shaders/src/blur_rect.cs.hlsl")
+        .set_shader("shaders/src/blur_brush.cs.hlsl")
         .build(bus, gfx.pipelines)?;
     Ok(())
 }

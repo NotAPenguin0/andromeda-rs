@@ -46,6 +46,7 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
     }
 
     float2 scale = 1.0 / float2(pc.size, pc.size);
+    // scale = 1.0 / float2(width, height);
     // First collect all samples, since we need to properly synchronize reading and writing to the texture
     float samples[BLUR_SAMPLES * BLUR_SAMPLES];
     for (int i = 0; i < BLUR_SAMPLES * BLUR_SAMPLES; ++i) {
@@ -66,5 +67,5 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID) {
         accum += weight;
     }
 
-    output /= accum;
+    tex[texel] = output / accum;
 }

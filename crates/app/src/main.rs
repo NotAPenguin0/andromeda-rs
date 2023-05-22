@@ -6,6 +6,8 @@
 extern crate pretty_env_logger;
 
 use anyhow::Result;
+use error::publish_error;
+use log::error;
 use util::safe_error::SafeUnwrap;
 use winit::event_loop::ControlFlow;
 
@@ -55,7 +57,11 @@ fn main() -> Result<!> {
                 *control_flow = ControlFlow::Exit;
             }
             Ok(flow) => *control_flow = flow,
-            Err(e) => Err::<(), anyhow::Error>(e).safe_unwrap(),
+            Err(e) => {
+                let bus = &driver.as_ref().unwrap().bus;
+                publish_error!(bus, "{e}");
+                error!("{e}");
+            }
         };
     })
 }

@@ -118,6 +118,7 @@ impl BrushWidget {
                                         }
                                     }
                                 }
+                                BrushType::Equalize(brush) => {}
                             }
                         }
                     });

@@ -27,7 +27,7 @@ use crate::window::AppWindow;
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Driver {
-    bus: EventBus<DI>,
+    pub bus: EventBus<DI>,
     renderer: AppRenderer,
     window: AppWindow,
 }

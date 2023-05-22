@@ -16,6 +16,7 @@ use strum_macros::Display;
 use time::Time;
 use world::World;
 
+use crate::util::position_on_terrain;
 use crate::{Brush, BrushSettings};
 
 #[derive(Debug, Copy, Clone, PartialEq, Display)]
@@ -36,6 +37,18 @@ impl Default for WeightFunction {
 #[derive(Debug, Default, Copy, Clone)]
 pub struct SmoothHeight {
     pub weight_fn: WeightFunction,
+}
+
+impl SmoothHeight {
+    fn update_heightmap(
+        &self,
+        bus: &EventBus<DI>,
+        position: Vec3,
+        uv: Vec2,
+        mut settings: BrushSettings,
+    ) -> Result<()> {
+        Ok(())
+    }
 }
 
 fn record_update_normals<'q>(
@@ -211,9 +224,7 @@ impl Brush for SmoothHeight {
     }
 
     fn apply(&self, bus: &EventBus<DI>, position: Vec3, settings: &BrushSettings) -> Result<()> {
-        // If any of the values inside the position are NaN or infinite, the position is outside
-        // of the rendered terrain mesh and we do not want to actually use the brush.
-        if position.is_nan() || !position.is_finite() {
+        if !position_on_terrain(position) {
             return Ok(());
         }
 

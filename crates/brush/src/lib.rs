@@ -47,6 +47,7 @@ impl System<DI> for BrushSystem {
 #[derive(Debug, Copy, Clone)]
 pub enum BrushType {
     SmoothHeight,
+    Equalize,
 }
 
 impl BrushType {

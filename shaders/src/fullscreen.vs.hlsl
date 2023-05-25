@@ -4,10 +4,8 @@ struct VSInput {
 
 struct VSOutput {
     float4 Position : SV_POSITION;
-    [[vk::location(0)]]
-    float2 UV : UV0;
+    [[vk::location(0)]] float2 UV : UV0;
 };
-
 
 VSOutput main(VSInput input, uint VertexIndex : SV_VertexID) {
     // Vertices for fullscreen quad

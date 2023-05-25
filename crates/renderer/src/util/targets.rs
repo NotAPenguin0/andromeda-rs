@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use derivative::Derivative;
 use gfx::{PairedImageView, SharedContext};
 use glam::UVec2;
+use log::warn;
+use phobos::fsr2::{FfxDimensions2D, FfxFsr2QualityMode};
 use phobos::{vk, DeletionQueue, Image, ImageView, PhysicalResourceBindings};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
@@ -38,6 +40,34 @@ pub enum SizeGroup {
     Custom(TargetSize),
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum UpscaleQuality {
+    Quality,
+    Balanced,
+    Performance,
+    UltraPerformance,
+}
+
+impl From<UpscaleQuality> for FfxFsr2QualityMode {
+    fn from(value: UpscaleQuality) -> Self {
+        match value {
+            UpscaleQuality::Quality => FfxFsr2QualityMode::Quality,
+            UpscaleQuality::Balanced => FfxFsr2QualityMode::Balanced,
+            UpscaleQuality::Performance => FfxFsr2QualityMode::Performance,
+            UpscaleQuality::UltraPerformance => FfxFsr2QualityMode::UltraPerformance,
+        }
+    }
+}
+
+impl From<TargetSize> for FfxDimensions2D {
+    fn from(value: TargetSize) -> Self {
+        FfxDimensions2D {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct RenderTargetEntry {
@@ -55,6 +85,17 @@ pub struct RenderTargets {
     deferred_delete: DeletionQueue<PairedImageView>,
     output_resolution: TargetSize,
     render_resolution: TargetSize,
+    upscale_quality: UpscaleQuality,
+}
+
+impl RenderTargets {
+    fn get_render_resolution_for_quality(
+        &self,
+        quality: UpscaleQuality,
+    ) -> Result<FfxDimensions2D> {
+        let mut fsr2 = self.ctx.device.fsr2_context();
+        fsr2.get_render_resolution(quality.into())
+    }
 }
 
 impl RenderTargets {
@@ -65,7 +106,14 @@ impl RenderTargets {
             deferred_delete: DeletionQueue::new(4),
             output_resolution: TargetSize::default(),
             render_resolution: TargetSize::default(),
+            upscale_quality: UpscaleQuality::Quality,
         })
+    }
+
+    pub fn set_upscale_quality(&mut self, quality: UpscaleQuality) -> Result<()> {
+        self.upscale_quality = quality;
+        let resolution = self.get_render_resolution_for_quality(self.upscale_quality)?;
+        self.set_render_resolution(resolution.width, resolution.height)
     }
 
     pub fn set_output_resolution(&mut self, width: u32, height: u32) -> Result<()> {
@@ -79,12 +127,37 @@ impl RenderTargets {
                 Self::resize_target(&mut self.deferred_delete, entry, width, height)?;
             }
         }
+
+        {
+            let mut fsr2 = self.ctx.device.fsr2_context();
+            fsr2.set_display_resolution(self.output_resolution.into(), None)?;
+        }
+        // If we change the output resolution we also need to change the render resolution accordingly
+        let dims = self.get_render_resolution_for_quality(self.upscale_quality)?;
+        self.set_render_resolution(dims.width, dims.height)?;
+
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn set_render_resolution(&mut self, _width: u32, _height: u32) -> Result<()> {
-        todo!()
+    fn set_render_resolution(&mut self, width: u32, height: u32) -> Result<()> {
+        if self.render_resolution.width == width && self.output_resolution.height == height {
+            return Ok(());
+        }
+
+        if width > self.output_resolution.width || height > self.output_resolution.height {
+            bail!("Cannot set render resolution above output resolution");
+        }
+
+        self.render_resolution = TargetSize::new(width, height);
+
+        for entry in self.targets.values_mut() {
+            if entry.size_group == SizeGroup::RenderResolution {
+                Self::resize_target(&mut self.deferred_delete, entry, width, height)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn register_simple_target(
@@ -205,9 +278,7 @@ impl RenderTargets {
 
     pub fn size_group_resolution(&self, size_group: SizeGroup) -> TargetSize {
         match size_group {
-            SizeGroup::RenderResolution => {
-                todo!()
-            }
+            SizeGroup::RenderResolution => self.render_resolution,
             SizeGroup::OutputResolution => self.output_resolution,
             SizeGroup::Custom(size) => size,
         }

@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 glam = "0.24.0"
 poll-promise = { version = "0.2.0", features = ["tokio"] }
-phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon", "fsr2"] }
 anyhow = "1.0.70"
 winit = "0.28.3"
 inject = { path = "../inject" }

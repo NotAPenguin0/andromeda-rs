@@ -124,6 +124,7 @@ impl BrushWidget {
                                     }
                                 }
                                 BrushType::Equalize(brush) => {}
+                                BrushType::Color(brush) => {}
                             }
                         }
                     });

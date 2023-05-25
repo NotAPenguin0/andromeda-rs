@@ -2,7 +2,15 @@
 
 // You may not add additional bindings
 
-struct PS_INPUT {};
+struct PS_INPUT {
+    [[vk::location(0)]] float4 ClipPos : POS0;
+    [[vk::location(1)]] float4 PrevClipPos : POS1;
+};
+
+struct PS_OUTPUT {
+    [[vk::location(0)]] float4 Color : SV_Target0;
+    [[vk::location(1)]] float2 Motion : SV_Target1;
+};
 
 [[vk::binding(0, 0)]]
 cbuffer Transform {
@@ -11,6 +19,7 @@ cbuffer Transform {
     float4x4 inv_view;
     float4x4 transform;
     float4x4 decal_space_transform;
+    float4x4 prev_pv;
 };
 
 [[vk::combinedImageSampler, vk::binding(1, 0)]]
@@ -50,4 +59,9 @@ float2 decal_uv(float4 frag_pos) {
     clip(0.5 - abs(decal_pos));
     // Compute decal uvs from position
     return decal_pos.xy + 0.5;
+}
+
+// Must be called in each FS invocation
+void write_motion_vectors(PS_INPUT input, out PS_OUTPUT output) {
+    output.Motion = input.PrevClipPos.xy / input.PrevClipPos.w - input.ClipPos.xy / input.ClipPos.w;
 }

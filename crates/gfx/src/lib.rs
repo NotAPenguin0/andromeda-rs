@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use inject::DI;
+use phobos::fsr2::FfxFsr2InitializationFlagBits;
 use phobos::{
     vk, Allocator, AppBuilder, AppSettings, DebugMessenger, DefaultAllocator, DescriptorCache,
     Device, ExecutionManager, FrameManager, GPURequirements, PhysicalDevice, PipelineCache,
@@ -69,6 +70,12 @@ fn fill_app_settings<W: WindowInterface>(window: &W) -> AppSettings<W> {
             features,
             ..Default::default()
         })
+        .fsr2_display_size(16, 16)
+        .fsr2_flags(
+            FfxFsr2InitializationFlagBits::ENABLE_HIGH_DYNAMIC_RANGE
+                | FfxFsr2InitializationFlagBits::ENABLE_AUTO_EXPOSURE
+                | FfxFsr2InitializationFlagBits::ENABLE_DEBUG_CHECKING,
+        )
         .build()
 }
 

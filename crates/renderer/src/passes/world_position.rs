@@ -110,13 +110,7 @@ impl WorldPositionReconstruct {
                 });
 
                 cmd.bind_compute_pipeline("world_pos_reconstruct")?
-                    .resolve_and_bind_sampled_image(
-                        0,
-                        0,
-                        &image!("resolved_depth"),
-                        &sampler,
-                        &bindings,
-                    )?
+                    .resolve_and_bind_sampled_image(0, 0, &image!("depth"), &sampler, &bindings)?
                     .push_constant(vk::ShaderStageFlags::COMPUTE, 0, &pos)
                     .push_constant(
                         vk::ShaderStageFlags::COMPUTE,

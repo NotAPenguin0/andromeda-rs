@@ -6,7 +6,7 @@ use inject::DI;
 use pass::FrameGraph;
 use ph::vk;
 use phobos as ph;
-use phobos::{Allocator, GraphicsCmdBuffer};
+use phobos::{Allocator, GraphicsCmdBuffer, VirtualResource};
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 use world::World;
@@ -34,7 +34,6 @@ impl AtmosphereRenderer {
                 vk::BlendFactor::ONE,
             )
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR])
-            .samples(vk::SampleCountFlags::TYPE_8) // TODO: config, sample shading
             .into_dynamic()
             .attach_shader("shaders/src/fullscreen.vs.hlsl", vk::ShaderStageFlags::VERTEX)
             .attach_shader("shaders/src/atmosphere.fs.hlsl", vk::ShaderStageFlags::FRAGMENT)
@@ -57,8 +56,8 @@ impl AtmosphereRenderer {
     pub fn render<'cb, A: Allocator>(
         &'cb mut self,
         graph: &mut FrameGraph<'cb, A>,
-        color: &ph::VirtualResource,
-        depth: &ph::VirtualResource,
+        color: &VirtualResource,
+        depth: &VirtualResource,
         world: &'cb World,
         state: &'cb RenderState,
     ) -> Result<()> {

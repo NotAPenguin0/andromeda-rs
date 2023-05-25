@@ -7,8 +7,8 @@ use hot_reload::IntoDynamic;
 use inject::DI;
 use pass::FrameGraph;
 use ph::vk;
-use phobos::prelude as ph;
 use phobos::prelude::traits::*;
+use phobos::{prelude as ph, VirtualResource};
 use scheduler::EventBus;
 use statistics::{RendererStatistics, TimedCommandBuffer};
 use world::World;
@@ -29,7 +29,6 @@ impl TerrainRenderer {
     /// necessary pipelines.
     pub fn new(ctx: gfx::SharedContext, bus: &mut EventBus<DI>) -> Result<Self> {
         ph::PipelineBuilder::new("terrain")
-            .samples(vk::SampleCountFlags::TYPE_8)
             .depth(true, true, false, vk::CompareOp::LESS)
             .dynamic_states(&[
                 vk::DynamicState::SCISSOR,
@@ -39,6 +38,7 @@ impl TerrainRenderer {
             .vertex_input(0, vk::VertexInputRate::VERTEX)
             .vertex_attribute(0, 0, vk::Format::R32G32_SFLOAT)?
             .vertex_attribute(0, 1, vk::Format::R32G32_SFLOAT)?
+            .blend_attachment_none()
             .blend_attachment_none()
             .tessellation(4, vk::PipelineTessellationStateCreateFlags::empty())
             .into_dynamic()
@@ -72,14 +72,22 @@ impl TerrainRenderer {
     pub fn render<'cb, A: Allocator>(
         &'cb mut self,
         graph: &mut FrameGraph<'cb, A>,
-        color: &ph::VirtualResource,
-        depth: &ph::VirtualResource,
+        color: &VirtualResource,
+        depth: &VirtualResource,
+        motion: &VirtualResource,
         world: &'cb World,
         state: &'cb RenderState,
     ) -> Result<()> {
         let pass = ph::PassBuilder::<_, _, A>::render("terrain")
             .color_attachment(
                 color,
+                vk::AttachmentLoadOp::CLEAR,
+                Some(vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 0.0],
+                }),
+            )?
+            .color_attachment(
+                motion,
                 vk::AttachmentLoadOp::CLEAR,
                 Some(vk::ClearColorValue {
                     float32: [0.0, 0.0, 0.0, 0.0],
@@ -106,6 +114,7 @@ impl TerrainRenderer {
                                     ifc,
                                     struct Camera {
                                         projection_view: Mat4 = state.projection_view,
+                                        previous_pv: Mat4 = state.previous_pv,
                                     }
                                 );
 

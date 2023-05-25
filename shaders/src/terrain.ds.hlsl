@@ -1,6 +1,7 @@
 [[vk::binding(0, 0)]]
 cbuffer Camera {
     float4x4 projection_view;
+    float4x4 prev_pv;
 };
 
 struct HSOutput {
@@ -17,6 +18,10 @@ struct DSOutput {
     float4 Position : SV_POSITION;
     [[vk::location(0)]]
     float2 UV : UV0;
+    [[vk::location(1)]]
+    float4 ClipPos : POS0;
+    [[vk::location(2)]]
+    float4 PrevClipPos : POS1;
 };
 
 [[vk::push_constant]]
@@ -47,6 +52,8 @@ DSOutput main(ConstantsHSOutput input, float2 TessCoord : SV_DomainLocation, con
     
     position.y = heightmap.SampleLevel(smp, uv, 0.0) * pc.height_scaling;
     output.Position = mul(projection_view, position);
+    output.ClipPos = output.Position;
+    output.PrevClipPos = mul(prev_pv, position);
     output.UV = uv;
     return output;
 }

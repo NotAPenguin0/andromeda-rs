@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.17"
-phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon"] }
+phobos = { git = "https://github.com/NotAPenguin0/phobos-rs", features = ["hlsl", "rayon", "fsr2"] }
 anyhow = "1.0.70"
 glam = "0.24.0"
 winit = "0.28.3"
@@ -25,3 +25,4 @@ gui = { path = "../gui" }
 world = { path = "../world" }
 util = { path = "../util" }
 statistics = { path = "../statistics" }
+time = { path = "../time" }

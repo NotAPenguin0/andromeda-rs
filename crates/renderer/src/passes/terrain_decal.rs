@@ -40,8 +40,8 @@ impl TerrainDecal {
                 vk::BlendFactor::ONE,
                 vk::BlendFactor::ONE,
             )
+            .blend_attachment_none()
             .cull_mask(vk::CullModeFlags::FRONT)
-            .samples(vk::SampleCountFlags::TYPE_1)
             .dynamic_states(&[vk::DynamicState::SCISSOR, vk::DynamicState::VIEWPORT])
             .into_dynamic()
             .attach_shader("shaders/src/decal.vs.hlsl", vk::ShaderStageFlags::VERTEX)
@@ -74,6 +74,7 @@ impl TerrainDecal {
         graph: &mut FrameGraph<'cb, A>,
         color: &VirtualResource,
         depth: &VirtualResource,
+        motion: &VirtualResource,
         world: &'cb World,
         state: &'cb RenderState,
     ) -> Result<()> {
@@ -89,6 +90,7 @@ impl TerrainDecal {
         let sampler = &self.depth_sampler;
         let pass = PassBuilder::<_, _, A>::render("terrain_decal")
             .color_attachment(&graph.latest_version(color)?, vk::AttachmentLoadOp::LOAD, None)?
+            .color_attachment(&graph.latest_version(motion)?, vk::AttachmentLoadOp::LOAD, None)?
             .sample_image(&graph.latest_version(&depth)?, PipelineStage::FRAGMENT_SHADER)
             .execute_fn(move |cmd, ifc, bindings, stats| {
                 let mut cmd = Some(cmd.begin_section(stats, "brush_decal")?);
@@ -119,6 +121,7 @@ impl TerrainDecal {
                                     inverse_view: Mat4 = state.inverse_view,
                                     transform: Mat4 = transform,
                                     to_decal_space: Mat4 = to_decal_space,
+                                    prev_pv: Mat4 = state.previous_pv,
                                 });
 
                                 let mut sizes = ifc.allocate_scratch_ubo(8)?;

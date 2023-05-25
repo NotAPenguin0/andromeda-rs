@@ -31,4 +31,12 @@ pub struct RenderState {
     pub cam_position: Vec3,
     /// Main render target size in pixels
     pub render_size: UVec2,
+    /// Camera near plane
+    pub near: f32,
+    /// Camera far plane
+    pub far: f32,
+    /// Camera FOV
+    pub fov: f32,
+    /// Previous projection-view matrix
+    pub previous_pv: Mat4,
 }

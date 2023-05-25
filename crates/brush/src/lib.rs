@@ -48,6 +48,7 @@ impl System<DI> for BrushSystem {
 pub enum BrushType {
     SmoothHeight,
     Equalize,
+    Color,
 }
 
 impl BrushType {

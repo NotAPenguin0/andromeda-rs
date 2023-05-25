@@ -37,6 +37,7 @@ fn fill_app_settings<W: WindowInterface>(window: &W) -> AppSettings<W> {
         fill_mode_non_solid: vk::TRUE,
         tessellation_shader: vk::TRUE,
         sampler_anisotropy: vk::TRUE,
+        independent_blend: vk::TRUE,
         ..Default::default()
     };
 

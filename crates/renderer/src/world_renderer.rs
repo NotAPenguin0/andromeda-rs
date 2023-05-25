@@ -121,7 +121,10 @@ impl WorldRenderer {
         let inject = self.bus.data().read().unwrap();
         let mut targets = inject.write_sync::<RenderTargets>().unwrap();
         let mut provider = inject.write_sync::<ImageProvider>().unwrap();
-        targets.set_output_resolution(provider.size.x(), provider.size.y())?;
+        targets.set_output_resolution(
+            (provider.size.x() as f32 * 1.5) as u32,
+            (provider.size.y() as f32 * 1.5) as u32,
+        )?;
         // Then grab our color output.
         let image = targets.get_target_view(Self::output_name()).unwrap();
         // We can re-register the same image, nothing will happen.
@@ -182,9 +185,10 @@ impl WorldRenderer {
         let mut fsr2 = self.ctx.device.fsr2_context();
         let resolution = self.render_resolution();
         let (jitter_x, jitter_y) = fsr2.jitter_offset(resolution.width)?;
-        let jitter_x = 2.0 * jitter_x / resolution.width as f32;
-        let jitter_y = -2.0 * jitter_y / resolution.height as f32;
-        let jitter_translation_matrix = Mat4::from_translation(Vec3::new(jitter_x, jitter_y, 0.0));
+        let proj_jitter_x = 2.0 * jitter_x / resolution.width as f32;
+        let proj_jitter_y = -2.0 * jitter_y / resolution.height as f32;
+        let jitter_translation_matrix =
+            Mat4::from_translation(Vec3::new(proj_jitter_x, proj_jitter_y, 0.0));
         self.state.projection = jitter_translation_matrix * self.state.projection;
         // Flip y because Vulkan
         let v = self.state.projection.col_mut(1).y;
@@ -197,7 +201,7 @@ impl WorldRenderer {
         self.state.inverse_view_rotation =
             Mat4::from_mat3(Mat3::from_mat4(self.state.view)).inverse();
         self.state.sun_direction = -world.sun_direction.front_direction();
-        self.state.render_size = self.output_resolution().into();
+        self.state.render_size = resolution.into();
         Ok((jitter_x, jitter_y))
     }
 
@@ -234,14 +238,8 @@ impl WorldRenderer {
         self.atmosphere
             .render(&mut graph, &scene_output, &depth, world, &self.state)?;
         // Render decal
-        self.terrain_decal.render(
-            &mut graph,
-            &scene_output,
-            &depth,
-            &motion,
-            world,
-            &self.state,
-        )?;
+        self.terrain_decal
+            .render(&mut graph, &scene_output, &depth, world, &self.state)?;
         // Reconstruct world position from depth
         self.world_pos_reconstruct
             .render(&world, &mut graph, &depth, &self.state)?;
